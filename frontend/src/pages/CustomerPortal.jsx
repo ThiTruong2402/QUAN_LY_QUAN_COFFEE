@@ -27,23 +27,29 @@ export default function CustomerPortal() {
         api.get('/products'),
         api.get('/categories')
       ]);
-      setProducts(prodRes.data?.data || []);
-      setCategories(catRes.data?.data || []);
+      const rawProducts = prodRes.data?.data?.products || (Array.isArray(prodRes.data?.data) ? prodRes.data.data : []);
+      const rawCategories = Array.isArray(catRes.data?.data) ? catRes.data.data : (prodRes.data?.data?.categories || []);
+      setProducts(Array.isArray(rawProducts) ? rawProducts : []);
+      setCategories(Array.isArray(rawCategories) ? rawCategories : []);
 
       // Lấy voucher
       try {
         const promoRes = await api.get('/promotions/active');
-        setVouchers(promoRes.data?.data || []);
+        const rawPromos = promoRes.data?.data;
+        setVouchers(Array.isArray(rawPromos) ? rawPromos : []);
       } catch (err) {
         console.warn('Could not load promotions:', err);
+        setVouchers([]);
       }
 
       // Lấy lịch sử đơn hàng
       try {
         const historyRes = await api.get('/orders/my-history');
-        setOrderHistory(historyRes.data?.data || []);
+        const rawHistory = historyRes.data?.data;
+        setOrderHistory(Array.isArray(rawHistory) ? rawHistory : []);
       } catch (err) {
         console.warn('Could not load order history:', err);
+        setOrderHistory([]);
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -58,11 +64,17 @@ export default function CustomerPortal() {
     toast.success(`Đã sao chép mã [${code}]! Đưa mã cho Thu ngân khi thanh toán để được giảm giá ✨`);
   };
 
+  const productList = Array.isArray(products) ? products : [];
+  const categoryList = Array.isArray(categories) ? categories : [];
+  const voucherList = Array.isArray(vouchers) ? vouchers : [];
+  const historyList = Array.isArray(orderHistory) ? orderHistory : [];
+
   // Lọc sản phẩm theo danh mục và từ khóa tìm kiếm
-  const filteredProducts = products.filter((p) => {
+  const filteredProducts = productList.filter((p) => {
+    if (!p) return false;
     const matchCat = selectedCategory === 'all' || String(p.category_id) === String(selectedCategory);
     const matchSearch =
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.code && p.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchCat && matchSearch;
@@ -260,8 +272,8 @@ export default function CustomerPortal() {
         }}>
           {[
             { id: 'menu', label: '☕ Thực Đơn Quán', count: filteredProducts.length },
-            { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: vouchers.length },
-            { id: 'history', label: '📜 Lịch Sử Mua Hàng', count: orderHistory.length },
+            { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: voucherList.length },
+            { id: 'history', label: '📜 Lịch Sử Mua Hàng', count: historyList.length },
             { id: 'about', label: '📍 Thông Tin Quán' }
           ].map((tab) => (
             <button
@@ -327,9 +339,9 @@ export default function CustomerPortal() {
                     fontWeight: selectedCategory === 'all' ? 700 : 500
                   }}
                 >
-                  Tất cả ({products.length})
+                  Tất cả ({productList.length})
                 </button>
-                {categories.map((cat) => (
+                {categoryList.map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
@@ -501,14 +513,14 @@ export default function CustomerPortal() {
               </p>
             </div>
 
-            {vouchers.length === 0 ? (
+            {voucherList.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 0', background: '#1c1008', borderRadius: '12px', color: '#94a3b8' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎫</div>
                 <div>Hiện chưa có mã giảm giá chung nào đang phát hành. Hãy kiểm tra lại sau nhé!</div>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                {vouchers.map((v) => (
+                {voucherList.map((v) => (
                   <div
                     key={v.id}
                     style={{
@@ -592,14 +604,14 @@ export default function CustomerPortal() {
               </p>
             </div>
 
-            {orderHistory.length === 0 ? (
+            {historyList.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 0', background: '#1c1008', borderRadius: '12px', color: '#94a3b8' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>☕</div>
                 <div>Bạn chưa có đơn hàng nào tại quán. Hãy ghé quán thưởng thức đồ uống ngon tuyệt nhé!</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {orderHistory.map((o) => (
+                {historyList.map((o) => (
                   <div
                     key={o.id}
                     style={{
