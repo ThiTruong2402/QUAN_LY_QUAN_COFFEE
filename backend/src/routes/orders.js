@@ -1,0 +1,24 @@
+const router = require('express').Router();
+const c = require('../controllers/orderController');
+const { authenticate, authorize } = require('../middleware/auth');
+
+// Danh sách đơn hàng
+router.get('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOpen);
+router.get('/all', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getAllOrders);
+router.get('/:id', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOne);
+
+// Tạo & bán đơn hàng tại quầy (POS)
+router.post('/direct-checkout', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.directCheckout);
+router.post('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.create);
+
+// Thao tác món & quầy
+router.post('/:id/items', authenticate, authorize('admin', 'cashier', 'waiter', 'barista'), c.addItem);
+router.post('/:id/send', authenticate, authorize('admin', 'cashier', 'waiter', 'barista'), c.sendItems);
+router.post('/:id/cancel-item/:itemId', authenticate, authorize('admin', 'cashier'), c.cancelItem);
+
+// Luồng trạng thái & Hủy đơn
+router.put('/:id/status', authenticate, authorize('admin', 'cashier', 'barista', 'waiter'), c.updateStatus);
+router.put('/:id/cancel', authenticate, authorize('admin', 'cashier'), c.cancelOrder);
+router.post('/:id/pay', authenticate, authorize('admin', 'cashier', 'waiter', 'barista'), c.pay);
+
+module.exports = router;
