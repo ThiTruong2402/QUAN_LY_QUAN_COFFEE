@@ -8,11 +8,14 @@ import toast from 'react-hot-toast';
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 const FALLBACK_DRINK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80';
 
-// Cấu hình ngân hàng VietQR của quán
+// Cấu hình ngân hàng VietQR Techcombank đồng bộ giống giao diện Admin
 const BANK_CONFIG = {
-  bankName: 'VietinBank',
-  accountNumber: '101870000000',
-  accountHolder: 'MY COFFEE HOUSE',
+  bankName: 'Techcombank',
+  bankFullName: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
+  accountNumber: '2402 2005 6666',
+  accountNumberRaw: '240220056666',
+  accountHolder: 'BUI VAN TRUONG',
+  bin: '970407', // Techcombank BIN
 };
 
 const getCategoryIcon = (catId) => {
@@ -397,10 +400,38 @@ export default function CustomerPortal() {
   });
 
   const customerPhone = user?.phone || user?.username || '0901234567';
-  const vietQrUrl = `https://img.vietqr.io/image/vietinbank-101870000000-compact2.png?amount=${finalTotal}&addInfo=CF%20${customerPhone}%20DH&accountName=MY%20COFFEE%20HOUSE`;
+  const vietQrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.bin}-${BANK_CONFIG.accountNumberRaw}-compact2.png?amount=${finalTotal}&addInfo=${encodeURIComponent('MYCOFFEE ' + customerPhone)}&accountName=${encodeURIComponent(BANK_CONFIG.accountHolder)}`;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#130c08', color: '#f5efe6', paddingBottom: '60px' }}>
+    <div className="animate-fade-in" style={{ minHeight: '100vh', background: '#130c08', color: '#f5efe6', paddingBottom: '60px' }}>
+      <style>{`
+        .customer-product-card {
+          background: #1c120b;
+          border: 1px solid #3d2618;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+          cursor: pointer;
+        }
+        .customer-product-card:hover {
+          transform: translateY(-4px) translateZ(0);
+          box-shadow: 0 10px 24px -4px rgba(84, 51, 16, 0.4), 0 4px 8px -2px rgba(84, 51, 16, 0.2);
+          border-color: #d97706 !important;
+        }
+        .customer-product-card .card-img {
+          width: 100%;
+          height: 140px;
+          object-fit: cover;
+          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .customer-product-card:hover .card-img {
+          transform: scale(1.06);
+        }
+      `}</style>
       {/* 1. TOP HEADER & GREETING */}
       <div style={{
         background: 'linear-gradient(180deg, #24140b 0%, #170d07 100%)',
@@ -527,61 +558,44 @@ export default function CustomerPortal() {
 
       {/* 3. MAIN CONTENT */}
       <div style={{ maxWidth: '1440px', margin: '20px auto 0', padding: '0 24px' }}>
-        {/* TAB 1: THỰC ĐƠN & BANNER THANH TOÁN BÊN PHẢI (CHUẨN POS ADMIN) */}
-        {activeTab === 'menu' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 440px',
-            gap: '24px',
-            alignItems: 'start'
-          }}>
-            {/* CỘT TRÁI: DANH SÁCH MÓN */}
-            <div className="mockup-panel">
-              <div className="mockup-panel-header">
-                <div className="mockup-panel-title">
-                  <span>☕</span>
-                  <span>DANH SÁCH MÓN ({filteredProducts.length} MÓN)</span>
+        <div key={activeTab} className="page-unfold-transition">
+          {/* TAB 1: THỰC ĐƠN & BANNER THANH TOÁN BÊN PHẢI (CHUẨN POS ADMIN) */}
+          {activeTab === 'menu' && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 440px',
+              gap: '24px',
+              alignItems: 'start'
+            }}>
+              {/* CỘT TRÁI: DANH SÁCH MÓN */}
+              <div className="mockup-panel">
+                <div className="mockup-panel-header">
+                  <div className="mockup-panel-title">
+                    <span>☕</span>
+                    <span>DANH SÁCH MÓN ({filteredProducts.length} MÓN)</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mockup-panel-body">
-                {/* Thanh tìm kiếm & lọc danh mục */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="🔍 Tìm kiếm món..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ flex: 1, minWidth: '180px', padding: '7px 12px', fontSize: '0.85rem' }}
-                  />
+                <div className="mockup-panel-body">
+                  {/* Thanh tìm kiếm & lọc danh mục */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="🔍 Tìm kiếm món..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ flex: 1, minWidth: '180px', padding: '7px 12px', fontSize: '0.85rem' }}
+                    />
 
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <button
-                      className={`btn btn-sm ${selectedCategory === 'all' ? 'btn-primary' : 'btn-outline'}`}
-                      onClick={() => setSelectedCategory('all')}
-                      style={{
-                        background: selectedCategory === 'all' ? '#d97706' : '#24160e',
-                        color: selectedCategory === 'all' ? '#fff' : '#c4a482',
-                        border: selectedCategory === 'all' ? '1px solid #fbbf24' : '1px solid #4a2c18',
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Tất cả
-                    </button>
-                    {categoryList.map((c) => (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       <button
-                        key={c.id}
-                        className={`btn btn-sm ${String(selectedCategory) === String(c.id) ? 'btn-primary' : 'btn-outline'}`}
-                        onClick={() => setSelectedCategory(String(c.id))}
+                        className={`btn btn-sm ${selectedCategory === 'all' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setSelectedCategory('all')}
                         style={{
-                          background: String(selectedCategory) === String(c.id) ? '#d97706' : '#24160e',
-                          color: String(selectedCategory) === String(c.id) ? '#fff' : '#c4a482',
-                          border: String(selectedCategory) === String(c.id) ? '1px solid #fbbf24' : '1px solid #4a2c18',
+                          background: selectedCategory === 'all' ? '#d97706' : '#24160e',
+                          color: selectedCategory === 'all' ? '#fff' : '#c4a482',
+                          border: selectedCategory === 'all' ? '1px solid #fbbf24' : '1px solid #4a2c18',
                           padding: '6px 12px',
                           borderRadius: '6px',
                           fontSize: '0.8rem',
@@ -589,78 +603,90 @@ export default function CustomerPortal() {
                           cursor: 'pointer'
                         }}
                       >
-                        {getCategoryIcon(c.id)} {c.name}
+                        Tất cả
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                {loading ? (
-                  <div style={{ textAlign: 'center', padding: '60px 0', color: '#d4b094' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>☕</div>
-                    <div>Đang tải danh sách đồ uống hảo hạng...</div>
-                  </div>
-                ) : filteredProducts.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', background: '#1c1008', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
-                    <div>Không tìm thấy món nào phù hợp với từ khóa của bạn.</div>
-                  </div>
-                ) : (
-                  /* Grid danh sách món thẻ dark luxury chuẩn POS */
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(215px, 1fr))',
-                    gap: '16px'
-                  }}>
-                    {filteredProducts.map((p) => {
-                      const sizes = p.sizes || [];
-                      const defaultPrice = sizes.length > 0 ? sizes[0].price : (p.price || 0);
-                      const inCartQty = getProductTotalQtyInCart(p.id);
-
-                      return (
-                        <div
-                          key={p.id}
-                          className="product-card"
+                      {categoryList.map((c) => (
+                        <button
+                          key={c.id}
+                          className={`btn btn-sm ${String(selectedCategory) === String(c.id) ? 'btn-primary' : 'btn-outline'}`}
+                          onClick={() => setSelectedCategory(String(c.id))}
                           style={{
-                            background: '#1c120b',
-                            border: '1px solid #3d2618',
-                            borderRadius: '12px',
-                            overflow: 'hidden',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            transition: 'transform 0.2s ease, border-color 0.2s ease',
+                            background: String(selectedCategory) === String(c.id) ? '#d97706' : '#24160e',
+                            color: String(selectedCategory) === String(c.id) ? '#fff' : '#c4a482',
+                            border: String(selectedCategory) === String(c.id) ? '1px solid #fbbf24' : '1px solid #4a2c18',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
                           }}
-                          onClick={() => handleOpenSizeModal(p)}
                         >
-                          {/* Ảnh món */}
-                          <div style={{ position: 'relative' }}>
-                            <img
-                              src={p.image_url || FALLBACK_DRINK_IMG}
-                              alt={p.name}
-                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
-                              style={{ width: '100%', height: '140px', objectFit: 'cover' }}
-                            />
-                            {inCartQty > 0 && (
-                              <span
-                                style={{
-                                  position: 'absolute',
-                                  top: '8px',
-                                  right: '8px',
-                                  background: '#d97706',
-                                  color: '#fff',
-                                  fontWeight: 800,
-                                  fontSize: '0.75rem',
-                                  padding: '2px 8px',
-                                  borderRadius: '12px',
-                                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                                }}
-                              >
-                                Đã chọn: {inCartQty}
-                              </span>
-                            )}
-                          </div>
+                          {getCategoryIcon(c.id)} {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {loading ? (
+                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#d4b094' }}>
+                      <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>☕</div>
+                      <div>Đang tải danh sách đồ uống hảo hạng...</div>
+                    </div>
+                  ) : filteredProducts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', background: '#1c1008', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
+                      <div>Không tìm thấy món nào phù hợp với từ khóa của bạn.</div>
+                    </div>
+                  ) : (
+                    /* Grid danh sách món thẻ dark luxury chuẩn POS với hiệu ứng lật trang 3D mượt mà */
+                    <div
+                      key={selectedCategory}
+                      className="page-unfold-transition"
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(215px, 1fr))',
+                        gap: '16px'
+                      }}
+                    >
+                      {filteredProducts.map((p) => {
+                        const sizes = p.sizes || [];
+                        const defaultPrice = sizes.length > 0 ? sizes[0].price : (p.price || 0);
+                        const inCartQty = getProductTotalQtyInCart(p.id);
+
+                        return (
+                          <div
+                            key={p.id}
+                            className="product-card customer-product-card"
+                            onClick={() => handleOpenSizeModal(p)}
+                          >
+                            {/* Ảnh món */}
+                            <div style={{ position: 'relative', overflow: 'hidden', height: '140px', background: '#24140b' }}>
+                              <img
+                                src={p.image_url || FALLBACK_DRINK_IMG}
+                                alt={p.name}
+                                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
+                                className="card-img"
+                              />
+                              {inCartQty > 0 && (
+                                <span
+                                  style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px',
+                                    background: '#d97706',
+                                    color: '#fff',
+                                    fontWeight: 800,
+                                    fontSize: '0.75rem',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                                    zIndex: 2
+                                  }}
+                                >
+                                  Đã chọn: {inCartQty}
+                                </span>
+                              )}
+                            </div>
 
                           {/* Chi tiết */}
                           <div style={{ padding: '12px' }}>
@@ -1457,6 +1483,7 @@ export default function CustomerPortal() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* ========================================================================= */}
