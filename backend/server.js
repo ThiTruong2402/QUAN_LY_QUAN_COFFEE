@@ -20,7 +20,9 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     const isAllowed =
       allowedOrigins.includes(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      /\.vercel\.app$/.test(origin) ||
+      /\.onrender\.com$/.test(origin);
     if (isAllowed) {
       callback(null, true);
     } else {

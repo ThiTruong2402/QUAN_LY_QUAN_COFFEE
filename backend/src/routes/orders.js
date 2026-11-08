@@ -3,6 +3,7 @@ const c = require('../controllers/orderController');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // Danh sách đơn hàng
+router.get('/my-history', authenticate, c.getMyOrders);
 router.get('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOpen);
 router.get('/all', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getAllOrders);
 router.get('/:id', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOne);

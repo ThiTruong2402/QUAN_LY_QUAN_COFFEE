@@ -9,11 +9,22 @@ export const ROLE_DEFINITIONS = [
   { role: 'barista', label: 'Pha Chế (Barista)', icon: '☕', color: '#0284c7', bg: '#e0f2fe' },
   { role: 'waiter', label: 'Phục Vụ Bàn', icon: '🛵', color: '#7c3aed', bg: '#f3e8ff' },
   { role: 'warehouse', label: 'Thủ Kho Tiếp Liệu', icon: '📦', color: '#ea580c', bg: '#ffedd5' },
+  { role: 'customer', label: 'Khách Hàng', icon: '🌟', color: '#0d9488', bg: '#ccfbf1' },
 ];
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshUser = async () => {
+    try {
+      const res = await api.get('/auth/me');
+      setUser(res.data.data);
+      return res.data.data;
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -36,6 +47,15 @@ export const AuthProvider = ({ children }) => {
     return u;
   };
 
+  const register = async (registerData) => {
+    const res = await api.post('/auth/register', registerData);
+    const { accessToken, refreshToken, user: u } = res.data.data;
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    setUser(u);
+    return u;
+  };
+
   const logout = () => {
     localStorage.clear();
     setUser(null);
@@ -48,7 +68,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, hasRole, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

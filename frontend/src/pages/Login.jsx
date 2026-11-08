@@ -4,28 +4,70 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function Login() {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [form, setForm] = useState({ username: '', password: '' });
+  const [regForm, setRegForm] = useState({
+    full_name: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    birthday: '',
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const loggedUser = await login(form.username, form.password);
-      toast.success('Đăng nhập thành công! Chào mừng bạn ☕');
+      toast.success(`Đăng nhập thành công! Chào mừng ${loggedUser?.full_name || 'bạn'} ☕`);
       const roleHome = {
         admin: '/',
         cashier: '/',
         barista: '/barista',
         waiter: '/pos',
         warehouse: '/inventory',
+        customer: '/customer',
       };
-      navigate(roleHome[loggedUser?.role] || '/');
+      navigate(roleHome[loggedUser?.role] || '/customer');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Sai tài khoản hoặc mật khẩu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    if (!regForm.full_name.trim() || regForm.full_name.trim().length < 2) {
+      return toast.error('Vui lòng nhập họ và tên (tối thiểu 2 ký tự)');
+    }
+    const cleanPhone = regForm.phone.trim().replace(/\s/g, '');
+    if (!/^(0|\+84)[0-9]{9,10}$/.test(cleanPhone)) {
+      return toast.error('Số điện thoại không hợp lệ (Ví dụ: 0901234567)');
+    }
+    if (regForm.password.length < 6) {
+      return toast.error('Mật khẩu cần có ít nhất 6 ký tự');
+    }
+    if (regForm.password !== regForm.confirmPassword) {
+      return toast.error('Mật khẩu xác nhận không khớp');
+    }
+
+    setLoading(true);
+    try {
+      const registeredUser = await register({
+        full_name: regForm.full_name.trim(),
+        phone: cleanPhone,
+        password: regForm.password,
+        birthday: regForm.birthday || null,
+      });
+      toast.success('🎉 Đăng ký thành công! Bạn nhận được 50 điểm thưởng chào mừng.');
+      navigate('/customer');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Đăng ký không thành công');
     } finally {
       setLoading(false);
     }
@@ -41,14 +83,14 @@ export default function Login() {
       padding: '20px'
     }}>
       <div style={{
-        maxWidth: '860px',
+        maxWidth: '920px',
         width: '100%',
         background: '#ffffff',
         borderRadius: '16px',
         overflow: 'hidden',
         boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
         display: 'grid',
-        gridTemplateColumns: '1.05fr 1fr',
+        gridTemplateColumns: '1fr 1.15fr',
         border: '1px solid rgba(255,255,255,0.1)'
       }}>
         {/* Left Coffee Atmosphere Panel */}
@@ -65,7 +107,7 @@ export default function Login() {
           <div>
             <div className="notranslate" translate="no" style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: '2rem',
+              fontSize: '1.9rem',
               fontWeight: 800,
               letterSpacing: '1px',
               color: '#f59e0b',
@@ -78,7 +120,7 @@ export default function Login() {
               textAlign: 'center',
               fontStyle: 'italic',
               color: '#d4b094',
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
               marginBottom: '20px'
             }}>
               ~ Good coffee – Good day ~
@@ -91,8 +133,8 @@ export default function Login() {
                 alt="Coffee Cup"
                 onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?w=500&auto=format&fit=crop&q=80'; }}
                 style={{
-                  width: '180px',
-                  height: '180px',
+                  width: '160px',
+                  height: '160px',
                   borderRadius: '50%',
                   objectFit: 'cover',
                   margin: '0 auto',
@@ -102,19 +144,22 @@ export default function Login() {
               />
             </div>
 
-            {/* Quote Card */}
+            {/* Membership Promo Box */}
             <div style={{
-              background: 'rgba(0, 0, 0, 0.35)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
+              background: 'rgba(0, 0, 0, 0.4)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
               borderRadius: '12px',
-              padding: '14px 18px',
+              padding: '14px 16px',
               textAlign: 'center',
               marginTop: '16px'
             }}>
-              <div style={{ fontSize: '1.2rem', marginBottom: '4px' }}>☕</div>
-              <p style={{ fontStyle: 'italic', fontSize: '0.88rem', color: '#f3e8dc', margin: 0, lineHeight: 1.4 }}>
-                “ Một tách cà phê ngon khởi đầu cho một ngày tuyệt vời ! ”
+              <div style={{ fontSize: '1.1rem', marginBottom: '4px' }}>🎁</div>
+              <p style={{ fontSize: '0.85rem', color: '#fef3c7', margin: 0, lineHeight: 1.4, fontWeight: 600 }}>
+                Đăng ký tài khoản thành viên ngay hôm nay!
               </p>
+              <div style={{ fontSize: '0.78rem', color: '#d4b094', marginTop: '4px' }}>
+                Tặng ngay <strong style={{ color: '#f59e0b' }}>50 điểm tích lũy</strong> và ưu đãi giảm giá trọn đời khi mua cà phê tại quán.
+              </div>
             </div>
           </div>
 
@@ -138,95 +183,299 @@ export default function Login() {
         {/* Right Form Panel */}
         <div style={{
           background: '#fffdfa',
-          padding: '40px 36px',
+          padding: '36px 32px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center'
         }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h1 style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: '1.8rem',
-              fontWeight: 800,
-              color: '#652b0f',
-              marginBottom: '6px'
-            }}>
-              ĐĂNG NHẬP
-            </h1>
-            <p style={{ color: '#8c674b', fontSize: '0.9rem', margin: 0 }}>
-              Chào mừng bạn quay trở lại!
-            </p>
-            <div style={{ width: '48px', height: '2px', background: '#d4822a', margin: '10px auto 0' }} />
-          </div>
-
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#543310', marginBottom: '6px' }}>
-                👤 Tài khoản
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Nhập tên đăng nhập hoặc mã NV"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                required
-                style={{ borderColor: '#d5c3b2', padding: '10px 14px' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#543310', marginBottom: '6px' }}>
-                🔒 Mật khẩu
-              </label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                placeholder="Nhập mật khẩu"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-                style={{ borderColor: '#d5c3b2', padding: '10px 14px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6b4e3d', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
-                />
-                Hiện mật khẩu
-              </label>
-              <a href="#forgot" onClick={(e) => { e.preventDefault(); toast('Vui lòng liên hệ Quản lý để cấp lại mật khẩu!', { icon: 'ℹ️' }); }} style={{ color: '#0284c7', textDecoration: 'none' }}>
-                Quên mật khẩu?
-              </a>
-            </div>
-
+          {/* TAB SWITCHER: ĐĂNG NHẬP vs ĐĂNG KÝ */}
+          <div style={{
+            display: 'flex',
+            background: '#f4ede4',
+            borderRadius: '10px',
+            padding: '4px',
+            marginBottom: '20px'
+          }}>
             <button
-              type="submit"
-              disabled={loading}
+              type="button"
+              onClick={() => setMode('login')}
               style={{
-                background: 'linear-gradient(90deg, #b45309 0%, #d97706 100%)',
-                color: '#ffffff',
+                flex: 1,
+                padding: '9px',
                 border: 'none',
-                padding: '12px',
                 borderRadius: '8px',
                 fontWeight: 700,
-                fontSize: '1rem',
+                fontSize: '0.9rem',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(180, 83, 9, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                marginTop: '6px'
+                background: mode === 'login' ? '#652b0f' : 'transparent',
+                color: mode === 'login' ? '#ffffff' : '#652b0f',
+                boxShadow: mode === 'login' ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
+                transition: 'all 0.2s ease'
               }}
             >
-              {loading ? <div className="spinner" /> : <><span>➡️</span><span>ĐĂNG NHẬP</span></>}
+              ĐĂNG NHẬP
             </button>
-          </form>
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              style={{
+                flex: 1,
+                padding: '9px',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                background: mode === 'register' ? '#b45309' : 'transparent',
+                color: mode === 'register' ? '#ffffff' : '#652b0f',
+                boxShadow: mode === 'register' ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              ✨ ĐĂNG KÝ MỚI
+            </button>
+          </div>
+
+          {/* MODE: ĐĂNG NHẬP */}
+          {mode === 'login' && (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+                <h2 style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: '1.6rem',
+                  fontWeight: 800,
+                  color: '#652b0f',
+                  margin: '0 0 4px'
+                }}>
+                  ĐĂNG NHẬP HỆ THỐNG
+                </h2>
+                <p style={{ color: '#8c674b', fontSize: '0.85rem', margin: 0 }}>
+                  Dành cho Nhân viên quán và Khách hàng đã có tài khoản
+                </p>
+              </div>
+
+              <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                    👤 Tài khoản / Số điện thoại
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nhập tên đăng nhập hoặc số điện thoại"
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    required
+                    style={{ borderColor: '#d5c3b2', padding: '10px 14px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                    🔒 Mật khẩu
+                  </label>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-input"
+                    placeholder="Nhập mật khẩu"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required
+                    style={{ borderColor: '#d5c3b2', padding: '10px 14px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6b4e3d', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={showPassword}
+                      onChange={(e) => setShowPassword(e.target.checked)}
+                    />
+                    Hiện mật khẩu
+                  </label>
+                  <a href="#forgot" onClick={(e) => { e.preventDefault(); toast('Vui lòng liên hệ Quản lý để cấp lại mật khẩu!', { icon: 'ℹ️' }); }} style={{ color: '#0284c7', textDecoration: 'none' }}>
+                    Quên mật khẩu?
+                  </a>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(90deg, #b45309 0%, #d97706 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(180, 83, 9, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '4px'
+                  }}
+                >
+                  {loading ? <div className="spinner" /> : <><span>➡️</span><span>ĐĂNG NHẬP NGAY</span></>}
+                </button>
+
+                <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '0.85rem', color: '#7c5843' }}>
+                  Chưa có tài khoản?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setMode('register')}
+                    style={{ background: 'none', border: 'none', color: '#b45309', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Đăng ký thành viên (+50đ)
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* MODE: ĐĂNG KÝ THÀNH VIÊN MỚI */}
+          {mode === 'register' && (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <h2 style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: '1.5rem',
+                  fontWeight: 800,
+                  color: '#652b0f',
+                  margin: '0 0 4px'
+                }}>
+                  ĐĂNG KÝ THÀNH VIÊN
+                </h2>
+                <p style={{ color: '#8c674b', fontSize: '0.82rem', margin: 0 }}>
+                  Nhận ngay <strong>50 điểm thưởng</strong> và mở khóa đặc quyền hội viên
+                </p>
+              </div>
+
+              <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
+                    👤 Họ và tên quý khách *
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ví dụ: Nguyễn Văn An"
+                    value={regForm.full_name}
+                    onChange={(e) => setRegForm({ ...regForm, full_name: e.target.value })}
+                    required
+                    style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
+                    📱 Số điện thoại (dùng đăng nhập) *
+                  </label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder="Ví dụ: 0901234567"
+                    value={regForm.phone}
+                    onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                    required
+                    style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
+                      🔒 Mật khẩu (≥ 6 ký tự) *
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Mật khẩu"
+                      value={regForm.password}
+                      onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                      required
+                      style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
+                      🔁 Xác nhận mật khẩu *
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="Nhập lại mật khẩu"
+                      value={regForm.confirmPassword}
+                      onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
+                      required
+                      style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
+                    🎂 Ngày sinh (Tùy chọn - Nhận quà sinh nhật)
+                  </label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={regForm.birthday}
+                    onChange={(e) => setRegForm({ ...regForm, birthday: e.target.value })}
+                    style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6b4e3d', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={showPassword}
+                      onChange={(e) => setShowPassword(e.target.checked)}
+                    />
+                    Hiện mật khẩu
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(90deg, #b45309 0%, #d97706 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(180, 83, 9, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '4px'
+                  }}
+                >
+                  {loading ? <div className="spinner" /> : <><span>🎁</span><span>ĐĂNG KÝ (+50 ĐIỂM THƯỞNG)</span></>}
+                </button>
+
+                <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '0.82rem', color: '#7c5843' }}>
+                  Đã có tài khoản?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setMode('login')}
+                    style={{ background: 'none', border: 'none', color: '#b45309', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Đăng nhập tại đây
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </div>

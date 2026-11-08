@@ -13,6 +13,7 @@ import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Orders from './pages/Orders';
 import Barista from './pages/Barista';
+import CustomerPortal from './pages/CustomerPortal';
 
 function RoleRoute({ allowedRoles, children }) {
   const { user, loading } = useAuth();
@@ -25,7 +26,8 @@ function RoleRoute({ allowedRoles, children }) {
       barista: '/barista',
       waiter: '/',
       warehouse: '/inventory',
-    }[user.role] || '/';
+      customer: '/customer',
+    }[user.role] || '/customer';
     return <Navigate to={defaultRoute} replace />;
   }
   return children;
@@ -38,6 +40,16 @@ export default function App() {
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
         <Routes>
           <Route path="/login" element={<Login />} />
+
+          {/* Cổng Khách Hàng: Dành riêng cho tài khoản khách hàng & quản lý xem thử */}
+          <Route
+            path="/customer"
+            element={
+              <RoleRoute allowedRoles={['customer', 'admin']}>
+                <CustomerPortal />
+              </RoleRoute>
+            }
+          />
 
           <Route path="/" element={<AppLayout />}>
             {/* 1. Trang Chủ: Sơ đồ 20 bàn trực quan */}

@@ -54,7 +54,13 @@ export default function AppLayout() {
     waiter: '/',
     barista: '/barista',
     warehouse: '/inventory',
-  }[currentRole] || '/';
+    customer: '/customer',
+  }[currentRole] || '/customer';
+
+  // Khách hàng tuyệt đối không vào AppLayout nội bộ quán -> Chuyển ngay sang cổng khách hàng
+  if (currentRole === 'customer') {
+    return <Navigate to="/customer" replace />;
+  }
 
   if (location.pathname === '/' && !['admin', 'cashier', 'waiter', 'barista'].includes(currentRole)) {
     return <Navigate to={roleDefaultPath} replace />;
@@ -83,6 +89,7 @@ export default function AppLayout() {
     { to: '/shifts', label: 'CA TRỰC', icon: '📅', roles: ['admin', 'cashier', 'barista', 'waiter', 'warehouse'] },
     { to: '/inventory', label: 'KHO', icon: '📦', roles: ['admin', 'warehouse'] },
     { to: '/reports', label: 'THỐNG KÊ', icon: '📈', roles: ['admin', 'warehouse', 'cashier'] },
+    { to: '/customer', label: 'CỔNG KHÁCH', icon: '🌟', roles: ['admin'] },
   ];
 
   // Filter tabs allowed for current user role

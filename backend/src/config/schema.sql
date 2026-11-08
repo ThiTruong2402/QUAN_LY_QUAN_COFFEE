@@ -430,7 +430,8 @@ INSERT INTO roles (id, name, label, description) VALUES
   (2, 'cashier',   'Thu ngân',           'Tạo đơn tại quầy, thu tiền và in hóa đơn cho khách'),
   (3, 'waiter',    'Phục vụ',            'Tiếp nhận yêu cầu, xem đơn và trả món cho khách'),
   (4, 'barista',   'Pha chế',            'Màn hình pha chế KDS, quản lý định lượng công thức đồ uống'),
-  (5, 'warehouse', 'Thủ kho',            'Quản lý nhập xuất, tồn kho nguyên vật liệu và công nợ NCC')
+  (5, 'warehouse', 'Thủ kho',            'Quản lý nhập xuất, tồn kho nguyên vật liệu và công nợ NCC'),
+  (6, 'customer',  'Khách hàng',         'Khách hàng xem thực đơn trực tuyến, điểm tích lũy và voucher')
 ON DUPLICATE KEY UPDATE label=VALUES(label), description=VALUES(description);
 
 -- 12.2 Tài khoản nhân viên mặc định (Mật khẩu: Admin@123 / 123456)

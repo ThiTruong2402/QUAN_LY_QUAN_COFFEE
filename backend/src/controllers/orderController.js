@@ -983,6 +983,37 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+// GET /api/orders/my-history (Lịch sử đơn hàng của tài khoản khách hàng đang đăng nhập)
+const getMyOrders = async (req, res) => {
+  try {
+    const userPhone = req.user.phone || req.user.username;
+    if (!userPhone) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const [custRows] = await db.query('SELECT id FROM customers WHERE phone = ? LIMIT 1', [userPhone]);
+    if (!custRows.length) {
+      return res.json({ success: true, data: [] });
+    }
+    const customerId = custRows[0].id;
+
+    const [orders] = await db.query(
+      `SELECT o.id, o.code, o.order_type, o.status, o.payment_status, o.subtotal,
+              o.discount_total, o.total, o.opened_at, o.closed_at,
+              t.code AS table_code
+       FROM orders o
+       LEFT JOIN \`tables\` t ON t.id = o.table_id
+       WHERE o.customer_id = ?
+       ORDER BY o.opened_at DESC LIMIT 50`,
+      [customerId]
+    );
+
+    res.json({ success: true, data: orders });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getOpen,
   getOne,
@@ -995,4 +1026,5 @@ module.exports = {
   directCheckout,
   updateStatus,
   cancelOrder,
+  getMyOrders,
 };

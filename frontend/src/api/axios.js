@@ -1,9 +1,12 @@
 import axios from 'axios';
 
-// Support multi-device access (LAN Wi-Fi, 4G/5G, Internet Tunnel):
-// Vite proxies /api to http://localhost:5000 seamlessly for all devices
-export const API_BASE_URL = '/api';
-export const BACKEND_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
+// Support multi-device access (LAN Wi-Fi, 4G/5G, Internet Tunnel, Cloud Production):
+// When deployed on Vercel, set VITE_API_URL=https://your-backend.onrender.com
+const envBackend = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+export const API_BASE_URL = envBackend
+  ? (envBackend.endsWith('/api') ? envBackend : `${envBackend}/api`)
+  : '/api';
+export const BACKEND_URL = envBackend || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
