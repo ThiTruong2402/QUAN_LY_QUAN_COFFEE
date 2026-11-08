@@ -8,8 +8,8 @@ router.get('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista',
 router.get('/all', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getAllOrders);
 router.get('/:id', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOne);
 
-// Tạo & bán đơn hàng tại quầy (POS)
-router.post('/direct-checkout', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.directCheckout);
+// Tạo & bán đơn hàng tại quầy (POS) & Đặt món trực tuyến (Khách hàng Online)
+router.post('/direct-checkout', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse', 'customer'), c.directCheckout);
 router.post('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.create);
 
 // Thao tác món & quầy

@@ -1,9 +1,8 @@
 import { io } from 'socket.io-client';
+import { BACKEND_URL } from './axios';
 
-// Kết nối Socket.IO: qua Vite dev proxy hoặc trực tiếp origin backend
-const socketUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
-
-export const socket = io(socketUrl, {
+// Kết nối Socket.IO tới backend (hỗ trợ cả dev localhost và production Vercel -> Render)
+export const socket = io(BACKEND_URL, {
   autoConnect: true,
   transports: ['websocket', 'polling'],
 });

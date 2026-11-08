@@ -449,15 +449,30 @@ const directCheckout = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Đơn hàng chưa có món' });
     }
 
-    // Check or find customer
+    // Check or find customer (tự động nhận diện tài khoản khách hàng nếu đang đăng nhập)
+    const effectivePhone = customer_phone || (req.user?.role === 'customer' ? (req.user.phone || req.user.username) : null);
+    const effectiveName = customer_name || (req.user?.role === 'customer' ? req.user.full_name : 'Khách vãng lai');
+
     let customerId = null;
-    if (customer_phone) {
-      const [cRows] = await conn.query('SELECT id FROM customers WHERE phone = ?', [customer_phone]);
+    if (effectivePhone) {
+      const [cRows] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
       if (cRows.length) {
         customerId = cRows[0].id;
       } else {
-        const [newC] = await conn.query('INSERT INTO customers (phone, name) VALUES (?, ?)', [customer_phone, customer_name || 'Khách vãng lai']);
+        const [newC] = await conn.query('INSERT INTO customers (phone, name) VALUES (?, ?)', [effectivePhone, effectiveName]);
         customerId = newC.insertId;
+      }
+    }
+
+    // Xử lý đổi điểm tích lũy thành tiền giảm giá (1 điểm = 100đ)
+    let pointsDiscount = 0;
+    let actualPointsRedeemed = 0;
+    const requestedPts = Math.max(0, parseInt(req.body.points_to_redeem || req.body.points_redeemed, 10) || 0);
+    if (requestedPts > 0 && customerId) {
+      const [custPts] = await conn.query('SELECT points_balance FROM customers WHERE id = ? FOR UPDATE', [customerId]);
+      if (custPts.length && custPts[0].points_balance > 0) {
+        actualPointsRedeemed = Math.min(requestedPts, custPts[0].points_balance);
+        pointsDiscount = actualPointsRedeemed * 100;
       }
     }
 
@@ -536,7 +551,8 @@ const directCheckout = async (req, res) => {
         size_name: sizeName,
         price: unitPrice,
         quantity: qty,
-        line_total: lineTotal
+        line_total: lineTotal,
+        note: item.note ? String(item.note).trim() : null
       });
     }
 
@@ -570,6 +586,10 @@ const directCheckout = async (req, res) => {
         }
       }
     }
+
+    // Cộng gộp giảm giá từ điểm thưởng
+    calculatedDiscount += pointsDiscount;
+
     const finalTax = Number(tax || 0);
     const total = Math.max(0, subtotal - calculatedDiscount + finalTax);
 
@@ -592,9 +612,9 @@ const directCheckout = async (req, res) => {
     const itemStatus = finalOrderStatus === 'paid' ? 'done' : 'pending';
     for (const item of validatedItems) {
       await conn.query(
-        `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, line_total, status, sent_at, done_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
-        [orderId, item.product_size_id, item.name, item.size_name, item.price, item.quantity, item.line_total, itemStatus]
+        `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, line_total, note, status, sent_at, done_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
+        [orderId, item.product_size_id, item.name, item.size_name, item.price, item.quantity, item.line_total, item.note, itemStatus]
       );
     }
 
@@ -659,11 +679,10 @@ const directCheckout = async (req, res) => {
     }
 
     // Points & Tiers: Tích điểm và tự động thăng hạng thành viên theo total_spent
-    const pointsRedeemed = parseInt(req.body.points_redeemed, 10) || 0;
     if (customerId) {
-      if (pointsRedeemed > 0) {
-        await conn.query('UPDATE customers SET points_balance = GREATEST(0, points_balance - ?) WHERE id = ?', [pointsRedeemed, customerId]);
-        await conn.query('INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "redeem", ?)', [customerId, orderId, pointsRedeemed]);
+      if (actualPointsRedeemed > 0) {
+        await conn.query('UPDATE customers SET points_balance = GREATEST(0, points_balance - ?) WHERE id = ?', [actualPointsRedeemed, customerId]);
+        await conn.query('INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "redeem", ?)', [customerId, orderId, actualPointsRedeemed]);
       }
       const pts = Math.floor(total / 10000);
       await conn.query('UPDATE customers SET points_balance = points_balance + ?, total_spent = total_spent + ? WHERE id = ?', [pts, total, customerId]);
@@ -702,6 +721,12 @@ const directCheckout = async (req, res) => {
         tableId: effectiveTableId,
         total,
         status: finalOrderStatus,
+      });
+      io.emit('barista:new_order', {
+        orderId,
+        orderCode,
+        tableId: effectiveTableId,
+        orderType: normalizedOrderType,
       });
     }
 
@@ -999,8 +1024,12 @@ const getMyOrders = async (req, res) => {
 
     const [orders] = await db.query(
       `SELECT o.id, o.code, o.order_type, o.status, o.payment_status, o.subtotal,
-              o.discount_total, o.total, o.opened_at, o.closed_at,
-              t.code AS table_code
+              o.discount_total, o.total, o.opened_at, o.closed_at, o.note,
+              t.code AS table_code,
+              (
+                SELECT GROUP_CONCAT(CONCAT(oi.product_name, ' (', oi.size_name, ') x', oi.quantity) SEPARATOR ', ')
+                FROM order_items oi WHERE oi.order_id = o.id
+              ) AS items_summary
        FROM orders o
        LEFT JOIN \`tables\` t ON t.id = o.table_id
        WHERE o.customer_id = ?
