@@ -86,6 +86,10 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 MY COFFEE HOUSE Server running on http://localhost:${PORT}`);
   const { initOrderScheduler } = require('./src/services/orderScheduler');
   initOrderScheduler(io);
+
+  // Auto-migrate schema & seed default staff accounts on boot
+  const { autoMigrate } = require('./src/services/initDatabase');
+  autoMigrate();
 });
 
 module.exports = { app, io };

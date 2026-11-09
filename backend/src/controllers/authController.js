@@ -9,12 +9,61 @@ const login = async (req, res) => {
     if (!username || !password)
       return res.status(400).json({ success: false, message: 'Vui lòng nhập tài khoản và mật khẩu' });
 
-    const [rows] = await db.query(
+    const cleanInput = String(username).trim();
+
+    let [rows] = await db.query(
       `SELECT u.*, r.name AS role_name FROM users u
        JOIN roles r ON r.id = u.role_id
-       WHERE u.username = ? AND u.is_active = 1`,
-      [username]
+       WHERE (u.username = ? OR u.phone = ?) AND u.is_active = 1`,
+      [cleanInput, cleanInput]
     );
+
+    // Tự động khởi tạo tài khoản quản lý / nhân sự nếu CSDL Cloud chưa nạp
+    if (!rows.length && password === '123456') {
+      const defaultUsers = {
+        admin: { code: 'NV001', name: 'Nguyễn Hoàng Long', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
+        cashier: { code: 'NV002', name: 'Trần Thu Hà', roleId: 2, phone: '0902345678', email: 'cashier@mycoffee.vn' },
+        barista: { code: 'NV003', name: 'Đặng Minh Tuấn', roleId: 4, phone: '0903456789', email: 'barista@mycoffee.vn' },
+        waiter: { code: 'NV004', name: 'Hoàng Văn Nam', roleId: 3, phone: '0904567890', email: 'waiter@mycoffee.vn' },
+        warehouse: { code: 'NV005', name: 'Bùi Quốc Hoàng', roleId: 5, phone: '0905678901', email: 'warehouse@mycoffee.vn' },
+      };
+
+      const matchedKey = Object.keys(defaultUsers).find(k => k === cleanInput.toLowerCase() || defaultUsers[k].phone === cleanInput);
+      if (matchedKey) {
+        try {
+          // Đảm bảo roles tồn tại
+          await db.query(`
+            INSERT INTO \`roles\` (\`id\`, \`name\`, \`label\`, \`description\`) VALUES
+              (1, 'admin', 'Quản lý', 'Quản lý toàn bộ hệ thống quán'),
+              (2, 'cashier', 'Thu ngân', 'Thao tác order, thanh toán tại quầy'),
+              (3, 'waiter', 'Phục vụ bàn', 'Tạo order, xem trạng thái bàn'),
+              (4, 'barista', 'Pha chế', 'Xem hàng đợi KDS, cập nhật món'),
+              (5, 'warehouse', 'Thủ kho', 'Quản lý kho nguyên vật liệu'),
+              (6, 'customer', 'Khách hàng', 'Tự đặt món trực tuyến & tích điểm')
+            ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`)
+          `);
+
+          const target = defaultUsers[matchedKey];
+          const hash = await bcrypt.hash('123456', 10);
+          await db.query(
+            `INSERT INTO users (code, username, password_hash, full_name, role_id, phone, email, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+             ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)`,
+            [target.code, matchedKey, hash, target.name, target.roleId, target.phone, target.email]
+          );
+
+          [rows] = await db.query(
+            `SELECT u.*, r.name AS role_name FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE (u.username = ? OR u.phone = ?) AND u.is_active = 1`,
+            [cleanInput, cleanInput]
+          );
+        } catch (seedErr) {
+          console.error('Error auto-seeding staff on login:', seedErr);
+        }
+      }
+    }
+
     if (!rows.length)
       return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu' });
 
