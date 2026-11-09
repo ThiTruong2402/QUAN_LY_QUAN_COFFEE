@@ -166,6 +166,17 @@ const me = async (req, res) => {
   }
 };
 
+// GET /api/auth/debug-users
+const debugUsers = async (req, res) => {
+  try {
+    const [roles] = await db.query('SELECT * FROM roles');
+    const [users] = await db.query('SELECT id, username, full_name, role_id, phone, is_active FROM users');
+    res.json({ success: true, roles, users });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
 // POST /api/auth/register (Khách hàng tự đăng ký tài khoản mới)
 const register = async (req, res) => {
   try {
@@ -291,4 +302,4 @@ const register = async (req, res) => {
   }
 };
 
-module.exports = { login, refresh, me, register };
+module.exports = { login, refresh, me, register, debugUsers };

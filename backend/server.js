@@ -66,7 +66,7 @@ app.use('/api/reports',    require('./src/routes/reports'));
 app.use('/api/settings',   require('./src/routes/settings'));
 
 // Health check
-app.get('/api/health', (_, res) => res.json({ status: 'ok', time: new Date() }));
+app.get('/api/health', (_, res) => res.json({ status: 'ok', version: 'v2-auto-seed', time: new Date() }));
 
 // Global error handler
 app.use((err, req, res, next) => {
