@@ -83,9 +83,9 @@ async function autoMigrate() {
     try {
       const defaultHash = await bcrypt.hash('123456', 10);
       const staffList = [
-        { code: 'NV001', username: 'admin', name: 'Nguyễn Quản Trị', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
-        { code: 'NV007', username: 'manager', name: 'Trần Văn Quản Lý', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
-        { code: 'NV008', username: 'quanly', name: 'Trần Văn Quản Lý', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
+        { code: 'NV001', username: 'admin', name: 'admin', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
+        { code: 'NV007', username: 'manager', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
+        { code: 'NV008', username: 'quanly', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
         { code: 'NV002', username: 'cashier', name: 'Trần Thu Hà', roleId: 2, phone: '0902345678', email: 'cashier@mycoffee.vn' },
         { code: 'NV003', username: 'barista', name: 'Đặng Minh Tuấn', roleId: 4, phone: '0903456789', email: 'barista@mycoffee.vn' },
         { code: 'NV004', username: 'waiter', name: 'Hoàng Văn Nam', roleId: 3, phone: '0904567890', email: 'waiter@mycoffee.vn' },

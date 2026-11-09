@@ -22,9 +22,9 @@ const login = async (req, res) => {
     // Tự động khởi tạo tài khoản quản lý / nhân sự nếu CSDL Cloud chưa nạp
     if (!rows.length && password === '123456') {
       const defaultUsers = {
-        admin: { code: 'NV001', name: 'Nguyễn Quản Trị', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
-        manager: { code: 'NV007', name: 'Trần Văn Quản Lý', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
-        quanly: { code: 'NV008', name: 'Trần Văn Quản Lý', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
+        admin: { code: 'NV001', name: 'admin', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
+        manager: { code: 'NV007', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
+        quanly: { code: 'NV008', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
         cashier: { code: 'NV002', name: 'Trần Thu Hà', roleId: 2, phone: '0902345678', email: 'cashier@mycoffee.vn' },
         barista: { code: 'NV003', name: 'Đặng Minh Tuấn', roleId: 4, phone: '0903456789', email: 'barista@mycoffee.vn' },
         waiter: { code: 'NV004', name: 'Hoàng Văn Nam', roleId: 3, phone: '0904567890', email: 'waiter@mycoffee.vn' },

@@ -6,3 +6,4 @@ const { authenticate, authorize } = require('../middleware/auth');
 router.get('/', authenticate, authorize('admin'), c.getLogs);
 
 module.exports = router;
+

@@ -118,3 +118,4 @@ const getLogs = async (req, res) => {
 };
 
 module.exports = { getLogs };
+
