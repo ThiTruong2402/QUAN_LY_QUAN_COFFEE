@@ -158,7 +158,7 @@ export default function Orders() {
   // - Pha chế (Barista): Bước 2 (Đang pha chế) và Bước 3 (Pha xong & Trả món - Hoàn tất)
   // - Quản lý: Toàn quyền kiểm soát và điều phối ở cả 3 bước
   const canUpdateStatus = (targetStatus) => {
-    if (userRole === 'admin') return true;
+    if (userRole === 'manager') return true;
     if (userRole === 'cashier') {
       return ['scheduled', 'preparing', 'pending', 'open', 'done', 'served', 'paid', 'cancelled'].includes(targetStatus);
     }
@@ -1014,16 +1014,16 @@ export default function Orders() {
                 style={{ fontWeight: 700 }}
               >
                 {/* 3 Bước chuẩn quầy cà phê */}
-                {(userRole === 'admin' || userRole === 'cashier') && (
+                {(userRole === 'manager' || userRole === 'cashier') && (
                   <option value="pending">1. ⏳ Đã thanh toán • Chờ làm</option>
                 )}
-                {(userRole === 'admin' || userRole === 'barista') && (
+                {(userRole === 'manager' || userRole === 'barista') && (
                   <option value="preparing">2. ☕ Đang pha chế (Barista)</option>
                 )}
-                {(userRole === 'admin' || userRole === 'barista' || userRole === 'waiter' || userRole === 'cashier') && (
+                {(userRole === 'manager' || userRole === 'barista' || userRole === 'waiter' || userRole === 'cashier') && (
                   <option value="done">3. ✅ Đã pha xong &amp; Trả món (Hoàn tất)</option>
                 )}
-                {(userRole === 'admin' || userRole === 'cashier') && (
+                {(userRole === 'manager' || userRole === 'cashier') && (
                   <option value="cancelled">❌ Đã hủy đơn</option>
                 )}
               </select>

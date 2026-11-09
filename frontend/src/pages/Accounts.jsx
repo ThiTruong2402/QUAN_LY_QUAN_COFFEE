@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 
 export default function Accounts() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [activeTab, setActiveTab] = useState('staff'); // 'staff' | 'customers' | 'promotions'
@@ -202,7 +204,7 @@ export default function Accounts() {
             }}
             onClick={() => setActiveTab('staff')}
           >
-            👥 TÀI KHOẢN NHÂN VIÊN
+            👥 PHÂN QUYỀN TÀI KHOẢN
           </button>
         )}
 
@@ -221,7 +223,7 @@ export default function Accounts() {
           }}
           onClick={() => setActiveTab('customers')}
         >
-          👤 HỘI VIÊN &amp; TÍCH ĐIỂM THỰC TẾ
+          👤 HỘI VIÊN &amp; TÍCH ĐIỂM
         </button>
 
         <button
@@ -239,8 +241,28 @@ export default function Accounts() {
           }}
           onClick={() => setActiveTab('promotions')}
         >
-          🎁 MÃ GIẢM GIÁ &amp; VOUCHER
+          🎁 VOUCHER &amp; KHUYẾN MÃI
         </button>
+
+        {isAdmin && (
+          <button
+            type="button"
+            className="btn"
+            style={{
+              flex: 1,
+              background: 'rgba(2, 132, 199, 0.15)',
+              color: '#38bdf8',
+              fontWeight: 800,
+              fontSize: '0.86rem',
+              padding: '10px 14px',
+              border: '1.5px solid #0284c7',
+              cursor: 'pointer'
+            }}
+            onClick={() => navigate('/audit-logs')}
+          >
+            🛡️ XEM NHẬT KÝ HOẠT ĐỘNG →
+          </button>
+        )}
       </div>
 
       {/* 2. TAB CONTENT: TÀI KHOẢN NHÂN VIÊN */}

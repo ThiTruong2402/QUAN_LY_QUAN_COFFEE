@@ -210,8 +210,8 @@ const formatBaristaRecipe = (ingName, qty, unit) => {
 
 export default function MenuManage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  const isStaff = ['admin', 'barista', 'cashier', 'waiter'].includes(user?.role);
+  const isManager = user?.role === 'manager';
+  const isStaff = ['manager', 'barista', 'cashier', 'waiter', 'warehouse'].includes(user?.role);
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -314,7 +314,7 @@ export default function MenuManage() {
   });
 
   const handleCreateProduct = async () => {
-    if (!isAdmin) return toast.error('Chỉ Quản lý (Admin) mới có quyền thêm món mới!');
+    if (!isManager) return toast.error('Chỉ Quản lý (Manager) mới có quyền thêm món mới!');
     if (!form.name) return toast.error('Vui lòng nhập tên món!');
     try {
       const res = await api.post('/products', {
@@ -329,7 +329,7 @@ export default function MenuManage() {
   };
 
   const handleUpdateProduct = async () => {
-    if (!isAdmin) return toast.error('Chỉ Quản lý (Admin) mới có quyền chỉnh sửa món!');
+    if (!isManager) return toast.error('Chỉ Quản lý (Manager) mới có quyền chỉnh sửa món!');
     if (!selectedProduct) return toast.error('Vui lòng chọn món cần sửa!');
     try {
       await api.put(`/products/${selectedProduct.id}`, {
@@ -345,7 +345,7 @@ export default function MenuManage() {
   };
 
   const handleDeleteProduct = async () => {
-    if (!isAdmin) return toast.error('Chỉ Quản lý (Admin) mới có quyền xóa món!');
+    if (!isManager) return toast.error('Chỉ Quản lý (Manager) mới có quyền xóa món!');
     if (!selectedProduct) return toast.error('Vui lòng chọn món cần xóa!');
     if (!window.confirm(`Bạn có chắc muốn xóa món "${selectedProduct.name}"?`)) return;
     try {
@@ -358,10 +358,10 @@ export default function MenuManage() {
     }
   };
 
-  // Thêm nguyên liệu vào đúng Size đang chọn (Admin Only)
+  // Thêm nguyên liệu vào đúng Size đang chọn (Manager Only)
   const handleAddRecipeIngredient = async (e) => {
     e.preventDefault();
-    if (!isAdmin) return toast.error('Chỉ Quản lý mới có quyền sửa công thức!');
+    if (!isManager) return toast.error('Chỉ Quản lý mới có quyền sửa công thức!');
     if (!selectedProduct) return toast.error('Chưa chọn món đồ uống');
 
     const targetSizeId = activeSize?.id || selectedProduct.sizes?.[0]?.id;
@@ -380,9 +380,9 @@ export default function MenuManage() {
     }
   };
 
-  // Delete Recipe Ingredient (Admin Only)
+  // Delete Recipe Ingredient (Manager Only)
   const handleDeleteRecipeIngredient = async (recipeId) => {
-    if (!isAdmin) return toast.error('Chỉ Quản lý mới có quyền xóa nguyên liệu khỏi công thức!');
+    if (!isManager) return toast.error('Chỉ Quản lý mới có quyền xóa nguyên liệu khỏi công thức!');
     if (!window.confirm('Xác nhận xóa nguyên liệu này khỏi công thức?')) return;
     try {
       await api.delete(`/recipes/${recipeId}`);
@@ -553,7 +553,7 @@ export default function MenuManage() {
                   <div style={{ fontSize: '0.82rem', color: '#fbbf24', marginTop: '2px' }}>
                     Mã món: <strong>{form.code}</strong> • Giá chuẩn: <strong>{fmt(form.price)}</strong>
                   </div>
-                  {!isAdmin && (
+                  {!isManager && (
                     <div style={{ fontSize: '0.74rem', color: '#34d399', marginTop: '4px' }}>
                       🔒 Chế độ xem thực đơn cho nhân viên (Read-only)
                     </div>
@@ -569,7 +569,7 @@ export default function MenuManage() {
                     className="form-input"
                     value={form.code}
                     onChange={(e) => setForm({ ...form, code: e.target.value })}
-                    disabled={!isAdmin}
+                    disabled={!isManager}
                     style={{ width: '100%', padding: '8px' }}
                   />
                 </div>
@@ -579,7 +579,7 @@ export default function MenuManage() {
                     className="form-select"
                     value={form.category_id}
                     onChange={(e) => setForm({ ...form, category_id: parseInt(e.target.value) })}
-                    disabled={!isAdmin}
+                    disabled={!isManager}
                     style={{ width: '100%', padding: '8px' }}
                   >
                     {categories.map((c) => (
@@ -596,7 +596,7 @@ export default function MenuManage() {
                   className="form-input"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  disabled={!isAdmin}
+                  disabled={!isManager}
                   style={{ width: '100%', padding: '8px' }}
                   placeholder="Ví dụ: Cà phê Muối Cốm"
                 />
@@ -609,7 +609,7 @@ export default function MenuManage() {
                   className="form-input"
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                  disabled={!isAdmin}
+                  disabled={!isManager}
                   style={{ width: '100%', padding: '8px', color: '#fbbf24', fontWeight: 800 }}
                 />
               </div>
@@ -621,7 +621,7 @@ export default function MenuManage() {
                   rows={2}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  disabled={!isAdmin}
+                  disabled={!isManager}
                   style={{ width: '100%', padding: '8px' }}
                   placeholder="Hương vị thơm béo, đậm đà..."
                 />
@@ -634,13 +634,13 @@ export default function MenuManage() {
                   className="form-input"
                   value={form.image_url}
                   onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-                  disabled={!isAdmin}
+                  disabled={!isManager}
                   style={{ width: '100%', padding: '8px', fontSize: '0.8rem' }}
                 />
               </div>
 
-              {/* Action Buttons: Only Admin can edit */}
-              {isAdmin && (
+              {/* Action Buttons: Only Manager can edit */}
+              {isManager && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                   <button
                     type="button"
@@ -694,7 +694,7 @@ export default function MenuManage() {
                           )}
                         </div>
                         <div style={{ fontSize: '0.74rem', color: '#c4a482', marginTop: '2px' }}>
-                          {isAdmin ? '👑 Quản lý: Toàn quyền cấu hình định lượng cho từng size' : '🍹 Barista: Chế độ tra cứu định lượng chuẩn để pha chế'}
+                          {isManager ? '👑 Quản lý: Toàn quyền cấu hình định lượng cho từng size' : '🍹 Barista: Chế độ tra cứu định lượng chuẩn để pha chế'}
                         </div>
                       </div>
 
@@ -746,13 +746,13 @@ export default function MenuManage() {
                           <th style={{ textAlign: 'left' }}>Định lượng / Ly</th>
                           <th style={{ textAlign: 'center', width: '110px' }}>Trừ kho / Ly</th>
                           <th>Cơ chế cộng dồn trừ kho thực tế</th>
-                          {isAdmin && <th style={{ width: '40px', textAlign: 'center' }}>Xóa</th>}
+                          {isManager && <th style={{ width: '40px', textAlign: 'center' }}>Xóa</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {currentProductRecipes.length === 0 ? (
                           <tr>
-                            <td colSpan={isAdmin ? 5 : 4} style={{ textAlign: 'center', padding: '30px 20px', color: '#c4a482' }}>
+                            <td colSpan={isManager ? 5 : 4} style={{ textAlign: 'center', padding: '30px 20px', color: '#c4a482' }}>
                               Chưa có định lượng công thức cho Size {activeSize?.name || 'này'}. Quản lý có thể thêm bên dưới!
                             </td>
                           </tr>
@@ -784,7 +784,7 @@ export default function MenuManage() {
                                 <td style={{ fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 600 }}>
                                   {bData.action}
                                 </td>
-                                {isAdmin && (
+                                {isManager && (
                                   <td style={{ textAlign: 'center' }}>
                                     <button
                                       type="button"
@@ -813,8 +813,8 @@ export default function MenuManage() {
                     </div>
                   </div>
 
-                  {/* Form Thêm nguyên liệu: Admin Only (Gắn đúng theo Size đang chọn) */}
-                  {isAdmin ? (
+                  {/* Form Thêm nguyên liệu: Manager Only (Gắn đúng theo Size đang chọn) */}
+                  {isManager ? (
                     <form onSubmit={handleAddRecipeIngredient} style={{ background: 'rgba(28, 17, 10, 0.95)', border: '1px dashed rgba(245, 158, 11, 0.35)', padding: '14px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>

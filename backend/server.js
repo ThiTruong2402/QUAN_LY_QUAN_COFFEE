@@ -64,6 +64,7 @@ app.use('/api/orders',     require('./src/routes/orders'));
 app.use('/api/barista',    require('./src/routes/barista'));
 app.use('/api/reports',    require('./src/routes/reports'));
 app.use('/api/settings',   require('./src/routes/settings'));
+app.use('/api/audit-logs', require('./src/routes/auditLogs'));
 
 // Health check
 app.get('/api/health', (_, res) => res.json({ status: 'ok', version: 'v2-auto-seed', time: new Date() }));

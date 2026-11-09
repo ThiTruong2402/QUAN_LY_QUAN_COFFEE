@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const { generateTokens, verifyRefresh } = require('../utils/jwt');
+const { logAudit } = require('../services/auditLogger');
 
 // POST /api/auth/login
 const login = async (req, res) => {
@@ -21,7 +22,9 @@ const login = async (req, res) => {
     // Tự động khởi tạo tài khoản quản lý / nhân sự nếu CSDL Cloud chưa nạp
     if (!rows.length && password === '123456') {
       const defaultUsers = {
-        admin: { code: 'NV001', name: 'Nguyễn Hoàng Long', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
+        admin: { code: 'NV001', name: 'Nguyễn Quản Trị', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
+        manager: { code: 'NV007', name: 'Trần Văn Quản Lý', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
+        quanly: { code: 'NV008', name: 'Trần Văn Quản Lý', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
         cashier: { code: 'NV002', name: 'Trần Thu Hà', roleId: 2, phone: '0902345678', email: 'cashier@mycoffee.vn' },
         barista: { code: 'NV003', name: 'Đặng Minh Tuấn', roleId: 4, phone: '0903456789', email: 'barista@mycoffee.vn' },
         waiter: { code: 'NV004', name: 'Hoàng Văn Nam', roleId: 3, phone: '0904567890', email: 'waiter@mycoffee.vn' },
@@ -31,16 +34,17 @@ const login = async (req, res) => {
       const matchedKey = Object.keys(defaultUsers).find(k => k === cleanInput.toLowerCase() || defaultUsers[k].phone === cleanInput);
       if (matchedKey) {
         try {
-          // Đảm bảo roles tồn tại
+          // Đảm bảo roles đầy đủ (Tách riêng Admin và Quản lý)
           await db.query(`
             INSERT INTO \`roles\` (\`id\`, \`name\`, \`label\`, \`description\`) VALUES
-              (1, 'admin', 'Quản lý', 'Quản lý toàn bộ hệ thống quán'),
+              (1, 'admin', 'Quản Trị Hệ Thống', 'Quản trị phân quyền tài khoản & theo dõi hoạt động toàn hệ thống'),
               (2, 'cashier', 'Thu ngân', 'Thao tác order, thanh toán tại quầy'),
               (3, 'waiter', 'Phục vụ bàn', 'Tạo order, xem trạng thái bàn'),
               (4, 'barista', 'Pha chế', 'Xem hàng đợi KDS, cập nhật món'),
               (5, 'warehouse', 'Thủ kho', 'Quản lý kho nguyên vật liệu'),
-              (6, 'customer', 'Khách hàng', 'Tự đặt món trực tuyến & tích điểm')
-            ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`)
+              (6, 'customer', 'Khách hàng', 'Tự đặt món trực tuyến & tích điểm'),
+              (7, 'manager', 'Quản Lý Quán', 'Toàn quyền CRUD thực đơn, bàn, kho, ca trực, khuyến mãi & Thống kê báo cáo')
+            ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`), \`label\` = VALUES(\`label\`), \`description\` = VALUES(\`description\`)
           `);
 
           const target = defaultUsers[matchedKey];
@@ -69,7 +73,7 @@ const login = async (req, res) => {
 
     const user = rows[0];
     let valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid && password === '123456' && ['admin', 'cashier', 'barista', 'waiter', 'warehouse'].includes(user.username)) {
+    if (!valid && password === '123456' && ['admin', 'manager', 'quanly', 'cashier', 'barista', 'waiter', 'warehouse'].includes(user.username)) {
       // Tự động đồng bộ lại mật khẩu chuẩn 123456 cho tài khoản quản lý & nhân viên quán
       const newHash = await bcrypt.hash('123456', 10);
       await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
@@ -94,6 +98,16 @@ const login = async (req, res) => {
     }
 
     const { accessToken, refreshToken } = generateTokens({ ...user, role_name: user.role_name });
+
+    // Ghi nhật ký kiểm toán hành động đăng nhập
+    logAudit({
+      userId: user.id,
+      action: 'LOGIN',
+      entityType: 'USER',
+      entityId: user.id,
+      reason: `Đăng nhập thành công với vai trò [${user.role_name}]`,
+      ipAddress: req.ip
+    });
 
     res.json({
       success: true,

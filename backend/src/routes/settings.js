@@ -25,8 +25,8 @@ router.get('/store-hours', async (req, res) => {
   }
 });
 
-// PUT /api/settings/store-hours (Chỉ Quản lý / Admin được chỉnh sửa cấu hình)
-router.put('/store-hours', authenticate, authorize('admin'), async (req, res) => {
+// PUT /api/settings/store-hours (Chỉ Quản lý được chỉnh sửa cấu hình quán)
+router.put('/store-hours', authenticate, authorize('manager'), async (req, res) => {
   try {
     const updated = await storeService.updateStoreSettings(req.body);
     const vnNow = storeService.getVietnamNow();

@@ -38,8 +38,8 @@ const authorize = (...roles) => (req, res, next) => {
   if (!req.user || !req.user.role) {
     return res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
   }
-  // Nếu vai trò không nằm trong danh sách cho phép (admin luôn được tính nếu có trong roles hoặc là superadmin)
-  const allowed = roles.includes(req.user.role) || (req.user.role === 'admin');
+  // Phân quyền độc lập rõ ràng: Mỗi role chỉ truy cập đúng nghiệp vụ được cấp phép
+  const allowed = roles.includes(req.user.role);
   if (!allowed) {
     return res.status(403).json({
       success: false,

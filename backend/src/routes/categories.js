@@ -1,11 +1,11 @@
 const router = require('express').Router();
 const c = require('../controllers/categoryController');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, optionalAuthenticate, authorize } = require('../middleware/auth');
 
-// Danh mục: Nhân viên được xem; chỉ Quản lý (Admin) được thêm/sửa/xóa
-router.get('/', authenticate, c.getAll);
-router.post('/', authenticate, authorize('admin'), c.create);
-router.put('/:id', authenticate, authorize('admin'), c.update);
-router.delete('/:id', authenticate, authorize('admin'), c.remove);
+// Danh mục: Khách & nhân viên được xem; Quản lý (Manager) toàn quyền CRUD thêm/sửa/xóa
+router.get('/', optionalAuthenticate, c.getAll);
+router.post('/', authenticate, authorize('manager'), c.create);
+router.put('/:id', authenticate, authorize('manager'), c.update);
+router.delete('/:id', authenticate, authorize('manager'), c.remove);
 
 module.exports = router;

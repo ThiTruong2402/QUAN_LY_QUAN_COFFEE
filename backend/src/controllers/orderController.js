@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { getVietnamDateString, getVietnamDateNumber } = require('../utils/date');
 const storeService = require('../services/storeSettingsService');
+const { logAudit } = require('../services/auditLogger');
 
 // Helper: generate order code — dùng document_counters để tránh race condition và chuẩn múi giờ VN
 const genOrderCode = async (conn) => {
@@ -890,7 +891,7 @@ const updateStatus = async (req, res) => {
       merged: [],
     };
     const allowedNext = STATE_TRANSITIONS[order.status] || [];
-    if (req.user?.role !== 'admin' && !allowedNext.includes(status)) {
+    if (req.user?.role !== 'manager' && !allowedNext.includes(status)) {
       await conn.rollback();
       return res.status(400).json({
         success: false,
@@ -1047,12 +1048,12 @@ const cancelOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Đơn hàng này đã được hủy trước đó' });
     }
 
-    // Nghiệp vụ bảo vệ doanh thu: Đơn đã thanh toán bắt buộc phải là Quản Lý (Admin) mới được phép hủy & hoàn tiền
-    if (order.payment_status === 'paid' && userRole !== 'admin') {
+    // Nghiệp vụ bảo vệ doanh thu: Đơn đã thanh toán bắt buộc phải là Quản Lý mới được phép hủy & hoàn tiền
+    if (order.payment_status === 'paid' && userRole !== 'manager') {
       await conn.rollback();
       return res.status(403).json({
         success: false,
-        message: 'Đơn hàng đã thanh toán chỉ Quản Lý (Admin) mới có quyền duyệt hủy đơn và hoàn tiền!',
+        message: 'Đơn hàng đã thanh toán chỉ Quản Lý mới có quyền duyệt hủy đơn và hoàn tiền!',
       });
     }
 
@@ -1097,6 +1098,15 @@ const cancelOrder = async (req, res) => {
     }
 
     await conn.commit();
+
+    logAudit({
+      userId: req.user?.id || null,
+      action: 'CANCEL_ORDER',
+      entityType: 'ORDER',
+      entityId: id,
+      reason: `Hủy đơn hàng #${order.order_code}: ${cancel_reason || 'Không rõ lý do'}`,
+      ipAddress: req.ip
+    });
 
     // Phát sự kiện Socket.IO thời gian thực khi đơn bị hủy
     const io = req.app?.get('io');

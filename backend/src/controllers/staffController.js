@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const { logAudit } = require('../services/auditLogger');
 
 // GET /api/staff
 const getAll = async (req, res) => {
@@ -37,6 +38,15 @@ const create = async (req, res) => {
       [code || null, username, hash, full_name, birthday || null, gender || 'Nam', email || null, phone || null, role_id || 2]
     );
 
+    logAudit({
+      userId: req.user?.id || null,
+      action: 'CREATE_STAFF',
+      entityType: 'USER',
+      entityId: result.insertId,
+      reason: `Tạo tài khoản nhân sự [${username}] (${full_name}), vai trò ID: ${role_id}`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json({ success: true, message: 'Tạo tài khoản nhân viên thành công', data: { id: result.insertId } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -71,6 +81,16 @@ const update = async (req, res) => {
     params.push(id);
 
     await db.query(query, params);
+
+    logAudit({
+      userId: req.user?.id || null,
+      action: 'UPDATE_STAFF',
+      entityType: 'USER',
+      entityId: id,
+      reason: `Cập nhật thông tin / phân quyền nhân viên ID #${id} (${full_name.trim()})`,
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, message: 'Cập nhật nhân viên thành công' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Lỗi cập nhật nhân viên: ' + err.message });
@@ -86,6 +106,16 @@ const remove = async (req, res) => {
     }
     // Soft delete: chuyển sang trạng thái Nghỉ việc (is_active = 0) để tránh vỡ FK và lưu trữ lịch sử
     await db.query('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
+
+    logAudit({
+      userId: req.user?.id || null,
+      action: 'DELETE_STAFF',
+      entityType: 'USER',
+      entityId: id,
+      reason: `Chuyển nhân sự ID #${id} sang trạng thái Nghỉ việc / Khóa tài khoản`,
+      ipAddress: req.ip
+    });
+
     res.json({ success: true, message: 'Đã chuyển nhân viên sang trạng thái Nghỉ việc' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

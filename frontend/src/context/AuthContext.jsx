@@ -4,7 +4,8 @@ import api from '../api/axios';
 const AuthContext = createContext(null);
 
 export const ROLE_DEFINITIONS = [
-  { role: 'admin', label: 'Quản Lý Quán', icon: '👑', color: '#b45309', bg: '#fef3c7' },
+  { role: 'admin', label: 'Quản Trị Hệ Thống', icon: '🛡️', color: '#dc2626', bg: '#fee2e2' },
+  { role: 'manager', label: 'Quản Lý Quán', icon: '👔', color: '#b45309', bg: '#fef3c7' },
   { role: 'cashier', label: 'Thu Ngân', icon: '💵', color: '#15803d', bg: '#dcfce7' },
   { role: 'barista', label: 'Pha Chế (Barista)', icon: '☕', color: '#0284c7', bg: '#e0f2fe' },
   { role: 'waiter', label: 'Phục Vụ Bàn', icon: '🛵', color: '#7c3aed', bg: '#f3e8ff' },
@@ -73,7 +74,6 @@ export const AuthProvider = ({ children }) => {
 
   const hasRole = (...roles) => {
     if (!user || !user.role) return false;
-    if (user.role === 'admin') return true; // Admin có toàn quyền
     return roles.includes(user.role);
   };
 

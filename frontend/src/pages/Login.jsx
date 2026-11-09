@@ -25,7 +25,8 @@ export default function Login() {
       const loggedUser = await login(form.username, form.password);
       toast.success(`Đăng nhập thành công! Chào mừng ${loggedUser?.full_name || 'bạn'} ☕`);
       const roleHome = {
-        admin: '/',
+        admin: '/accounts',
+        manager: '/',
         cashier: '/',
         barista: '/barista',
         waiter: '/pos',
