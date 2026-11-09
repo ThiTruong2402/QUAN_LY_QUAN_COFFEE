@@ -30,8 +30,18 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       api.get('/auth/me')
-        .then((res) => setUser(res.data.data))
-        .catch(() => localStorage.clear())
+        .then((res) => {
+          if (res.data?.success && res.data?.data) {
+            setUser(res.data.data);
+          } else {
+            localStorage.clear();
+            setUser(null);
+          }
+        })
+        .catch(() => {
+          localStorage.clear();
+          setUser(null);
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);

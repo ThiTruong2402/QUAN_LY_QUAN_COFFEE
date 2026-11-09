@@ -63,6 +63,7 @@ app.use('/api/tables',     require('./src/routes/tables'));
 app.use('/api/orders',     require('./src/routes/orders'));
 app.use('/api/barista',    require('./src/routes/barista'));
 app.use('/api/reports',    require('./src/routes/reports'));
+app.use('/api/settings',   require('./src/routes/settings'));
 
 // Health check
 app.get('/api/health', (_, res) => res.json({ status: 'ok', time: new Date() }));
@@ -83,6 +84,8 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 MY COFFEE HOUSE Server running on http://localhost:${PORT}`);
+  const { initOrderScheduler } = require('./src/services/orderScheduler');
+  initOrderScheduler(io);
 });
 
 module.exports = { app, io };

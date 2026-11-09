@@ -1,3 +1,4 @@
+import { Component } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -15,9 +16,90 @@ import Orders from './pages/Orders';
 import Barista from './pages/Barista';
 import CustomerPortal from './pages/CustomerPortal';
 
+// Error Boundary chống màn hình đen / sập app khi lỗi dữ liệu hoặc render
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('App Uncaught Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#130c08',
+          color: '#fef3c7',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+          textAlign: 'center',
+          fontFamily: "'Inter', sans-serif"
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>☕</div>
+          <h2 style={{ fontSize: '1.4rem', color: '#f59e0b', marginBottom: '8px' }}>
+            MY COFFEE HOUSE • HỆ THỐNG ĐANG TẢI LẠI
+          </h2>
+          <p style={{ color: '#d4b094', maxWidth: '480px', lineHeight: 1.5, fontSize: '0.9rem', marginBottom: '20px' }}>
+            Hệ thống phát hiện cập nhật mới hoặc kết nối mạng bị gián đoạn. Vui lòng nhấn nút bên dưới để làm mới trang.
+          </p>
+          <button
+            onClick={() => {
+              localStorage.removeItem('customer_cart');
+              window.location.reload();
+            }}
+            style={{
+              background: '#15803d',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 24px',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+            }}
+          >
+            🔄 Tải Lại Trang
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function RoleRoute({ allowedRoles, children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#130c08',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fde68a',
+        fontFamily: "'Inter', sans-serif"
+      }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>☕</div>
+        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#d4b094' }}>
+          Đang kết nối hệ thống My Coffee House...
+        </div>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     const defaultRoute = {
@@ -35,10 +117,11 @@ function RoleRoute({ allowedRoles, children }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-        <Routes>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+          <Routes>
           <Route path="/login" element={<Login />} />
 
           {/* Cổng Khách Hàng: Dành riêng cho tài khoản khách hàng & quản lý xem thử */}
@@ -157,5 +240,6 @@ export default function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+  </AppErrorBoundary>
   );
 }

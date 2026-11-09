@@ -11,7 +11,15 @@ const getAll = async (req, res) => {
        JOIN categories c ON c.id = p.category_id
        WHERE p.is_active = 1 ORDER BY c.sort_order ASC, p.code ASC, p.id ASC`
     );
-    const [sizes] = await db.query('SELECT * FROM product_sizes WHERE is_active=1');
+    let sizes = [];
+    try {
+      const [sizesRows] = await db.query('SELECT * FROM product_sizes WHERE is_active=1');
+      sizes = sizesRows;
+    } catch {
+      // Fallback cho TiDB Cloud hoặc database chưa có cột is_active
+      const [sizesRows] = await db.query('SELECT * FROM product_sizes');
+      sizes = sizesRows;
+    }
     const [toppings] = await db.query('SELECT * FROM toppings WHERE is_active=1');
 
     const productMap = products.map(p => ({

@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { getVietnamDateString, getVietnamDateNumber } = require('../utils/date');
+const storeService = require('../services/storeSettingsService');
 
 // Helper: generate order code — dùng document_counters để tránh race condition và chuẩn múi giờ VN
 const genOrderCode = async (conn) => {
@@ -441,6 +442,7 @@ const directCheckout = async (req, res) => {
       note,
       discount = 0,
       tax = 0,
+      pickup_time = null,
       status: initialStatus = 'pending', // Default: 'pending' (Đang chờ làm - sau khi thanh toán xong)
     } = req.body;
 
@@ -570,6 +572,19 @@ const directCheckout = async (req, res) => {
       );
       if (promoRows.length) {
         const promo = promoRows[0];
+        // 1. Chặn FREESHIP nếu đơn mang về / tại quán
+        if (cleanCode === 'FREESHIP' && (normalizedOrderType === 'takeaway' || normalizedOrderType === 'dine_in')) {
+          await conn.rollback();
+          return res.status(400).json({ success: false, message: 'Mã FREESHIP không áp dụng cho đơn tại quầy hoặc mang về' });
+        }
+        // 2. Chặn mã BANMOI nếu khách hàng đã từng phát sinh đơn hàng trước đó
+        if (['BANMOI', 'BANMOI20'].includes(cleanCode) && customerId) {
+          const [pastOrders] = await conn.query("SELECT COUNT(*) AS cnt FROM orders WHERE customer_id = ? AND status != 'cancelled'", [customerId]);
+          if (pastOrders[0]?.cnt > 0) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: 'Mã chào bạn mới chỉ áp dụng cho đơn hàng đầu tiên của khách hàng' });
+          }
+        }
         const minOrder = Number(promo.min_order_value || 0);
         if (subtotal >= minOrder) {
           const promoVal = Number(promo.value ?? promo.discount_value ?? 0);
@@ -583,6 +598,9 @@ const directCheckout = async (req, res) => {
             calculatedDiscount = Math.min(subtotal, promoVal);
           }
           validCouponCode = cleanCode;
+        } else {
+          await conn.rollback();
+          return res.status(400).json({ success: false, message: `Mã ${cleanCode} yêu cầu đơn tối thiểu ${minOrder.toLocaleString('vi-VN')} đ` });
         }
       }
     }
@@ -593,8 +611,54 @@ const directCheckout = async (req, res) => {
     const finalTax = Number(tax || 0);
     const total = Math.max(0, subtotal - calculatedDiscount + finalTax);
 
-    // Business Logic: Khách thanh toán xong mới làm đồ uống -> Đơn có payment_status = 'paid', status = 'pending' (Đang chờ làm)
-    const finalOrderStatus = initialStatus === 'paid' ? 'paid' : 'pending';
+    // 0. Xử lý logic Giờ mở cửa & Đặt trước (SCHEDULED vs PENDING)
+    const config = await storeService.getStoreSettings();
+    const vnNow = storeService.getVietnamNow();
+    const storeIsOpen = storeService.isStoreOpen(config, vnNow);
+
+    let finalOrderStatus = 'pending';
+    let effectivePickupDate = null;
+    let pickupDisplayLabel = null;
+
+    if (!storeIsOpen) {
+      // Tình huống 2: Quán đóng cửa, khách đặt -> Bắt buộc chọn giờ nhận nằm trong giờ mở cửa. Đơn có trạng thái SCHEDULED
+      if (!pickup_time) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          isStoreClosed: true,
+          message: `Quán hiện đang đóng cửa (Giờ phục vụ: ${config.open_time} – ${config.close_time}). Quý khách vui lòng chọn giờ nhận hàng trong khung giờ mở cửa để đặt trước!`
+        });
+      }
+
+      const check = storeService.validatePickupTime(pickup_time, config, vnNow);
+      if (!check.valid) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: check.message });
+      }
+
+      finalOrderStatus = 'scheduled';
+      effectivePickupDate = check.pickupDate;
+      pickupDisplayLabel = check.displayTime;
+    } else {
+      // Tình huống 1: Quán đang mở
+      if (pickup_time) {
+        // Khách chủ động hẹn giờ nhận trước
+        const check = storeService.validatePickupTime(pickup_time, config, vnNow);
+        if (!check.valid) {
+          await conn.rollback();
+          return res.status(400).json({ success: false, message: check.message });
+        }
+        finalOrderStatus = 'scheduled';
+        effectivePickupDate = check.pickupDate;
+        pickupDisplayLabel = check.displayTime;
+      } else {
+        // Khách đặt bình thường làm ngay -> PENDING
+        finalOrderStatus = initialStatus === 'paid' ? 'paid' : 'pending';
+        effectivePickupDate = null;
+      }
+    }
+
     const closedAt = finalOrderStatus === 'paid' ? 'NOW()' : 'NULL';
 
     // Mô hình chỉ bán trực tiếp: 'dine_in' (Tại quán) hoặc 'takeaway' (Mang về)
@@ -602,18 +666,18 @@ const directCheckout = async (req, res) => {
     const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
 
     const [orderRes] = await conn.query(
-      `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at)
-       VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt})`,
-      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1]
+      `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
+       VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt}, ?)`,
+      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1, effectivePickupDate]
     );
     const orderId = orderRes.insertId;
 
-    // Insert items with status 'pending' (Chờ pha chế) or 'done'
-    const itemStatus = finalOrderStatus === 'paid' ? 'done' : 'pending';
+    // Insert items with status 'pending' (Chờ pha chế), 'scheduled' (Hẹn giờ), or 'done'
+    const itemStatus = finalOrderStatus === 'paid' ? 'done' : (finalOrderStatus === 'scheduled' ? 'scheduled' : 'pending');
     for (const item of validatedItems) {
       await conn.query(
         `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, line_total, note, status, sent_at, done_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${finalOrderStatus === 'scheduled' ? 'NULL' : 'NOW()'}, ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
         [orderId, item.product_size_id, item.name, item.size_name, item.price, item.quantity, item.line_total, item.note, itemStatus]
       );
     }
@@ -716,26 +780,53 @@ const directCheckout = async (req, res) => {
       io.emit('order:created', {
         orderId,
         orderCode,
+        invoiceNo,
+        customerName: effectiveName,
+        customerPhone: effectivePhone,
         items: validatedItems,
         orderType: normalizedOrderType,
         tableId: effectiveTableId,
+        paymentMethod: mappedMethod,
         total,
         status: finalOrderStatus,
+        pickupTime: effectivePickupDate,
+        pickupDisplayLabel,
       });
-      io.emit('barista:new_order', {
-        orderId,
-        orderCode,
-        tableId: effectiveTableId,
-        orderType: normalizedOrderType,
-      });
+
+      // Nếu đơn là PENDING (làm ngay) thì đẩy sang Barista ngay lập tức
+      // Nếu là SCHEDULED (hẹn giờ) thì hàng đợi Barista chưa hiển thị cho đến khi tự động kích hoạt trước giờ nhận 15 phút
+      if (finalOrderStatus === 'pending') {
+        io.emit('barista:new_order', {
+          orderId,
+          orderCode,
+          customerName: effectiveName,
+          tableId: effectiveTableId,
+          orderType: normalizedOrderType,
+        });
+      }
+    }
+
+    let successMsg = 'Xác nhận đơn thành công! Đơn hàng đang ở trạng thái Đang chờ làm.';
+    if (finalOrderStatus === 'scheduled') {
+      successMsg = `Đặt trước thành công! Quán đã ghi nhận lịch hẹn nhận đơn lúc ${pickupDisplayLabel || effectivePickupDate}.`;
+    } else if (finalOrderStatus === 'paid') {
+      successMsg = 'Thanh toán và hoàn thành đơn thành công!';
     }
 
     res.json({
       success: true,
-      message: finalOrderStatus === 'pending'
-        ? 'Xác nhận đơn thành công! Đơn hàng đang ở trạng thái Đang chờ làm.'
-        : 'Thanh toán và hoàn thành đơn thành công!',
-      data: { invoiceNo, orderId, orderCode, subtotal, discount_total: calculatedDiscount, total, status: finalOrderStatus }
+      message: successMsg,
+      data: {
+        invoiceNo,
+        orderId,
+        orderCode,
+        subtotal,
+        discount_total: calculatedDiscount,
+        total,
+        status: finalOrderStatus,
+        pickup_time: effectivePickupDate,
+        pickup_display_label: pickupDisplayLabel,
+      }
     });
   } catch (err) {
     await conn.rollback();
@@ -1024,7 +1115,7 @@ const getMyOrders = async (req, res) => {
 
     const [orders] = await db.query(
       `SELECT o.id, o.code, o.order_type, o.status, o.payment_status, o.subtotal,
-              o.discount_total, o.total, o.opened_at, o.closed_at, o.note,
+              o.discount_total, o.total, o.opened_at, o.closed_at, o.pickup_time, o.note,
               t.code AS table_code,
               (
                 SELECT GROUP_CONCAT(CONCAT(oi.product_name, ' (', oi.size_name, ') x', oi.quantity) SEPARATOR ', ')

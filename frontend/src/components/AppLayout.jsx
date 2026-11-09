@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, ROLE_DEFINITIONS } from '../context/AuthContext';
+import api from '../api/axios';
+import socket from '../api/socket';
+import { playNotificationSound } from '../utils/sound';
 import toast from 'react-hot-toast';
 
 export default function AppLayout() {
@@ -9,6 +12,49 @@ export default function AppLayout() {
   const location = useLocation();
   const [timeStr, setTimeStr] = useState('');
   const [dateStr, setDateStr] = useState('');
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  const fetchPendingCount = async () => {
+    try {
+      const res = await api.get('/orders/all');
+      const list = res.data?.data || [];
+      const pending = list.filter((o) => ['pending', 'preparing', 'open'].includes(o.status));
+      setPendingOrdersCount(pending.length);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCount();
+
+    const handleNewOrder = (payload) => {
+      playNotificationSound();
+      toast.success(`🔔 CÓ ĐƠN HÀNG MỚI: #${payload?.orderCode || ''}!`, { duration: 6000 });
+      fetchPendingCount();
+    };
+
+    const handleUpdate = () => {
+      fetchPendingCount();
+    };
+
+    socket.on('order:created', handleNewOrder);
+    socket.on('barista:new_order', handleUpdate);
+    socket.on('order:status_updated', handleUpdate);
+    socket.on('barista:item_updated', handleUpdate);
+    socket.on('order:cancelled', handleUpdate);
+
+    const interval = setInterval(fetchPendingCount, 15000);
+
+    return () => {
+      clearInterval(interval);
+      socket.off('order:created', handleNewOrder);
+      socket.off('barista:new_order', handleUpdate);
+      socket.off('order:status_updated', handleUpdate);
+      socket.off('barista:item_updated', handleUpdate);
+      socket.off('order:cancelled', handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const updateClock = () => {
@@ -162,6 +208,23 @@ export default function AppLayout() {
           >
             <span>{tab.icon}</span>
             <span>{tab.label}</span>
+            {pendingOrdersCount > 0 && (tab.to === '/orders' || tab.to === '/barista') && (
+              <span
+                style={{
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.68rem',
+                  fontWeight: 900,
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  marginLeft: '4px',
+                  boxShadow: '0 0 8px rgba(239, 68, 68, 0.8)',
+                  display: 'inline-block'
+                }}
+              >
+                {pendingOrdersCount}
+              </span>
+            )}
           </NavLink>
         ))}
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import socket from '../api/socket';
+import { playNotificationSound } from '../utils/sound';
 import toast from 'react-hot-toast';
 
 const STATUS_CONFIG = {
@@ -15,6 +17,9 @@ export default function Tables() {
   const [data, setData] = useState({ tables: [], areas: [] });
   const [selectedArea, setSelectedArea] = useState('all');
   const [loading, setLoading] = useState(true);
+
+  // Danh sách đơn hàng đặt online / mang về đang chờ xử lý
+  const [onlineOrders, setOnlineOrders] = useState([]);
 
   // Modals state
   const [showReserveModal, setShowReserveModal] = useState(false);
@@ -44,10 +49,65 @@ export default function Tables() {
     }
   };
 
+  const loadOnlineOrders = async () => {
+    try {
+      const res = await api.get('/orders/all');
+      const list = res.data?.data || [];
+      const active = list.filter((o) =>
+        ['takeaway', 'dine_in'].includes(o.order_type) && ['scheduled', 'pending', 'preparing', 'open'].includes(o.status)
+      );
+      setOnlineOrders(active);
+    } catch (err) {
+      console.warn('Could not load online orders:', err);
+    }
+  };
+
+  const handleUpdateOnlineStatus = async (orderId, targetStatus) => {
+    try {
+      await api.put(`/orders/${orderId}/status`, { status: targetStatus });
+      toast.success(targetStatus === 'preparing' ? '☕ Đã chuyển sang: Đang pha chế' : '🔔 Đã chuyển sang: Pha xong & Trả món');
+      loadOnlineOrders();
+      loadTables();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi khi cập nhật trạng thái đơn');
+    }
+  };
+
   useEffect(() => {
     loadTables();
-    const interval = setInterval(loadTables, 10000); // Polling 10s
-    return () => clearInterval(interval);
+    loadOnlineOrders();
+
+    const handleNewOrder = (payload) => {
+      playNotificationSound();
+      toast.success(`🔔 CÓ ĐƠN HÀNG ONLINE MỚI: #${payload?.orderCode || ''}!`, { duration: 6000 });
+      loadTables();
+      loadOnlineOrders();
+    };
+
+    const handleSync = () => {
+      loadTables();
+      loadOnlineOrders();
+    };
+
+    socket.on('order:created', handleNewOrder);
+    socket.on('barista:new_order', handleSync);
+    socket.on('order:status_updated', handleSync);
+    socket.on('barista:item_updated', handleSync);
+    socket.on('order:cancelled', handleSync);
+
+    const interval = setInterval(() => {
+      loadTables();
+      loadOnlineOrders();
+    }, 10000);
+
+    return () => {
+      clearInterval(interval);
+      socket.off('order:created', handleNewOrder);
+      socket.off('barista:new_order', handleSync);
+      socket.off('order:status_updated', handleSync);
+      socket.off('barista:item_updated', handleSync);
+      socket.off('order:cancelled', handleSync);
+    };
   }, []);
 
   const tables = data.tables.filter((t) => selectedArea === 'all' || String(t.area_id) === String(selectedArea));
@@ -164,8 +224,8 @@ export default function Tables() {
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* 1. TOP HEADER & 4 LIVE KPI CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+      {/* 1. TOP HEADER & 5 LIVE KPI CARDS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
         <div className="mockup-panel" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '2.2rem' }}>🪑</span>
           <div>
@@ -213,7 +273,212 @@ export default function Tables() {
             </div>
           </div>
         </div>
+
+        <div
+          className="mockup-panel"
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            borderLeft: onlineOrders.length > 0 ? '4px solid #f59e0b' : '4px solid #10b981',
+            background: onlineOrders.length > 0 ? 'rgba(245, 158, 11, 0.12)' : undefined,
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            if (onlineOrders.length > 0) {
+              const el = document.getElementById('online-orders-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }
+          }}
+        >
+          <span style={{ fontSize: '2.2rem' }}>🛍️</span>
+          <div>
+            <div style={{ fontSize: '0.76rem', fontWeight: 700, color: onlineOrders.length > 0 ? '#fbbf24' : '#c4a482', textTransform: 'uppercase' }}>
+              ĐƠN ONLINE / MANG VỀ
+            </div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: onlineOrders.length > 0 ? '#f59e0b' : '#34d399' }}>
+              {onlineOrders.length} <span style={{ fontSize: '0.85rem', color: '#c4a482', fontWeight: 500 }}>Đơn chờ</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* 1.5. ĐƠN ĐẶT ONLINE & MANG VỀ (TỰ ĐỘNG ĐẨY ĐƠN TỪ KHÁCH HÀNG) */}
+      {onlineOrders.length > 0 ? (
+        <div
+          id="online-orders-section"
+          className="mockup-panel"
+          style={{
+            padding: '16px 20px',
+            border: '2px solid #d97706',
+            background: 'linear-gradient(135deg, rgba(42, 22, 11, 0.95), rgba(24, 13, 6, 0.95))',
+            borderRadius: '14px',
+            boxShadow: '0 8px 24px rgba(217, 119, 6, 0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.6rem' }}>🔔</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#fbbf24', fontWeight: 800 }}>
+                  ĐƠN ĐẶT ONLINE & MANG VỀ ĐANG CHỜ XỬ LÝ ({onlineOrders.length} ĐƠN)
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#d4b094' }}>
+                  Khách hàng vừa đặt trực tuyến qua website. Đơn tự động đồng bộ sang quầy pha chế & thu ngân.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => navigate('/orders')}
+              style={{ background: '#d97706', color: '#fff', fontWeight: 800, padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+            >
+              📋 Quản Lý Chi Tiết Tại List Đơn Hàng →
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
+            {onlineOrders.map((o) => {
+              const isScheduled = o.status === 'scheduled';
+              const isPending = o.status === 'pending' || o.status === 'open';
+              return (
+                <div
+                  key={o.id}
+                  style={{
+                    background: '#1c1008',
+                    border: isScheduled ? '1.5px solid #a855f7' : (isPending ? '1.5px solid #f59e0b' : '1.5px solid #38bdf8'),
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontWeight: 800, color: '#fbbf24', fontSize: '0.92rem' }}>
+                        #{o.code || o.invoice_no}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          background: isScheduled ? 'rgba(168, 85, 247, 0.2)' : (isPending ? 'rgba(245, 158, 11, 0.2)' : 'rgba(56, 189, 248, 0.2)'),
+                          color: isScheduled ? '#c084fc' : (isPending ? '#fbbf24' : '#38bdf8'),
+                          border: isScheduled ? '1px solid #a855f7' : (isPending ? '1px solid #f59e0b' : '1px solid #38bdf8'),
+                        }}
+                      >
+                        {isScheduled
+                          ? `🗓️ Hẹn: ${o.pickup_time ? String(o.pickup_time).replace('T', ' ').slice(11, 16) : 'Hẹn trước'}`
+                          : (isPending ? '⏳ Chờ pha chế' : '☕ Đang pha chế')}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', color: '#fef3c7', fontWeight: 700, marginBottom: '2px' }}>
+                      👤 {o.customer_name || 'Khách đặt online'} {o.customer_phone ? `(${o.customer_phone})` : ''}
+                    </div>
+
+                    {isScheduled && o.pickup_time && (
+                      <div style={{ fontSize: '0.74rem', color: '#e9d5ff', background: 'rgba(168, 85, 247, 0.15)', padding: '4px 8px', borderRadius: '6px', margin: '4px 0', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                        ⏰ Giờ hẹn nhận: <strong>{String(o.pickup_time).replace('T', ' ').slice(0, 16)}</strong>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '0.78rem', color: '#e5d5c5', margin: '6px 0', lineHeight: 1.35, maxHeight: '48px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      ☕ {o.items_summary || 'Món đang tải...'}
+                    </div>
+
+                    {o.note && (
+                      <div style={{ fontSize: '0.73rem', color: '#f87171', fontStyle: 'italic', marginBottom: '6px' }}>
+                        📝 Ghi chú: {o.note}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #382012', paddingTop: '6px', fontSize: '0.82rem' }}>
+                      <span style={{ color: '#a88265', fontWeight: 600 }}>Tổng tiền:</span>
+                      <span style={{ fontWeight: 900, color: '#fbbf24', fontSize: '0.98rem' }}>
+                        {fmt(o.total)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                    {isScheduled ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleUpdateOnlineStatus(o.id, 'preparing')}
+                        title="Khách đến sớm - Bắt đầu pha chế ngay"
+                        style={{ flex: 1, background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: '0.78rem', padding: '6px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        ☕ Pha chế sớm
+                      </button>
+                    ) : isPending ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleUpdateOnlineStatus(o.id, 'preparing')}
+                        style={{ flex: 1, background: '#d97706', color: '#fff', fontWeight: 700, fontSize: '0.78rem', padding: '6px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        ☕ Bắt đầu pha chế
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleUpdateOnlineStatus(o.id, 'done')}
+                        style={{ flex: 1, background: '#10b981', color: '#fff', fontWeight: 700, fontSize: '0.78rem', padding: '6px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        🔔 Pha xong & Trả món
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={() => navigate('/orders')}
+                      style={{ borderColor: '#5a341e', color: '#d4b094', fontWeight: 600, fontSize: '0.75rem', padding: '6px 10px', cursor: 'pointer' }}
+                    >
+                      Chi tiết
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div
+          className="mockup-panel"
+          style={{
+            padding: '10px 18px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '0.82rem',
+            color: '#c4a482',
+            borderLeft: '4px solid #10b981',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: '#10b981', fontSize: '1rem' }}>●</span>
+            <span><strong>Cổng Đặt Món Online:</strong> Trực tuyến sẵn sàng. Đơn hàng từ khách sẽ tự động đồng bộ ngay lập tức.</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            onClick={loadOnlineOrders}
+            style={{ borderColor: '#4a2c18', color: '#d4b094', fontSize: '0.76rem', padding: '3px 10px' }}
+          >
+            ↻ Làm mới
+          </button>
+        </div>
+      )}
 
       {/* 2. AREA FILTER & ACTION BAR */}
       <div

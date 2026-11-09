@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import socket from '../api/socket';
+import { playNotificationSound } from '../utils/sound';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +21,21 @@ const BANK_CONFIG = {
 // 3-step Coffee Shop Direct Sales Workflow Metadata
 // Khách thanh toán 100% tại quầy trước khi làm món -> Pha xong & Trả món là hoàn tất (Không cần thanh toán nữa)
 const STATUS_META = {
+  scheduled: {
+    key: 'scheduled',
+    label: '🗓️ Đã hẹn giờ',
+    short: 'Hẹn giờ',
+    badgeBg: 'rgba(168, 85, 247, 0.2)',
+    badgeColor: '#c084fc',
+    badgeBorder: 'rgba(168, 85, 247, 0.4)',
+    stepIndex: 0,
+    nextAction: {
+      label: '☕ Pha chế sớm',
+      status: 'preparing',
+      desc: 'Khách đến sớm - Bắt đầu pha chế đồ uống ngay',
+      bg: '#7c3aed',
+    },
+  },
   pending: {
     key: 'pending',
     label: '⏳ Đã TT • Chờ pha chế',
@@ -144,7 +160,7 @@ export default function Orders() {
   const canUpdateStatus = (targetStatus) => {
     if (userRole === 'admin') return true;
     if (userRole === 'cashier') {
-      return ['pending', 'open', 'done', 'served', 'paid', 'cancelled'].includes(targetStatus);
+      return ['scheduled', 'preparing', 'pending', 'open', 'done', 'served', 'paid', 'cancelled'].includes(targetStatus);
     }
     if (userRole === 'barista') {
       return ['preparing', 'done', 'served'].includes(targetStatus);
@@ -176,9 +192,13 @@ export default function Orders() {
     loadData(false);
 
     // Lắng nghe sự kiện thời gian thực từ Socket.IO
-    socket.on('order:created', () => {
+    const handleNewOrder = (data) => {
+      playNotificationSound();
+      toast.success(`🔔 Có đơn hàng mới: #${data?.orderCode || ''}!`, { duration: 5000 });
       loadData(true);
-    });
+    };
+
+    socket.on('order:created', handleNewOrder);
     socket.on('order:status_updated', () => {
       loadData(true);
     });
@@ -187,7 +207,7 @@ export default function Orders() {
     });
 
     return () => {
-      socket.off('order:created');
+      socket.off('order:created', handleNewOrder);
       socket.off('order:status_updated');
       socket.off('order:cancelled');
     };
@@ -261,7 +281,9 @@ export default function Orders() {
   // Filter orders
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all') {
-      if (statusFilter === 'pending') {
+      if (statusFilter === 'scheduled') {
+        if (o.status !== 'scheduled') return false;
+      } else if (statusFilter === 'pending') {
         if (!['pending', 'open'].includes(o.status)) return false;
       } else if (statusFilter === 'preparing') {
         if (o.status !== 'preparing') return false;
@@ -286,6 +308,7 @@ export default function Orders() {
 
   // Calculate status counts (Mô hình bán trực tiếp 3 bước)
   const countAll = orders.length;
+  const countScheduled = orders.filter((o) => o.status === 'scheduled').length;
   const countPending = orders.filter((o) => o.status === 'pending' || o.status === 'open').length;
   const countPreparing = orders.filter((o) => o.status === 'preparing').length;
   const countCompleted = orders.filter((o) => ['done', 'served', 'paid'].includes(o.status)).length;
@@ -345,6 +368,7 @@ export default function Orders() {
         >
           {[
             { id: 'all', label: 'Tất cả', count: countAll, icon: '📋' },
+            { id: 'scheduled', label: '🗓️ Hẹn giờ', count: countScheduled, icon: '🗓️', color: '#c084fc', bg: 'rgba(168, 85, 247, 0.2)' },
             { id: 'pending', label: '1. Chờ pha chế', count: countPending, icon: '⏳', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.2)' },
             { id: 'preparing', label: '2. Đang pha chế', count: countPreparing, icon: '☕', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)' },
             { id: 'completed', label: '3. Hoàn tất / Đã trả món', count: countCompleted, icon: '✅', color: '#34d399', bg: 'rgba(16, 185, 129, 0.2)' },
@@ -443,11 +467,24 @@ export default function Orders() {
                             color: o.table_code ? '#38bdf8' : '#fbbf24',
                             border: o.table_code ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(245, 158, 11, 0.3)',
                           }}>
-                            {o.table_code ? `🪑 ${o.table_code}` : '🛍️ Mang về'}
+                            {o.table_code ? `🪑 ${o.table_code}` : '🛍️ ĐƠN ONLINE (MANG VỀ)'}
                           </span>
                           <span style={{ fontSize: '0.66rem', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                             💵 Đã TT 100%
                           </span>
+                          {o.pickup_time && (
+                            <span style={{
+                              fontSize: '0.66rem',
+                              fontWeight: 800,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              background: 'rgba(168, 85, 247, 0.25)',
+                              color: '#c084fc',
+                              border: '1px solid rgba(168, 85, 247, 0.4)',
+                            }}>
+                              ⏰ Hẹn: {String(o.pickup_time).replace('T', ' ').slice(11, 16)} ({String(o.pickup_time).slice(8, 10)}/{String(o.pickup_time).slice(5, 7)})
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -671,6 +708,30 @@ export default function Orders() {
         </div>
 
         <div className="mockup-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Thông tin Hẹn giờ nhận hàng nếu có */}
+          {selectedOrder?.pickup_time && (
+            <div style={{
+              background: 'rgba(168, 85, 247, 0.15)',
+              border: '1.5px solid #a855f7',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.74rem', color: '#e9d5ff', fontWeight: 700 }}>🗓️ ĐƠN ĐẶT TRƯỚC HẸN GIỜ:</span>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#f5d0fe', marginTop: '2px' }}>
+                  ⏰ Giờ nhận hàng: {String(selectedOrder.pickup_time).replace('T', ' ').slice(0, 16)}
+                </div>
+              </div>
+              <span style={{ fontSize: '0.72rem', background: '#7c3aed', color: '#fff', padding: '3px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                {selectedOrder.status === 'scheduled' ? 'Tự chuyển trước 15p' : 'Đã chuyển pha chế'}
+              </span>
+            </div>
+          )}
+
           {/* 3 Steps Coffee Shop Business Logic Stepper (Mô hình trả tiền trước mới làm món) */}
           <div style={{ background: 'rgba(32, 20, 13, 0.75)', border: '1px solid rgba(245, 158, 11, 0.18)', borderRadius: '10px', padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

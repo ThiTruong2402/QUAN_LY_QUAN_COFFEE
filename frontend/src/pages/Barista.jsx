@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import socket from '../api/socket';
+import { playNotificationSound } from '../utils/sound';
 
 export default function Barista() {
   const [items, setItems] = useState([]);
@@ -16,8 +17,14 @@ export default function Barista() {
   useEffect(() => {
     load();
 
+    const handleNewOrder = () => {
+      playNotificationSound();
+      load();
+    };
+
     // Lắng nghe Socket.IO tức thì
-    socket.on('order:created', load);
+    socket.on('order:created', handleNewOrder);
+    socket.on('barista:new_order', load);
     socket.on('barista:item_updated', load);
     socket.on('order:status_updated', load);
     socket.on('order:cancelled', load);
@@ -26,7 +33,8 @@ export default function Barista() {
     const t = setInterval(load, 15000);
     return () => {
       clearInterval(t);
-      socket.off('order:created', load);
+      socket.off('order:created', handleNewOrder);
+      socket.off('barista:new_order', load);
       socket.off('barista:item_updated', load);
       socket.off('order:status_updated', load);
       socket.off('order:cancelled', load);
@@ -45,8 +53,11 @@ export default function Barista() {
   const renderItem = (item, actions) => (
     <div key={item.id} className="barista-item-card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-        <div className="barista-item-table">
-          {item.table_code ? `🪑 ${item.table_code}` : '🛍️ Mang về'}
+        <div
+          className="barista-item-table"
+          style={!item.table_code ? { background: 'rgba(217, 119, 6, 0.25)', border: '1px solid #d97706', color: '#fbbf24', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 } : {}}
+        >
+          {item.table_code ? `🪑 ${item.table_code}` : '🛍️ ĐƠN ONLINE (MANG VỀ)'}
         </div>
         <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
           #{item.order_code}
@@ -56,9 +67,11 @@ export default function Barista() {
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
         <div className="barista-item-name">
           {item.product_name}{' '}
-          <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 600 }}>
-            ({item.size_name || 'Size vừa'})
-          </span>
+          {item.size_name && ['S', 'M', 'L', 'XL'].includes(String(item.size_name).trim().toUpperCase()) && (
+            <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
+              (Size {item.size_name})
+            </span>
+          )}
         </div>
         <span
           style={{
