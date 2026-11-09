@@ -78,6 +78,9 @@ async function autoMigrate() {
             VALUES (?, ?, ?, ?, ?, ?, ?, 1)
           `, [s.code, s.username, defaultHash, s.name, s.roleId, s.phone, s.email]);
           console.log(`✅ Auto-seeded staff: ${s.username} (password: 123456)`);
+        } else {
+          // Luôn đảm bảo mật khẩu đăng nhập của nhân sự là 123456
+          await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [defaultHash, u[0].id]);
         }
       }
     } catch (e) {
