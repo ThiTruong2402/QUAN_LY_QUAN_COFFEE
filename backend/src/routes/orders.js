@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const c = require('../controllers/orderController');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, optionalAuthenticate, authorize } = require('../middleware/auth');
 
 // Danh sách đơn hàng
 router.get('/my-history', authenticate, c.getMyOrders);
@@ -8,8 +8,8 @@ router.get('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista',
 router.get('/all', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getAllOrders);
 router.get('/:id', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOne);
 
-// Tạo & bán đơn hàng tại quầy (POS) & Đặt món trực tuyến (Khách hàng Online)
-router.post('/direct-checkout', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse', 'customer'), c.directCheckout);
+// Tạo & bán đơn hàng tại quầy (POS) & Đặt món trực tuyến (Khách hàng Online & Khách vãng lai)
+router.post('/direct-checkout', optionalAuthenticate, c.directCheckout);
 router.post('/', authenticate, authorize('admin', 'cashier', 'waiter', 'barista', 'warehouse'), c.create);
 
 // Thao tác món & quầy

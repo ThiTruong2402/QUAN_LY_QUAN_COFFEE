@@ -18,6 +18,22 @@ const authenticate = (req, res, next) => {
   }
 };
 
+const optionalAuthenticate = (req, res, next) => {
+  const auth = req.headers['authorization'];
+  if (auth && auth.startsWith('Bearer ')) {
+    try {
+      const token = auth.split(' ')[1];
+      const decoded = verifyAccess(token);
+      if (decoded && decoded.id && decoded.role) {
+        req.user = decoded;
+      }
+    } catch {
+      // Khách vãng lai / token hết hạn vẫn cho phép đặt món trực tuyến
+    }
+  }
+  next();
+};
+
 const authorize = (...roles) => (req, res, next) => {
   if (!req.user || !req.user.role) {
     return res.status(401).json({ success: false, message: 'Chưa xác thực người dùng' });
@@ -33,4 +49,4 @@ const authorize = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { authenticate, authorize };
+module.exports = { authenticate, optionalAuthenticate, authorize };

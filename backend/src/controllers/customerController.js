@@ -14,7 +14,7 @@ const getAll = async (req, res) => {
       query += ' WHERE c.phone LIKE ? OR c.name LIKE ?';
       params.push(`%${search}%`, `%${search}%`);
     }
-    query += ' ORDER BY c.total_spent DESC';
+    query += ' ORDER BY c.id DESC';
 
     const [rows] = await db.query(query, params);
     const [tiers] = await db.query('SELECT * FROM membership_tiers ORDER BY min_spent');

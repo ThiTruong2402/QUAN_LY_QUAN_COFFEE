@@ -109,7 +109,10 @@ function RoleRoute({ allowedRoles, children }) {
       waiter: '/',
       warehouse: '/inventory',
       customer: '/customer',
-    }[user.role] || '/customer';
+    }[user.role] || '/login';
+    if (defaultRoute === window.location.pathname) {
+      return <Navigate to="/login" replace />;
+    }
     return <Navigate to={defaultRoute} replace />;
   }
   return children;
@@ -124,15 +127,8 @@ export default function App() {
           <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* Cổng Khách Hàng: Dành riêng cho tài khoản khách hàng & quản lý xem thử */}
-          <Route
-            path="/customer"
-            element={
-              <RoleRoute allowedRoles={['customer', 'admin']}>
-                <CustomerPortal />
-              </RoleRoute>
-            }
-          />
+          {/* Cổng Khách Hàng: Mở cho mọi khách hàng và ban quản lý (hỗ trợ cả khách vãng lai và thành viên) */}
+          <Route path="/customer" element={<CustomerPortal />} />
 
           <Route path="/" element={<AppLayout />}>
             {/* 1. Trang Chủ: Sơ đồ 20 bàn trực quan */}

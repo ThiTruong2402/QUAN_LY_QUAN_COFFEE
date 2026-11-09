@@ -665,11 +665,25 @@ const directCheckout = async (req, res) => {
     const normalizedOrderType = order_type === 'dine_in' ? 'dine_in' : 'takeaway';
     const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
 
-    const [orderRes] = await conn.query(
-      `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
-       VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt}, ?)`,
-      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1, effectivePickupDate]
-    );
+    let orderRes;
+    try {
+      [orderRes] = await conn.query(
+        `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
+         VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt}, ?)`,
+        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1, effectivePickupDate]
+      );
+    } catch (insErr) {
+      if (insErr.message?.includes('pickup_time')) {
+        // Fallback an toàn nếu database (như TiDB Cloud) chưa bổ sung cột pickup_time
+        [orderRes] = await conn.query(
+          `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at)
+           VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt})`,
+          [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1]
+        );
+      } else {
+        throw insErr;
+      }
+    }
     const orderId = orderRes.insertId;
 
     // Insert items with status 'pending' (Chờ pha chế), 'scheduled' (Hẹn giờ), or 'done'

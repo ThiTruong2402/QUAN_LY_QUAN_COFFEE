@@ -35,7 +35,12 @@ ALTER TABLE \`tables\` ADD COLUMN IF NOT EXISTS customer_count INT DEFAULT 0;
   const tables = ['categories', 'products', 'product_sizes', 'toppings', 'ingredients', 'recipes', 'promotions', 'areas', 'tables'];
 
   for (const t of tables) {
-    const [rows] = await localDb.query(`SELECT * FROM \`${t}\``);
+    let query = `SELECT * FROM \`${t}\``;
+    if (t === 'product_sizes') {
+      // Chỉ lấy các cột tiêu chuẩn của product_sizes để tương thích 100% với TiDB Cloud
+      query = 'SELECT `id`, `product_id`, `name`, `price`, `is_default` FROM `product_sizes`';
+    }
+    const [rows] = await localDb.query(query);
     console.log(`Table ${t}: ${rows.length} rows`);
     if (rows.length === 0) continue;
 

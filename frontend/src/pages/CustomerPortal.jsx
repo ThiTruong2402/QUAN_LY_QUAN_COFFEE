@@ -74,6 +74,8 @@ export default function CustomerPortal() {
   const [paymentMethod, setPaymentMethod] = useState('QR Banking'); // 'QR Banking' | 'Tiền mặt'
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [completedOrderModal, setCompletedOrderModal] = useState(null);
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
 
   // --- STATE GIỜ MỞ CỬA & HẸN GIỜ ĐẶT TRƯỚC (QUÁN ĐÓNG CỬA HOẶC KHÁCH CHỦ ĐỘNG HẸN) ---
   const [storeHours, setStoreHours] = useState({
@@ -226,16 +228,16 @@ export default function CustomerPortal() {
     return true;
   };
 
-  // Helper định dạng nhãn Size cho đồ uống chuẩn: "Size S", "Size M", "Size L" (tuyệt đối không hiển thị chỉ chữ "Size")
+  // Helper định dạng nhãn Size cho đồ uống chuẩn: "Size S", "Size M (Chuẩn)", "Size L (Lớn)" (tuyệt đối không hiển thị chỉ chữ "Size")
   const getDrinkSizeLabel = (s, idx) => {
     const raw = String(s?.name || s?.size || s?.size_name || '').trim().toUpperCase();
     if (raw === 'S' || raw === 'SIZE S') return 'Size S';
-    if (raw === 'M' || raw === 'SIZE M') return 'Size M';
-    if (raw === 'L' || raw === 'SIZE L') return 'Size L';
+    if (raw === 'M' || raw === 'SIZE M') return 'Size M (Chuẩn)';
+    if (raw === 'L' || raw === 'SIZE L') return 'Size L (Lớn)';
     if (raw === 'XL' || raw === 'SIZE XL') return 'Size XL';
     if (raw.startsWith('SIZE ') && raw.length > 5) return raw;
     if (['TIÊU CHUẨN', 'PHẦN', 'MẶC ĐỊNH', 'SIZE', ''].includes(raw)) {
-      return idx === 0 ? 'Size S' : (idx === 1 ? 'Size M' : 'Size L');
+      return idx === 0 ? 'Size S' : (idx === 1 ? 'Size M (Chuẩn)' : 'Size L (Lớn)');
     }
     return `Size ${raw}`;
   };
@@ -441,6 +443,18 @@ export default function CustomerPortal() {
       return;
     }
 
+    const customerName = (user?.full_name || guestName || '').trim();
+    const customerPhone = (user?.phone || user?.username || guestPhone || '').trim();
+
+    if (!customerName) {
+      toast.error('Vui lòng nhập họ và tên của bạn để quán chuẩn bị đồ uống!');
+      return;
+    }
+    if (!customerPhone || customerPhone.length < 9) {
+      toast.error('Vui lòng nhập số điện thoại hợp lệ (tối thiểu 9 số) để nhận thông báo đơn hàng!');
+      return;
+    }
+
     try {
       setSubmittingOrder(true);
       const chosenMethod = paymentMethod === 'Tiền mặt' ? 'cash' : 'bank_transfer';
@@ -455,8 +469,8 @@ export default function CustomerPortal() {
           quantity: it.quantity,
           note: it.note
         })),
-        customer_name: user?.full_name || 'Khách hàng',
-        customer_phone: user?.phone || user?.username,
+        customer_name: customerName,
+        customer_phone: customerPhone,
         payment_method: chosenMethod,
         discount: voucherDiscount + tierDiscount,
         tax: 0,
@@ -538,7 +552,7 @@ export default function CustomerPortal() {
     return matchCat && matchSearch;
   });
 
-  const customerPhone = user?.phone || user?.username || '0901234567';
+  const customerPhone = user?.phone || user?.username || guestPhone || '0901234567';
   const vietQrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.bin}-${BANK_CONFIG.accountNumberRaw}-compact2.png?amount=${finalTotal}&addInfo=${encodeURIComponent('MYCOFFEE ' + customerPhone)}&accountName=${encodeURIComponent(BANK_CONFIG.accountHolder)}`;
 
   return (
@@ -643,38 +657,59 @@ export default function CustomerPortal() {
                 👑 Bàn Quản Lý
               </button>
             )}
-            <button
-              onClick={() => { refreshUser(); loadOrderHistory(); toast.success('Đã cập nhật số điểm & đơn hàng!'); }}
-              style={{
-                background: '#2b170c',
-                border: '1px solid #5a341e',
-                color: '#fde68a',
-                padding: '7px 12px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              🔄 Cập nhật
-            </button>
-            <button
-              onClick={logout}
-              style={{
-                background: '#451a03',
-                border: '1px solid #78350f',
-                color: '#fca5a5',
-                padding: '7px 12px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 600
-              }}
-            >
-              Đăng xuất
-            </button>
+            {user ? (
+              <>
+                <button
+                  onClick={() => { refreshUser(); loadOrderHistory(); toast.success('Đã cập nhật số điểm & đơn hàng!'); }}
+                  style={{
+                    background: '#2b170c',
+                    border: '1px solid #5a341e',
+                    color: '#fde68a',
+                    padding: '7px 12px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  🔄 Cập nhật
+                </button>
+                <button
+                  onClick={logout}
+                  style={{
+                    background: '#451a03',
+                    border: '1px solid #78350f',
+                    color: '#fca5a5',
+                    padding: '7px 12px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600
+                  }}
+                >
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => navigate('/login')}
+                style={{
+                  background: '#15803d',
+                  border: '1px solid #22c55e',
+                  color: '#fff',
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                }}
+              >
+                🔐 Đăng nhập / Đăng ký
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1493,6 +1528,47 @@ export default function CustomerPortal() {
                       <span style={{ color: '#34d399', fontWeight: 800 }}>+{earnedPoints} điểm</span>
                     </div>
                   </div>
+
+                  {/* Thông tin khách hàng vãng lai (nếu chưa đăng nhập) */}
+                  {!user && (
+                    <div style={{
+                      background: 'rgba(217, 119, 6, 0.12)',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>👤 THÔNG TIN ĐẶT MÓN</span>
+                        <span
+                          style={{ fontSize: '0.7rem', color: '#38bdf8', cursor: 'pointer', textDecoration: 'underline' }}
+                          onClick={() => navigate('/login')}
+                        >
+                          Đăng nhập thành viên
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Họ và tên *"
+                          value={guestName}
+                          onChange={(e) => setGuestName(e.target.value)}
+                          style={{ padding: '6px 8px', fontSize: '0.78rem', background: '#190e07', border: '1px solid #5a341e', color: '#fff', borderRadius: '5px' }}
+                        />
+                        <input
+                          type="tel"
+                          className="form-input"
+                          placeholder="Số điện thoại *"
+                          value={guestPhone}
+                          onChange={(e) => setGuestPhone(e.target.value)}
+                          style={{ padding: '6px 8px', fontSize: '0.78rem', background: '#190e07', border: '1px solid #5a341e', color: '#fff', borderRadius: '5px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Các nút hành động */}
                   <div style={{ display: 'flex', gap: '8px' }}>
