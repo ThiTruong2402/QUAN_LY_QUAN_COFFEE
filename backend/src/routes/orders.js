@@ -18,8 +18,8 @@ router.post('/:id/send', authenticate, authorize('manager', 'cashier', 'waiter',
 router.post('/:id/cancel-item/:itemId', authenticate, authorize('manager', 'cashier'), c.cancelItem);
 
 // Luồng trạng thái & Hủy đơn
-router.put('/:id/status', authenticate, authorize('manager', 'cashier', 'barista', 'waiter'), c.updateStatus);
-router.put('/:id/cancel', authenticate, authorize('manager', 'cashier'), c.cancelOrder);
-router.post('/:id/pay', authenticate, authorize('manager', 'cashier', 'waiter', 'barista'), c.pay);
+router.put('/:id/status', authenticate, authorize('admin', 'manager', 'cashier', 'barista', 'waiter'), c.updateStatus);
+router.put('/:id/cancel', authenticate, authorize('admin', 'manager', 'cashier'), c.cancelOrder);
+router.post('/:id/pay', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista'), c.pay);
 
 module.exports = router;

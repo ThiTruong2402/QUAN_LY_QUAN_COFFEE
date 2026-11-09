@@ -881,6 +881,7 @@ const updateStatus = async (req, res) => {
 
     // State Machine: Kiểm tra luồng trạng thái hợp lệ
     const STATE_TRANSITIONS = {
+      scheduled: ['pending', 'preparing', 'cancelled'],
       open: ['pending', 'preparing'],
       pending: ['preparing', 'done', 'served', 'paid'],
       preparing: ['done', 'served', 'paid'],
@@ -891,7 +892,8 @@ const updateStatus = async (req, res) => {
       merged: [],
     };
     const allowedNext = STATE_TRANSITIONS[order.status] || [];
-    if (req.user?.role !== 'manager' && !allowedNext.includes(status)) {
+    const isAdminOrManager = ['admin', 'manager'].includes(req.user?.role);
+    if (!isAdminOrManager && !allowedNext.includes(status)) {
       await conn.rollback();
       return res.status(400).json({
         success: false,
@@ -913,7 +915,7 @@ const updateStatus = async (req, res) => {
       await conn.rollback();
       return res.status(401).json({ success: false, message: 'Chưa đăng nhập hoặc thiếu thông tin vai trò' });
     }
-    if (userRole === 'cashier') {
+    if (!isAdminOrManager && userRole === 'cashier') {
       if (['preparing'].includes(status)) {
         await conn.rollback();
         return res.status(403).json({
@@ -921,7 +923,7 @@ const updateStatus = async (req, res) => {
           message: 'Quyền hạn: Thu ngân chỉ xử lý tạo đơn & trả món! Bước Đang pha chế do quầy Barista phụ trách.',
         });
       }
-    } else if (userRole === 'barista') {
+    } else if (!isAdminOrManager && userRole === 'barista') {
       if (!['preparing', 'done', 'served'].includes(status)) {
         await conn.rollback();
         return res.status(403).json({
@@ -1048,12 +1050,12 @@ const cancelOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Đơn hàng này đã được hủy trước đó' });
     }
 
-    // Nghiệp vụ bảo vệ doanh thu: Đơn đã thanh toán bắt buộc phải là Quản Lý mới được phép hủy & hoàn tiền
-    if (order.payment_status === 'paid' && userRole !== 'manager') {
+    // Nghiệp vụ bảo vệ doanh thu: Đơn đã thanh toán bắt buộc phải là Quản Trị hoặc Quản Lý mới được phép hủy & hoàn tiền
+    if (order.payment_status === 'paid' && !['admin', 'manager'].includes(userRole)) {
       await conn.rollback();
       return res.status(403).json({
         success: false,
-        message: 'Đơn hàng đã thanh toán chỉ Quản Lý mới có quyền duyệt hủy đơn và hoàn tiền!',
+        message: 'Đơn hàng đã thanh toán chỉ Quản Lý hoặc Admin mới có quyền duyệt hủy đơn và hoàn tiền!',
       });
     }
 

@@ -158,7 +158,7 @@ export default function Orders() {
   // - Pha chế (Barista): Bước 2 (Đang pha chế) và Bước 3 (Pha xong & Trả món - Hoàn tất)
   // - Quản lý: Toàn quyền kiểm soát và điều phối ở cả 3 bước
   const canUpdateStatus = (targetStatus) => {
-    if (userRole === 'manager') return true;
+    if (userRole === 'admin' || userRole === 'manager') return true;
     if (userRole === 'cashier') {
       return ['scheduled', 'preparing', 'pending', 'open', 'done', 'served', 'paid', 'cancelled'].includes(targetStatus);
     }
@@ -883,11 +883,11 @@ export default function Orders() {
               fontWeight: 800,
               padding: '3px 10px',
               borderRadius: '6px',
-              background: 'rgba(245, 158, 11, 0.2)',
-              color: '#fbbf24',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
+              background: selectedOrder?.table_code ? 'rgba(56, 189, 248, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+              color: selectedOrder?.table_code ? '#38bdf8' : '#fbbf24',
+              border: selectedOrder?.table_code ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(245, 158, 11, 0.3)',
             }}>
-              ☕ Bán trực tiếp tại quầy
+              {selectedOrder?.table_code ? `🪑 Bán tại bàn (${selectedOrder.table_code})` : '🛍️ Đơn mang về (Online / POS)'}
             </span>
 
             <span style={{
@@ -1014,16 +1014,16 @@ export default function Orders() {
                 style={{ fontWeight: 700 }}
               >
                 {/* 3 Bước chuẩn quầy cà phê */}
-                {(userRole === 'manager' || userRole === 'cashier') && (
+                {(['admin', 'manager', 'cashier'].includes(userRole)) && (
                   <option value="pending">1. ⏳ Đã thanh toán • Chờ làm</option>
                 )}
-                {(userRole === 'manager' || userRole === 'barista') && (
+                {(['admin', 'manager', 'barista'].includes(userRole)) && (
                   <option value="preparing">2. ☕ Đang pha chế (Barista)</option>
                 )}
-                {(userRole === 'manager' || userRole === 'barista' || userRole === 'waiter' || userRole === 'cashier') && (
+                {(['admin', 'manager', 'barista', 'waiter', 'cashier'].includes(userRole)) && (
                   <option value="done">3. ✅ Đã pha xong &amp; Trả món (Hoàn tất)</option>
                 )}
-                {(userRole === 'manager' || userRole === 'cashier') && (
+                {(['admin', 'manager', 'cashier'].includes(userRole)) && (
                   <option value="cancelled">❌ Đã hủy đơn</option>
                 )}
               </select>
