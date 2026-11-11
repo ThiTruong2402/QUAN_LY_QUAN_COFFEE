@@ -514,7 +514,7 @@ export default function Barista() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '2rem' }}>🍹</span>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 900, color: '#fef3c7', letterSpacing: '0.5px' }}>
+            <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 900, color: '#fef3c7', letterSpacing: '0.5px', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
               MÀN HÌNH PHA CHẾ (KDS)
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', fontSize: '0.78rem', color: '#c4a482' }}>
