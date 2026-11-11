@@ -355,6 +355,19 @@ export default function Barista() {
               3. Trả món
             </div>
           </div>
+
+          {/* Các bước thao tác chuẩn hóa (Workflow steps) */}
+          {Array.isArray(item.workflow_steps) && item.workflow_steps.length > 0 && (
+            <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(245, 158, 11, 0.15)', fontSize: '0.72rem', color: '#e5d5c5' }}>
+              <div style={{ fontWeight: 800, color: '#fbbf24', marginBottom: '3px' }}>📋 Thao tác chuẩn:</div>
+              {item.workflow_steps.map((st, sIdx) => (
+                <div key={sIdx} style={{ display: 'flex', gap: '6px', alignItems: 'baseline', marginBottom: '2px' }}>
+                  <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: '0.68rem' }}>{sIdx + 1}.</span>
+                  <span style={{ color: '#d4b094' }}>{st}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 8. CÔNG THỨC & ĐỊNH LƯỢNG PHA CHẾ CHUẨN BARISTA */}
@@ -370,14 +383,14 @@ export default function Barista() {
               background: isExpanded ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.05)',
               border: '1px dashed rgba(245, 158, 11, 0.3)',
               borderRadius: '6px',
-              padding: '5px 10px',
-              fontSize: '0.74rem',
+              padding: '6px 10px',
+              fontSize: '0.76rem',
               color: '#fde68a',
               cursor: 'pointer',
               fontWeight: 700
             }}
           >
-            <span>📖 Công thức &amp; Định lượng {hasRecipe ? `(${item.recipe.length} NL)` : ''}</span>
+            <span>📖 Công thức &amp; Định lượng {hasRecipe ? `(${item.recipe.length} nguyên liệu)` : ''}</span>
             <span>{isExpanded ? '▲ Thu gọn' : '▼ Xem chi tiết'}</span>
           </button>
 
@@ -501,7 +514,7 @@ export default function Barista() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '2rem' }}>🍹</span>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800, color: '#fef3c7', fontFamily: "'Playfair Display', Georgia, serif" }}>
+            <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 900, color: '#fef3c7', letterSpacing: '0.5px' }}>
               MÀN HÌNH PHA CHẾ (KDS)
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', fontSize: '0.78rem', color: '#c4a482' }}>

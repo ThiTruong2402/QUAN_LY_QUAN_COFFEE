@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { logAudit } = require('../services/auditLogger');
 
 // GET /api/products
 const getAll = async (req, res) => {
@@ -106,6 +107,15 @@ const update = async (req, res) => {
         }
       }
     }
+
+    logAudit({
+      userId: req.user?.id || null,
+      action: 'UPDATE_PRODUCT',
+      entityType: 'PRODUCT',
+      entityId: id,
+      reason: `Cập nhật thông tin / đơn giá món ăn ID #${id} (${name || 'Không rõ tên'})`,
+      ipAddress: req.ip
+    });
 
     res.json({ success: true, message: 'Cập nhật thành công' });
   } catch (err) {

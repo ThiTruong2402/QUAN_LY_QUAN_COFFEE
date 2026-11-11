@@ -3,6 +3,9 @@ const { getVietnamDateString, getVietnamDateNumber } = require('../utils/date');
 const storeService = require('../services/storeSettingsService');
 const { logAudit } = require('../services/auditLogger');
 
+// In-memory idempotency & anti-spam lock (ngăn chặn race-condition, double-click / spam request liên tục trong 3s)
+const recentOrderLocks = new Map();
+
 // Helper: generate order code — dùng document_counters để tránh race condition và chuẩn múi giờ VN
 const genOrderCode = async (conn) => {
   const db = conn || require('../config/db');
@@ -68,6 +71,20 @@ const getOne = async (req, res) => {
       [req.params.id]
     );
     if (!orders.length) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn' });
+
+    // Bảo mật IDOR: Khách hàng chỉ được xem chi tiết đơn hàng của chính mình
+    if (req.user?.role === 'customer') {
+      const userPhone = req.user.phone || req.user.username;
+      const [custRows] = await db.query('SELECT id FROM customers WHERE phone = ? LIMIT 1', [userPhone]);
+      const customerId = custRows.length ? custRows[0].id : null;
+      const order = orders[0];
+      const isOwner = (order.created_by === req.user.id) ||
+                      (customerId && order.customer_id === customerId) ||
+                      (userPhone && order.recipient_phone === userPhone);
+      if (!isOwner) {
+        return res.status(403).json({ success: false, message: 'Bạn không có quyền xem thông tin đơn hàng của người khác!' });
+      }
+    }
 
     const [items] = await db.query(
       `SELECT oi.*, GROUP_CONCAT(CONCAT(oit.topping_name,'(',oit.quantity,')') SEPARATOR ', ') AS toppings_summary
@@ -456,14 +473,58 @@ const directCheckout = async (req, res) => {
     const effectivePhone = customer_phone || (req.user?.role === 'customer' ? (req.user.phone || req.user.username) : null);
     const effectiveName = customer_name || (req.user?.role === 'customer' ? req.user.full_name : 'Khách vãng lai');
 
+    // Chống spam / double-click tức thì (Idempotency in-memory lock chặn đứng race-condition)
+    if (effectivePhone) {
+      const lastTime = recentOrderLocks.get(effectivePhone);
+      const now = Date.now();
+      if (lastTime && now - lastTime < 3000) {
+        await conn.rollback();
+        return res.status(429).json({
+          success: false,
+          message: 'Bạn đang thao tác quá nhanh! Vui lòng chờ ít giây trước khi thực hiện đơn mới.'
+        });
+      }
+      recentOrderLocks.set(effectivePhone, now);
+      if (recentOrderLocks.size > 500) {
+        for (const [p, t] of recentOrderLocks.entries()) {
+          if (now - t > 10000) recentOrderLocks.delete(p);
+        }
+      }
+    }
+
     let customerId = null;
     if (effectivePhone) {
       const [cRows] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
       if (cRows.length) {
         customerId = cRows[0].id;
       } else {
-        const [newC] = await conn.query('INSERT INTO customers (phone, name) VALUES (?, ?)', [effectivePhone, effectiveName]);
-        customerId = newC.insertId;
+        try {
+          const [newC] = await conn.query('INSERT INTO customers (phone, name) VALUES (?, ?)', [effectivePhone, effectiveName]);
+          customerId = newC.insertId;
+        } catch (cErr) {
+          if (cErr.code === 'ER_DUP_ENTRY' || cErr.errno === 1062) {
+            const [reQuery] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
+            if (reQuery.length) customerId = reQuery[0].id;
+          } else {
+            throw cErr;
+          }
+        }
+      }
+
+      // Chống spam đặt đơn trùng lặp liên tục (Anti-spam / Idempotency protection trong vòng 3 giây)
+      const [dupRows] = await conn.query(
+        `SELECT id, code FROM orders 
+         WHERE (customer_id = ? OR recipient_phone = ?) 
+           AND opened_at >= DATE_SUB(NOW(), INTERVAL 3 SECOND)
+         LIMIT 1`,
+        [customerId, effectivePhone]
+      );
+      if (dupRows.length) {
+        await conn.rollback();
+        return res.status(429).json({
+          success: false,
+          message: 'Bạn đang thao tác quá nhanh! Vui lòng chờ ít giây trước khi thực hiện đơn mới.'
+        });
       }
     }
 
@@ -657,6 +718,9 @@ const directCheckout = async (req, res) => {
           await conn.rollback();
           return res.status(400).json({ success: false, message: `Mã ${cleanCode} yêu cầu đơn tối thiểu ${minOrder.toLocaleString('vi-VN')} đ` });
         }
+      } else {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: `Mã khuyến mãi "${cleanCode}" không tồn tại hoặc đã hết hạn áp dụng!` });
       }
     }
 

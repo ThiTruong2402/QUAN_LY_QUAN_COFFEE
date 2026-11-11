@@ -32,18 +32,25 @@ const create = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Tên đăng nhập đã tồn tại' });
     }
 
+    let targetRoleId = role_id;
+    if (!targetRoleId && req.body.role) {
+      const [rRows] = await db.query('SELECT id FROM roles WHERE name = ?', [req.body.role]);
+      if (rRows.length) targetRoleId = rRows[0].id;
+    }
+    if (!targetRoleId) targetRoleId = 2;
+
     // Nghiệp vụ: Quản lý chỉ được tạo nhân viên vận hành, không được tạo Admin hoặc Quản lý khác
     if (req.user?.role === 'manager') {
-      const [roleInfo] = await db.query('SELECT name FROM roles WHERE id = ?', [role_id || 2]);
+      const [roleInfo] = await db.query('SELECT name FROM roles WHERE id = ?', [targetRoleId]);
       if (roleInfo.length && ['admin', 'manager'].includes(roleInfo[0].name)) {
-        return res.status(403).json({ success: false, message: 'Quản lý chỉ có quyền tạo tài khoản nhân viên (Thu ngân, Pha chế, Phục vụ, Thủ kho)!' });
+        return res.status(403).json({ success: false, message: 'Quản lý chỉ có quyền tạo tài khoản nhân viên (Thu ngân, Pha chế, Phục vụ, Thủ kho), không được tạo Admin hoặc Quản lý!' });
       }
     }
 
     const hash = await bcrypt.hash(password, 10);
     const [result] = await db.query(
       'INSERT INTO users (code, username, password_hash, full_name, birthday, gender, email, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
-      [code || null, username, hash, full_name, birthday || null, gender || 'Nam', email || null, phone || null, role_id || 2]
+      [code || null, username, hash, full_name, birthday || null, gender || 'Nam', email || null, phone || null, targetRoleId]
     );
 
     logAudit({
@@ -51,7 +58,7 @@ const create = async (req, res) => {
       action: 'CREATE_STAFF',
       entityType: 'USER',
       entityId: result.insertId,
-      reason: `Tạo tài khoản nhân sự [${username}] (${full_name}), vai trò ID: ${role_id}`,
+      reason: `Tạo tài khoản nhân sự [${username}] (${full_name}), vai trò ID: ${targetRoleId}`,
       ipAddress: req.ip
     });
 
@@ -74,6 +81,22 @@ const update = async (req, res) => {
     // Bảo mật: Không cho phép Admin tự vô hiệu hóa tài khoản của chính mình
     if (Number(id) === req.user?.id && Number(is_active) === 0) {
       return res.status(400).json({ success: false, message: 'Không thể tự vô hiệu hóa tài khoản quản trị đang đăng nhập!' });
+    }
+
+    // Bảo mật: Không cho phép vô hiệu hóa tài khoản Admin cuối cùng
+    if (is_active !== undefined && Number(is_active) === 0) {
+      const [targetRows] = await db.query(
+        'SELECT u.role_id, r.name as role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?',
+        [id]
+      );
+      if (targetRows.length && targetRows[0].role_name === 'admin') {
+        const [adminCount] = await db.query(
+          'SELECT COUNT(*) as count FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = "admin" AND u.is_active = 1'
+        );
+        if (adminCount[0].count <= 1) {
+          return res.status(400).json({ success: false, message: 'Không thể vô hiệu hóa hoặc khóa tài khoản Quản trị viên (Admin) cuối cùng của hệ thống!' });
+        }
+      }
     }
 
     // Nghiệp vụ: Quản lý không được sửa tài khoản Admin và không được thăng cấp lên Admin/Quản lý
@@ -128,6 +151,20 @@ const remove = async (req, res) => {
     const { id } = req.params;
     if (Number(id) === req.user?.id) {
       return res.status(400).json({ success: false, message: 'Không thể xóa tài khoản của chính mình đang đăng nhập' });
+    }
+
+    // Chặn xóa tài khoản Admin cuối cùng
+    const [targetRows] = await db.query(
+      'SELECT u.role_id, r.name as role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?',
+      [id]
+    );
+    if (targetRows.length && targetRows[0].role_name === 'admin') {
+      const [adminCount] = await db.query(
+        'SELECT COUNT(*) as count FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = "admin" AND u.is_active = 1'
+      );
+      if (adminCount[0].count <= 1) {
+        return res.status(400).json({ success: false, message: 'Không thể xóa hoặc vô hiệu hóa tài khoản Quản trị viên (Admin) cuối cùng của hệ thống!' });
+      }
     }
     // Soft delete: chuyển sang trạng thái Nghỉ việc (is_active = 0) để tránh vỡ FK và lưu trữ lịch sử
     await db.query('UPDATE users SET is_active = 0 WHERE id = ?', [id]);

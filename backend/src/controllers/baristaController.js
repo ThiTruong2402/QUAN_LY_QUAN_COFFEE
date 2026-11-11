@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 // GET /api/barista/queue
-// Lấy hàng đợi pha chế chi tiết kèm công thức, khách hàng, kênh bán, giờ hẹn, phân loại đồ uống vs đồ đóng gói
+// Lấy hàng đợi pha chế chi tiết kèm công thức, quy trình chuẩn hóa, khách hàng, kênh bán, phân loại đồ uống vs đồ đóng gói
 const getQueue = async (req, res) => {
   try {
     const [items] = await db.query(
@@ -16,6 +16,8 @@ const getQueue = async (req, res) => {
               o.payment_status,
               COALESCE(c.name, 'Khách vãng lai') AS customer_name,
               COALESCE(c.phone, o.recipient_phone, '') AS customer_phone,
+              p.category_id,
+              cat.name AS category_name,
               GROUP_CONCAT(DISTINCT CONCAT(oit.topping_name, '×', oit.quantity) SEPARATOR ', ') AS toppings
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
@@ -23,6 +25,9 @@ const getQueue = async (req, res) => {
        LEFT JOIN areas a ON a.id = t.area_id
        LEFT JOIN customers c ON c.id = o.customer_id
        LEFT JOIN order_item_toppings oit ON oit.order_item_id = oi.id
+       LEFT JOIN product_sizes ps ON ps.id = oi.product_size_id
+       LEFT JOIN products p ON p.id = ps.product_id
+       LEFT JOIN categories cat ON cat.id = p.category_id
        WHERE oi.status IN ('pending', 'preparing', 'done')
          AND o.status NOT IN ('cancelled', 'scheduled')
        GROUP BY oi.id 
@@ -65,11 +70,49 @@ const getQueue = async (req, res) => {
 
     const enrichedItems = items.map(it => {
       const rec = recipeMap[it.product_size_id] || [];
+      const catId = Number(it.category_id);
+      // Đồ đóng gói lấy liền chỉ áp dụng cho nhóm Đồ ăn vặt & Hạt (category_id = 9)
+      const isPackaged = catId === 9 || (String(it.category_name || '').includes('ăn vặt') || String(it.category_name || '').includes('Hạt'));
+
+      // Quy trình chuẩn hóa barista theo chủng loại món
+      let steps = [];
+      if (isPackaged) {
+        steps = [
+          'Lấy gói/hũ sản phẩm từ quầy trưng bày',
+          'Kiểm tra hạn sử dụng và tem niêm phong',
+          'Giao trực tiếp cho khách hoặc nhân viên phục vụ'
+        ];
+      } else if (catId === 4 || String(it.category_name || '').includes('Bánh')) {
+        steps = [
+          'Lấy bánh từ tủ mát bảo quản',
+          'Hâm nóng bằng lò vi sóng/nướng 30-45 giây (nếu có yêu cầu)',
+          'Đặt lên đĩa trang trí và kèm nĩa thìa phục vụ'
+        ];
+      } else if (catId === 1 || String(it.category_name || '').includes('Cà phê')) {
+        steps = [
+          'Xay và chiết xuất espresso theo định lượng chuẩn',
+          'Đánh sữa / phối trộn đường sữa theo ghi chú khách',
+          'Thêm đá, rót ly và đậy nắp / dán màng ly mang về'
+        ];
+      } else if (catId === 2 || String(it.category_name || '').includes('Trà')) {
+        steps = [
+          'Đong cốt trà nền và siro theo công thức',
+          'Lắc đều với đá lạnh trong bình shaker',
+          'Thêm topping (nếu có), rót ly và cắm ống hút'
+        ];
+      } else {
+        steps = [
+          'Kiểm tra định lượng nguyên liệu theo công thức',
+          'Pha chế / xay nhuyễn theo công thức chuẩn',
+          'Decor topping và bàn giao tại quầy xuất món'
+        ];
+      }
+
       return {
         ...it,
         recipe: rec,
-        // Nếu món không có công thức định lượng (đồ ăn vặt, snack đóng gói có sẵn lấy liền)
-        is_packaged: rec.length === 0
+        is_packaged: isPackaged,
+        workflow_steps: steps
       };
     });
 

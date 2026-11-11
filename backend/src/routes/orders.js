@@ -6,7 +6,7 @@ const { authenticate, optionalAuthenticate, authorize } = require('../middleware
 router.get('/my-history', authenticate, c.getMyOrders);
 router.get('/', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOpen);
 router.get('/all', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista', 'warehouse'), c.getAllOrders);
-router.get('/:id', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista', 'warehouse'), c.getOne);
+router.get('/:id', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista', 'warehouse', 'customer'), c.getOne);
 
 // Tạo & bán đơn hàng tại quầy (POS) & Đặt món trực tuyến (Khách hàng Online & Khách vãng lai)
 router.post('/direct-checkout', optionalAuthenticate, c.directCheckout);

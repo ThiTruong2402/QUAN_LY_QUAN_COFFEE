@@ -57,6 +57,9 @@ const getStoreSettings = async () => {
       else if (r.key === 'auto_dispatch_before_minutes') config.auto_dispatch_before_minutes = parseInt(r.value, 10) || 15;
       else if (r.key === 'max_advance_days') config.max_advance_days = parseInt(r.value, 10) || 2;
     }
+    // Aliases for camelCase
+    config.openTime = config.open_time;
+    config.closeTime = config.close_time;
     return config;
   } catch (err) {
     console.warn('Could not read store_settings from DB, using defaults:', err.message);
@@ -66,10 +69,24 @@ const getStoreSettings = async () => {
 
 // Cập nhật cấu hình
 const updateStoreSettings = async (settingsObj) => {
+  const normalized = { ...settingsObj };
+  if (normalized.openTime !== undefined && normalized.open_time === undefined) {
+    normalized.open_time = normalized.openTime;
+  }
+  if (normalized.closeTime !== undefined && normalized.close_time === undefined) {
+    normalized.close_time = normalized.closeTime;
+  }
+  if (normalized.minLeadTimeMinutes !== undefined && normalized.min_lead_time_minutes === undefined) {
+    normalized.min_lead_time_minutes = normalized.minLeadTimeMinutes;
+  }
+  if (normalized.slotStepMinutes !== undefined && normalized.slot_step_minutes === undefined) {
+    normalized.slot_step_minutes = normalized.slotStepMinutes;
+  }
+
   const allowed = ['open_time', 'close_time', 'slot_step_minutes', 'min_lead_time_minutes', 'auto_dispatch_before_minutes', 'max_advance_days'];
   for (const key of allowed) {
-    if (settingsObj[key] !== undefined) {
-      await db.query('INSERT INTO store_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)', [key, String(settingsObj[key])]);
+    if (normalized[key] !== undefined) {
+      await db.query('INSERT INTO store_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)', [key, String(normalized[key])]);
     }
   }
   return await getStoreSettings();
