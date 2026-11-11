@@ -192,6 +192,17 @@ export default function CustomerPortal() {
     }
   };
 
+  const handleCancelCustomerOrder = async (orderId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return;
+    try {
+      await api.put(`/orders/${orderId}/cancel`, { cancel_reason: 'Khách tự hủy đơn trên cổng online' });
+      toast.success('Đã hủy đơn hàng thành công!');
+      await loadOrderHistory();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi khi hủy đơn');
+    }
+  };
+
   // Helper kiểm tra món là đồ uống (có size S, M, L) hay đồ ăn nhanh / điểm tâm (không có chữ size)
   const isDrinkProduct = (product) => {
     if (!product) return false;
@@ -374,11 +385,11 @@ export default function CustomerPortal() {
   // Giảm giá theo hạng thành viên (nếu có đặc quyền)
   const tierDiscount = discountPct > 0 ? Math.round(((totalAmount - voucherDiscount) * discountPct) / 100) : 0;
 
-  // Dùng điểm tích lũy
+  // Dùng điểm tích lũy (Chuẩn thống nhất hệ thống: 1 điểm = 1.000 đ)
   const subtotalAfterPromo = Math.max(0, totalAmount - voucherDiscount - tierDiscount);
-  const maxRedeemablePoints = Math.min(currentPoints, Math.floor(subtotalAfterPromo / 100));
+  const maxRedeemablePoints = Math.min(currentPoints, Math.floor(subtotalAfterPromo / 1000));
   const effectivePointsRedeemed = usePoints ? maxRedeemablePoints : 0;
-  const pointsDiscount = effectivePointsRedeemed * 100;
+  const pointsDiscount = effectivePointsRedeemed * 1000;
 
   // Thành tiền cuối cùng
   const finalTotal = Math.max(0, subtotalAfterPromo - pointsDiscount);
@@ -1837,11 +1848,11 @@ export default function CustomerPortal() {
                               fontSize: '0.72rem',
                               padding: '3px 8px',
                               borderRadius: '10px',
-                              background: o.payment_status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: o.payment_status === 'paid' ? '#34d399' : '#f87171',
-                              border: `1px solid ${o.payment_status === 'paid' ? '#10b981' : '#ef4444'}`
+                              background: o.payment_status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                              color: o.payment_status === 'paid' ? '#34d399' : '#fbbf24',
+                              border: `1px solid ${o.payment_status === 'paid' ? '#10b981' : '#f59e0b'}`
                             }}>
-                              {o.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                              {o.payment_status === 'paid' ? 'Đã thanh toán' : 'Chờ xác nhận chuyển khoản'}
                             </span>
                           </div>
 
@@ -1891,12 +1902,30 @@ export default function CustomerPortal() {
                           </div>
                         )}
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#a8a29e' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#a8a29e', flexWrap: 'wrap', gap: '8px' }}>
                           <div>
                             🕒 {new Date(o.opened_at).toLocaleString('vi-VN')}
                           </div>
-                          <div>
-                            ☕ Cốc đóng sẵn mang về / tại quán
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {['scheduled', 'pending'].includes(o.status) && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelCustomerOrder(o.id)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#f87171',
+                                  border: '1px solid #ef4444',
+                                  borderRadius: '6px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ❌ Hủy đơn này
+                              </button>
+                            )}
+                            <span>☕ Cốc đóng sẵn mang về / tại quán</span>
                           </div>
                         </div>
                       </div>

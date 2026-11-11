@@ -109,12 +109,7 @@ export default function AppLayout() {
     return <Navigate to="/customer" replace />;
   }
 
-  // Admin vào trang chủ `/` sẽ được chuyển thẳng sang trang Phân quyền tài khoản
-  if (location.pathname === '/' && currentRole === 'admin') {
-    return <Navigate to="/accounts" replace />;
-  }
-
-  if (location.pathname === '/' && !['manager', 'cashier', 'waiter', 'barista'].includes(currentRole)) {
+  if (location.pathname === '/' && !['admin', 'manager', 'cashier', 'waiter', 'barista'].includes(currentRole)) {
     return <Navigate to={roleDefaultPath} replace />;
   }
 
@@ -130,24 +125,27 @@ export default function AppLayout() {
   };
   const currentShift = getCurrentShift();
 
-  // 1. ROLE-BASED ACCESS CONTROL (RBAC) TABS DEFINITION: Tách riêng Admin và Quản lý
+  // 1. ROLE-BASED ACCESS CONTROL (RBAC) TABS DEFINITION: Ma trận phân quyền chuẩn
   const ALL_TABS = [
-    // Quản lý & Nhân viên vận hành quán
-    { to: '/', label: 'TRANG CHỦ (BÀN)', icon: '🪑', roles: ['manager', 'cashier', 'waiter', 'barista'] },
-    { to: '/pos', label: 'ĐƠN HÀNG (POS)', icon: '🛒', roles: ['manager', 'cashier', 'waiter'] },
-    { to: '/orders', label: 'LIST ĐƠN HÀNG', icon: '📋', roles: ['manager', 'cashier', 'barista', 'waiter'] },
-    { to: '/barista', label: 'PHA CHẾ (KDS)', icon: '🍹', roles: ['manager', 'barista'] },
-    { to: '/menu', label: 'MENU & CÔNG THỨC', icon: '☕', roles: ['manager', 'cashier', 'barista', 'waiter', 'warehouse'] },
-    { to: '/shifts', label: 'CA TRỰC', icon: '📅', roles: ['manager', 'cashier', 'barista', 'waiter', 'warehouse'] },
-    { to: '/inventory', label: 'KHO', icon: '📦', roles: ['manager', 'warehouse'] },
-    { to: '/reports', label: 'THỐNG KÊ', icon: '📈', roles: ['manager', 'warehouse', 'cashier'] },
+    // Vận hành quán & Bán hàng trực tiếp
+    { to: '/', label: 'TRANG CHỦ (BÀN)', icon: '🪑', roles: ['admin', 'manager', 'cashier', 'waiter', 'barista'] },
+    { to: '/pos', label: 'ĐƠN HÀNG (POS)', icon: '🛒', roles: ['admin', 'manager', 'cashier', 'waiter'] },
+    { to: '/orders', label: 'LIST ĐƠN HÀNG', icon: '📋', roles: ['admin', 'manager', 'cashier', 'barista', 'waiter'] },
+    { to: '/barista', label: 'PHA CHẾ (KDS)', icon: '🍹', roles: ['admin', 'manager', 'barista'] },
+    { to: '/menu', label: 'MENU & CÔNG THỨC', icon: '☕', roles: ['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse'] },
+    { to: '/shifts', label: 'CA TRỰC', icon: '📅', roles: ['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse'] },
+    { to: '/inventory', label: 'KHO', icon: '📦', roles: ['admin', 'manager', 'warehouse', 'barista', 'cashier'] },
+    { to: '/reports', label: 'THỐNG KÊ', icon: '📈', roles: ['admin', 'manager'] },
 
-    // Dành riêng cho Admin (Phân quyền & Theo dõi hoạt động)
-    { to: '/accounts', label: 'PHÂN QUYỀN TÀI KHOẢN', icon: '👥', roles: ['admin'] },
+    // Quản lý tài khoản: Admin (toàn quyền) & Quản lý (chỉ nhân viên)
+    { to: '/accounts', label: 'QUẢN LÝ TÀI KHOẢN', icon: '👥', roles: ['admin', 'manager'] },
+
+    // Dành riêng cho Admin (Chủ quán / Quản trị hệ thống)
     { to: '/audit-logs', label: 'THEO DÕI HOẠT ĐỘNG', icon: '🛡️', roles: ['admin'] },
+    { to: '/settings', label: 'CẤU HÌNH HỆ THỐNG', icon: '⚙️', roles: ['admin'] },
 
-    // Cổng khách (Dành cho Quản lý & Admin kiểm tra giao diện khách)
-    { to: '/customer', label: 'CỔNG KHÁCH', icon: '🌟', roles: ['admin', 'manager'] },
+    // Cổng khách (Dành cho Quản lý & Nhân viên hỗ trợ khách)
+    { to: '/customer', label: 'CỔNG KHÁCH', icon: '🌟', roles: ['admin', 'manager', 'cashier', 'waiter'] },
   ];
 
   // Filter tabs allowed for current user role

@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const { getStoreSettings } = require('./storeSettingsService');
+const { getStoreSettings, getVietnamNow } = require('./storeSettingsService');
 
 let schedulerInterval = null;
 
@@ -7,6 +7,18 @@ const checkAndDispatchScheduledOrders = async (io) => {
   try {
     const config = await getStoreSettings();
     const leadMinutes = parseInt(config.auto_dispatch_before_minutes, 10) || 15;
+
+    // Tính thời gian ngưỡng điều phối theo múi giờ Việt Nam (UTC+7)
+    // Tránh lệch múi giờ giữa Database UTC và giờ hiển thị Việt Nam
+    const vnNow = getVietnamNow();
+    const thresholdDate = new Date(vnNow.getTime() + leadMinutes * 60 * 1000);
+    const yyyy = thresholdDate.getFullYear();
+    const mm = String(thresholdDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(thresholdDate.getDate()).padStart(2, '0');
+    const hh = String(thresholdDate.getHours()).padStart(2, '0');
+    const mi = String(thresholdDate.getMinutes()).padStart(2, '0');
+    const ss = String(thresholdDate.getSeconds()).padStart(2, '0');
+    const thresholdStr = `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 
     // Tìm các đơn đặt trước (SCHEDULED) đã đến gần giờ nhận (còn <= leadMinutes phút)
     const [ordersToDispatch] = await db.query(
@@ -21,8 +33,8 @@ const checkAndDispatchScheduledOrders = async (io) => {
        LEFT JOIN invoices inv ON inv.order_id = o.id
        WHERE o.status = 'scheduled'
          AND o.pickup_time IS NOT NULL
-         AND o.pickup_time <= DATE_ADD(NOW(), INTERVAL ? MINUTE)`,
-      [leadMinutes]
+         AND o.pickup_time <= ?`,
+      [thresholdStr]
     );
 
     if (!ordersToDispatch || ordersToDispatch.length === 0) return;

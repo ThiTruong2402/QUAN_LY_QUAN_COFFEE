@@ -32,6 +32,14 @@ const create = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Tên đăng nhập đã tồn tại' });
     }
 
+    // Nghiệp vụ: Quản lý chỉ được tạo nhân viên vận hành, không được tạo Admin hoặc Quản lý khác
+    if (req.user?.role === 'manager') {
+      const [roleInfo] = await db.query('SELECT name FROM roles WHERE id = ?', [role_id || 2]);
+      if (roleInfo.length && ['admin', 'manager'].includes(roleInfo[0].name)) {
+        return res.status(403).json({ success: false, message: 'Quản lý chỉ có quyền tạo tài khoản nhân viên (Thu ngân, Pha chế, Phục vụ, Thủ kho)!' });
+      }
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const [result] = await db.query(
       'INSERT INTO users (code, username, password_hash, full_name, birthday, gender, email, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
@@ -66,6 +74,23 @@ const update = async (req, res) => {
     // Bảo mật: Không cho phép Admin tự vô hiệu hóa tài khoản của chính mình
     if (Number(id) === req.user?.id && Number(is_active) === 0) {
       return res.status(400).json({ success: false, message: 'Không thể tự vô hiệu hóa tài khoản quản trị đang đăng nhập!' });
+    }
+
+    // Nghiệp vụ: Quản lý không được sửa tài khoản Admin và không được thăng cấp lên Admin/Quản lý
+    if (req.user?.role === 'manager') {
+      const [targetRows] = await db.query(
+        'SELECT u.role_id, r.name as role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?',
+        [id]
+      );
+      if (targetRows.length && ['admin', 'manager'].includes(targetRows[0].role_name)) {
+        return res.status(403).json({ success: false, message: 'Quản lý không có quyền chỉnh sửa tài khoản Admin hoặc Quản lý!' });
+      }
+      if (role_id) {
+        const [newRoleRows] = await db.query('SELECT name FROM roles WHERE id = ?', [role_id]);
+        if (newRoleRows.length && ['admin', 'manager'].includes(newRoleRows[0].name)) {
+          return res.status(403).json({ success: false, message: 'Quản lý không có quyền thăng cấp tài khoản lên Admin hoặc Quản lý!' });
+        }
+      }
     }
 
     let query = 'UPDATE users SET code = COALESCE(?, code), full_name = ?, birthday = ?, gender = ?, email = ?, phone = ?, role_id = COALESCE(?, role_id), is_active = COALESCE(?, is_active)';

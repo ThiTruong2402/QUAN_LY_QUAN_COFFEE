@@ -10,6 +10,7 @@ export default function Accounts() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const canManageStaff = ['admin', 'manager'].includes(user?.role);
   const [activeTab, setActiveTab] = useState('staff'); // 'staff' | 'customers' | 'promotions'
 
   // STAFF STATE
@@ -58,13 +59,19 @@ export default function Accounts() {
 
   // Load Data based on active tab
   const loadStaff = async () => {
-    if (!isAdmin) return;
+    if (!canManageStaff) return;
     try {
       const res = await api.get('/staff');
-      setUsers(res.data.data.users || []);
-      setRoles(res.data.data.roles || []);
-      if (res.data.data.users?.length > 0 && !selectedUser) {
-        selectStaffRow(res.data.data.users[0]);
+      let userList = res.data.data.users || [];
+      let roleList = res.data.data.roles || [];
+      if (!isAdmin) {
+        userList = userList.filter((u) => u.role !== 'admin');
+        roleList = roleList.filter((r) => !['admin', 'manager'].includes(r.name));
+      }
+      setUsers(userList);
+      setRoles(roleList);
+      if (userList.length > 0 && !selectedUser) {
+        selectStaffRow(userList[0]);
       }
     } catch {
       toast.error('Lỗi tải dữ liệu nhân viên');
@@ -98,14 +105,14 @@ export default function Accounts() {
 
   // Initial load
   useEffect(() => {
-    if (isAdmin) {
+    if (canManageStaff) {
       loadStaff();
     } else {
       setActiveTab('customers');
     }
     loadCustomers();
     loadPromotions();
-  }, []);
+  }, [user]);
 
   const selectStaffRow = (u) => {
     setSelectedUser(u);
@@ -129,6 +136,15 @@ export default function Accounts() {
     }
     if (isNew && !staffForm.password) {
       return toast.error('Vui lòng nhập mật khẩu cho nhân viên mới!');
+    }
+    if (!isAdmin) {
+      if (selectedUser?.role === 'admin') {
+        return toast.error('Quản lý không có quyền sửa tài khoản Admin!');
+      }
+      const targetRole = roles.find((r) => r.id === staffForm.role_id);
+      if (targetRole && ['admin', 'manager'].includes(targetRole.name)) {
+        return toast.error('Quản lý chỉ có quyền quản lý nhân viên (Thu ngân, Pha chế, Phục vụ, Kho)!');
+      }
     }
     try {
       if (isNew) {
@@ -188,7 +204,7 @@ export default function Accounts() {
           background: 'rgba(28, 17, 10, 0.95)',
         }}
       >
-        {isAdmin && (
+        {canManageStaff && (
           <button
             type="button"
             className="btn"
@@ -266,7 +282,7 @@ export default function Accounts() {
       </div>
 
       {/* 2. TAB CONTENT: TÀI KHOẢN NHÂN VIÊN */}
-      {activeTab === 'staff' && isAdmin && (
+      {activeTab === 'staff' && canManageStaff && (
         <div className="mockup-split-grid">
           {/* Staff List */}
           <div className="mockup-panel">

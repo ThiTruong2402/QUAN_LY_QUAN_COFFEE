@@ -16,6 +16,7 @@ import Orders from './pages/Orders';
 import Barista from './pages/Barista';
 import AuditLogs from './pages/AuditLogs';
 import CustomerPortal from './pages/CustomerPortal';
+import Settings from './pages/Settings';
 
 // Error Boundary chống màn hình đen / sập app khi lỗi dữ liệu hoặc render
 class AppErrorBoundary extends Component {
@@ -104,7 +105,7 @@ function RoleRoute({ allowedRoles, children }) {
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     const defaultRoute = {
-      admin: '/accounts',
+      admin: '/',
       manager: '/',
       cashier: '/',
       barista: '/barista',
@@ -137,57 +138,57 @@ export default function App() {
             <Route
               index
               element={
-                <RoleRoute allowedRoles={['manager', 'cashier', 'waiter', 'barista']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter', 'barista']}>
                   <Tables />
                 </RoleRoute>
               }
             />
 
-            {/* 2. Điểm bán POS: Quản lý, Thu ngân & Phục vụ */}
+            {/* 2. Điểm bán POS: Admin, Quản lý, Thu ngân & Phục vụ */}
             <Route
               path="pos"
               element={
-                <RoleRoute allowedRoles={['manager', 'cashier', 'waiter']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter']}>
                   <PosOrder />
                 </RoleRoute>
               }
             />
 
-            {/* 3. Danh sách đơn hàng: Quản lý, Thu ngân, Pha chế & Phục vụ */}
+            {/* 3. Danh sách đơn hàng: Admin, Quản lý, Thu ngân, Pha chế & Phục vụ */}
             <Route
               path="orders"
               element={
-                <RoleRoute allowedRoles={['manager', 'cashier', 'barista', 'waiter']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'barista', 'waiter']}>
                   <Orders />
                 </RoleRoute>
               }
             />
 
-            {/* 4. Màn hình pha chế KDS (Kitchen Display System): Quản lý & Pha chế */}
+            {/* 4. Màn hình pha chế KDS (Kitchen Display System): Admin, Quản lý & Pha chế */}
             <Route
               path="barista"
               element={
-                <RoleRoute allowedRoles={['manager', 'barista']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'barista']}>
                   <Barista />
                 </RoleRoute>
               }
             />
 
-            {/* 5. Gộp Menu & Công thức: Quản lý toàn quyền CRUD, Nhân viên chỉ xem */}
+            {/* 5. Gộp Menu & Công thức: Admin, Quản lý toàn quyền CRUD, Nhân viên chỉ xem */}
             <Route
               path="menu"
               element={
-                <RoleRoute allowedRoles={['manager', 'cashier', 'barista', 'waiter', 'warehouse']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse']}>
                   <MenuManage />
                 </RoleRoute>
               }
             />
 
-            {/* 6. Phân quyền tài khoản & Hội viên: Dành riêng cho Quản Trị Hệ Thống (Admin) */}
+            {/* 6. Phân quyền tài khoản & Hội viên: Admin & Quản lý (quản lý chỉ tạo/sửa nhân viên) */}
             <Route
               path="accounts"
               element={
-                <RoleRoute allowedRoles={['admin']}>
+                <RoleRoute allowedRoles={['admin', 'manager']}>
                   <Accounts />
                 </RoleRoute>
               }
@@ -203,31 +204,41 @@ export default function App() {
               }
             />
 
-            {/* 8. Lịch phân ca trực: Quản lý & nhân viên */}
+            {/* 8. Cấu hình hệ thống: Dành riêng cho Quản Trị Hệ Thống (Admin) */}
+            <Route
+              path="settings"
+              element={
+                <RoleRoute allowedRoles={['admin']}>
+                  <Settings />
+                </RoleRoute>
+              }
+            />
+
+            {/* 9. Lịch phân ca trực: Admin, Quản lý & nhân viên */}
             <Route
               path="shifts"
               element={
-                <RoleRoute allowedRoles={['manager', 'cashier', 'barista', 'waiter', 'warehouse']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse']}>
                   <Shifts />
                 </RoleRoute>
               }
             />
 
-            {/* 9. Quản lý kho: Quản lý & Thủ kho */}
+            {/* 10. Quản lý kho: Admin, Quản lý, Thủ kho, Pha chế, Thu ngân */}
             <Route
               path="inventory"
               element={
-                <RoleRoute allowedRoles={['manager', 'warehouse']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'warehouse', 'barista', 'cashier']}>
                   <Inventory />
                 </RoleRoute>
               }
             />
 
-            {/* 10. Báo cáo & Thống kê tích hợp Dashboard: Quản lý & Thu ngân / Thủ kho */}
+            {/* 11. Báo cáo & Thống kê tích hợp Dashboard: Admin & Quản lý */}
             <Route
               path="reports"
               element={
-                <RoleRoute allowedRoles={['manager', 'warehouse', 'cashier']}>
+                <RoleRoute allowedRoles={['admin', 'manager']}>
                   <Reports />
                 </RoleRoute>
               }

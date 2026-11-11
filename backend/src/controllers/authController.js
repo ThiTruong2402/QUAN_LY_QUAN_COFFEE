@@ -274,9 +274,13 @@ const register = async (req, res) => {
       );
     }
 
-    // 5. Tạo user tài khoản khách hàng
+    // 5. Tạo user tài khoản khách hàng với mã duy nhất chống trùng lặp tuyệt đối
     const hash = await bcrypt.hash(password, 10);
-    const userCode = `KH${String(Date.now()).slice(-6)}`;
+    let userCode = `KH${Date.now().toString().slice(-8)}${Math.floor(100 + Math.random() * 900)}`;
+    const [existingCode] = await db.query('SELECT id FROM users WHERE code = ?', [userCode]);
+    if (existingCode.length) {
+      userCode = `KH${Date.now().toString().slice(-6)}${Math.floor(1000 + Math.random() * 9000)}`;
+    }
 
     const [insertUser] = await db.query(
       `INSERT INTO users (code, username, password_hash, full_name, birthday, phone, email, role_id, is_active)

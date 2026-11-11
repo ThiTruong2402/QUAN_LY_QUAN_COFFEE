@@ -467,7 +467,7 @@ const directCheckout = async (req, res) => {
       }
     }
 
-    // Xử lý đổi điểm tích lũy thành tiền giảm giá (1 điểm = 100đ)
+    // Xử lý đổi điểm tích lũy thành tiền giảm giá (Chuẩn thống nhất toàn hệ thống: 1 điểm = 1.000đ)
     let pointsDiscount = 0;
     let actualPointsRedeemed = 0;
     const requestedPts = Math.max(0, parseInt(req.body.points_to_redeem || req.body.points_redeemed, 10) || 0);
@@ -475,7 +475,7 @@ const directCheckout = async (req, res) => {
       const [custPts] = await conn.query('SELECT points_balance FROM customers WHERE id = ? FOR UPDATE', [customerId]);
       if (custPts.length && custPts[0].points_balance > 0) {
         actualPointsRedeemed = Math.min(requestedPts, custPts[0].points_balance);
-        pointsDiscount = actualPointsRedeemed * 100;
+        pointsDiscount = actualPointsRedeemed * 1000;
       }
     }
 
@@ -495,68 +495,122 @@ const directCheckout = async (req, res) => {
       invoiceNo = orderCode;
     }
 
-    // 1. Zero-Trust Pricing: Server tự truy vấn giá chuẩn từ product_sizes / products trong Database
+    // 1. Zero-Trust Pricing & Toppings: Server tự truy vấn giá chuẩn từ product_sizes / products / toppings trong Database
     let subtotal = 0;
     const validatedItems = [];
     for (const item of items) {
-      let unitPrice = 0;
-      let productName = item.name || 'Đồ uống';
-      let sizeName = item.size_name || 'M';
-      let productSizeId = item.product_size_id || null;
+      const productSizeId = item.product_size_id || null;
+      const productId = item.product_id || null;
+      let sizeRow = null;
 
       if (productSizeId) {
         const [sizeRows] = await conn.query(
-          `SELECT ps.id, ps.price, ps.name AS size_name, p.name AS product_name 
+          `SELECT ps.id, ps.price, ps.name AS size_name, p.id AS product_id, p.name AS product_name 
            FROM product_sizes ps
            JOIN products p ON p.id = ps.product_id
            WHERE ps.id = ?`,
           [productSizeId]
         );
-        if (sizeRows.length) {
-          unitPrice = Number(sizeRows[0].price);
-          productName = sizeRows[0].product_name;
-          sizeName = sizeRows[0].size_name;
-        }
+        if (sizeRows.length) sizeRow = sizeRows[0];
       }
-      // Fallback: Tìm size mặc định từ product_sizes nếu thiếu product_size_id
-      if (!unitPrice && item.product_id) {
+
+      if (!sizeRow && productId) {
         const [sizeFallback] = await conn.query(
-          `SELECT ps.id, ps.price, ps.name AS size_name, p.name AS product_name
+          `SELECT ps.id, ps.price, ps.name AS size_name, p.id AS product_id, p.name AS product_name
            FROM product_sizes ps
            JOIN products p ON p.id = ps.product_id
            WHERE ps.product_id = ?
            ORDER BY ps.is_default DESC, ps.id ASC
            LIMIT 1`,
-          [item.product_id]
+          [productId]
         );
-        if (sizeFallback.length) {
-          productSizeId = sizeFallback[0].id;
-          unitPrice = Number(sizeFallback[0].price);
-          productName = sizeFallback[0].product_name;
-          sizeName = sizeFallback[0].size_name;
+        if (sizeFallback.length) sizeRow = sizeFallback[0];
+      }
+
+      // Zero-Trust Pricing: Chặn đứng lỗ hổng client tự truyền đơn giá tùy ý
+      if (!sizeRow) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Món đồ uống "${item.name || 'chưa rõ'}" không tồn tại hoặc kích thước không hợp lệ trong hệ thống!`
+        });
+      }
+
+      const unitPrice = Number(sizeRow.price);
+      const productName = sizeRow.product_name;
+      const sizeName = sizeRow.size_name;
+      const finalSizeId = sizeRow.id;
+
+      // Xử lý và tính giá Topping (Zero-Trust từ CSDL bảng toppings)
+      let itemToppingsTotal = 0;
+      const validatedItemToppings = [];
+      const rawToppings = Array.isArray(item.toppings) ? item.toppings : [];
+      for (const t of rawToppings) {
+        const topId = t.topping_id || t.id;
+        if (!topId) continue;
+        const [topRows] = await conn.query('SELECT id, name, price FROM toppings WHERE id = ?', [topId]);
+        if (topRows.length) {
+          const topPrice = Number(topRows[0].price);
+          const topQty = Math.max(1, parseInt(t.quantity, 10) || 1);
+          itemToppingsTotal += topPrice * topQty;
+          validatedItemToppings.push({
+            topping_id: topRows[0].id,
+            topping_name: topRows[0].name,
+            price: topPrice,
+            quantity: topQty
+          });
         }
-      }
-      // Fallback an toàn nếu không tìm thấy kích thước
-      if (!unitPrice) {
-        unitPrice = Number(item.price ?? item.unit_price ?? 0);
-      }
-      if (!productSizeId) {
-        const [anySize] = await conn.query('SELECT id FROM product_sizes LIMIT 1');
-        productSizeId = anySize[0]?.id || 1;
       }
 
       const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-      const lineTotal = unitPrice * qty;
+      const lineTotal = (unitPrice + itemToppingsTotal) * qty;
       subtotal += lineTotal;
+
       validatedItems.push({
-        product_size_id: productSizeId,
+        product_size_id: finalSizeId,
+        product_id: sizeRow.product_id,
         name: productName,
         size_name: sizeName,
         price: unitPrice,
         quantity: qty,
+        toppings_total: itemToppingsTotal,
         line_total: lineTotal,
+        toppings: validatedItemToppings,
         note: item.note ? String(item.note).trim() : null
       });
+    }
+
+    // Kiểm tra định lượng tồn kho trước khi tạo đơn (Pre-check Stock chống âm kho & bán khống)
+    const requiredIngMap = {};
+    for (const item of validatedItems) {
+      const [recipeRows] = await conn.query(
+        'SELECT r.ingredient_id, r.quantity, i.name, i.current_stock, i.unit FROM recipes r JOIN ingredients i ON i.id = r.ingredient_id WHERE r.product_size_id = ?',
+        [item.product_size_id]
+      );
+      for (const rec of recipeRows) {
+        const needed = Number(rec.quantity) * Number(item.quantity);
+        if (!requiredIngMap[rec.ingredient_id]) {
+          requiredIngMap[rec.ingredient_id] = {
+            id: rec.ingredient_id,
+            name: rec.name,
+            current_stock: Number(rec.current_stock),
+            unit: rec.unit,
+            totalNeeded: 0
+          };
+        }
+        requiredIngMap[rec.ingredient_id].totalNeeded += needed;
+      }
+    }
+
+    for (const ingId in requiredIngMap) {
+      const ing = requiredIngMap[ingId];
+      if (ing.current_stock < ing.totalNeeded) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Nguyên liệu "${ing.name}" trong kho không đủ để thực hiện món! (Hiện còn: ${ing.current_stock.toFixed(2)} ${ing.unit}, Cần dùng: ${ing.totalNeeded.toFixed(2)} ${ing.unit})`
+        });
+      }
     }
 
     // 2. Zero-Trust Promotions: Server tự kiểm tra và tính toán giảm giá từ bảng promotions
@@ -660,7 +714,12 @@ const directCheckout = async (req, res) => {
       }
     }
 
-    const closedAt = finalOrderStatus === 'paid' ? 'NOW()' : 'NULL';
+    // Xử lý trạng thái thanh toán (Lỗi 5: Khách online chuyển khoản ngân hàng thì trạng thái thanh toán là unpaid chờ xác nhận)
+    const isOnlineCustomer = req.user?.role === 'customer' || !req.user || req.body.is_online_order;
+    const isTransfer = ['Chuyển khoản', 'QR Banking', 'Ví MoMo', 'ZaloPay', 'bank_transfer'].includes(payment_method);
+    const finalPaymentStatus = (isOnlineCustomer && isTransfer) ? 'unpaid' : 'paid';
+
+    const closedAt = finalOrderStatus === 'paid' && finalPaymentStatus === 'paid' ? 'NOW()' : 'NULL';
 
     // Mô hình chỉ bán trực tiếp: 'dine_in' (Tại quán) hoặc 'takeaway' (Mang về)
     const normalizedOrderType = order_type === 'dine_in' ? 'dine_in' : 'takeaway';
@@ -670,16 +729,16 @@ const directCheckout = async (req, res) => {
     try {
       [orderRes] = await conn.query(
         `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
-         VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt}, ?)`,
-        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1, effectivePickupDate]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt}, ?)`,
+        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1, effectivePickupDate]
       );
     } catch (insErr) {
       if (insErr.message?.includes('pickup_time')) {
         // Fallback an toàn nếu database (như TiDB Cloud) chưa bổ sung cột pickup_time
         [orderRes] = await conn.query(
           `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at)
-           VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt})`,
-          [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1]
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt})`,
+          [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1]
         );
       } else {
         throw insErr;
@@ -688,13 +747,25 @@ const directCheckout = async (req, res) => {
     const orderId = orderRes.insertId;
 
     // Insert items with status 'pending' (Chờ pha chế), 'scheduled' (Hẹn giờ), or 'done'
+    // Lỗi 3: Bảo toàn Topping trong order_items và order_item_toppings
     const itemStatus = finalOrderStatus === 'paid' ? 'done' : (finalOrderStatus === 'scheduled' ? 'scheduled' : 'pending');
     for (const item of validatedItems) {
-      await conn.query(
-        `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, line_total, note, status, sent_at, done_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${finalOrderStatus === 'scheduled' ? 'NULL' : 'NOW()'}, ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
-        [orderId, item.product_size_id, item.name, item.size_name, item.price, item.quantity, item.line_total, item.note, itemStatus]
+      const [itemRes] = await conn.query(
+        `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, toppings_total, line_total, note, status, sent_at, done_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${finalOrderStatus === 'scheduled' ? 'NULL' : 'NOW()'}, ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
+        [orderId, item.product_size_id, item.name, item.size_name, item.price, item.quantity, item.toppings_total || 0, item.line_total, item.note, itemStatus]
       );
+      const orderItemId = itemRes.insertId;
+
+      if (Array.isArray(item.toppings) && item.toppings.length > 0) {
+        for (const top of item.toppings) {
+          await conn.query(
+            `INSERT INTO order_item_toppings (order_item_id, topping_id, topping_name, price, quantity)
+             VALUES (?, ?, ?, ?, ?)`,
+            [orderItemId, top.topping_id, top.topping_name, top.price, top.quantity]
+          );
+        }
+      }
     }
 
     // Insert Invoice
@@ -719,8 +790,8 @@ const directCheckout = async (req, res) => {
     };
     const mappedMethod = methodMap[payment_method] || 'cash';
 
-    // Insert Payment Record (Ghi nhận thanh toán hoàn tất nếu tổng tiền > 0)
-    if (total > 0) {
+    // Insert Payment Record chỉ khi đã thực sự thanh toán thành công
+    if (total > 0 && finalPaymentStatus === 'paid') {
       await conn.query(
         `INSERT INTO payments (order_id, method, amount, created_by)
          VALUES (?, ?, ?, ?)`,
@@ -728,31 +799,33 @@ const directCheckout = async (req, res) => {
       );
     }
 
-    // Business Logic: Thanh toán xong mới làm đồ uống -> Tự động trừ định lượng nguyên liệu kho (Recipes -> Stock Movements)
-    for (const item of validatedItems) {
-      const sizeId = item.product_size_id || 1;
-      const [recipeRows] = await conn.query(
-        'SELECT ingredient_id, quantity FROM recipes WHERE product_size_id = ?',
-        [sizeId]
-      );
-      for (const rec of recipeRows) {
-        const consumed = Number(rec.quantity) * Number(item.quantity);
-        const [ingRows] = await conn.query(
-          'SELECT current_stock, avg_cost FROM ingredients WHERE id = ? FOR UPDATE',
-          [rec.ingredient_id]
+    // Business Logic: Trừ định lượng kho khi đơn đã được thanh toán
+    if (finalPaymentStatus === 'paid') {
+      for (const item of validatedItems) {
+        const sizeId = item.product_size_id || 1;
+        const [recipeRows] = await conn.query(
+          'SELECT ingredient_id, quantity FROM recipes WHERE product_size_id = ?',
+          [sizeId]
         );
-        if (ingRows.length) {
-          const current = parseFloat(ingRows[0].current_stock);
-          const newBalance = Math.max(0, current - consumed);
-          await conn.query(
-            'UPDATE ingredients SET current_stock = ? WHERE id = ?',
-            [newBalance, rec.ingredient_id]
+        for (const rec of recipeRows) {
+          const consumed = Number(rec.quantity) * Number(item.quantity);
+          const [ingRows] = await conn.query(
+            'SELECT current_stock, avg_cost FROM ingredients WHERE id = ? FOR UPDATE',
+            [rec.ingredient_id]
           );
-          await conn.query(
-            `INSERT INTO stock_movements (ingredient_id, movement_type, quantity, unit_cost, balance_after, ref_type, ref_id, note, created_by)
-             VALUES (?, 'sale', ?, ?, ?, 'orders', ?, ?, ?)`,
-            [rec.ingredient_id, consumed, ingRows[0].avg_cost, newBalance, orderId, `Bán món ${item.name} (${orderCode})`, req.user?.id || 1]
-          );
+          if (ingRows.length) {
+            const current = parseFloat(ingRows[0].current_stock);
+            const newBalance = Math.max(0, current - consumed);
+            await conn.query(
+              'UPDATE ingredients SET current_stock = ? WHERE id = ?',
+              [newBalance, rec.ingredient_id]
+            );
+            await conn.query(
+              `INSERT INTO stock_movements (ingredient_id, movement_type, quantity, unit_cost, balance_after, ref_type, ref_id, note, created_by)
+               VALUES (?, 'sale', ?, ?, ?, 'orders', ?, ?, ?)`,
+              [rec.ingredient_id, consumed, ingRows[0].avg_cost, newBalance, orderId, `Bán món ${item.name} (${orderCode})`, req.user?.id || 1]
+            );
+          }
         }
       }
     }
@@ -944,16 +1017,34 @@ const updateStatus = async (req, res) => {
     if (status === 'preparing') {
       await conn.query('UPDATE orders SET status = "preparing" WHERE id = ?', [id]);
       await conn.query('UPDATE order_items SET status = "preparing", started_at = NOW() WHERE order_id = ? AND status = "pending"', [id]);
-    } else if (status === 'done') {
-      await conn.query('UPDATE orders SET status = "done" WHERE id = ?', [id]);
-      await conn.query('UPDATE order_items SET status = "done", done_at = NOW() WHERE order_id = ? AND status IN ("pending", "preparing")', [id]);
-    } else if (status === 'served') {
-      await conn.query('UPDATE orders SET status = "served" WHERE id = ?', [id]);
-      await conn.query('UPDATE order_items SET status = "served" WHERE order_id = ?', [id]);
-    } else if (status === 'paid') {
-      await conn.query('UPDATE orders SET status = "paid", closed_at = NOW() WHERE id = ?', [id]);
+    } else if (status === 'done' || status === 'served') {
+      await conn.query('UPDATE orders SET status = ?, closed_at = NOW() WHERE id = ?', [status, id]);
+      await conn.query('UPDATE order_items SET status = ?, done_at = NOW() WHERE order_id = ? AND status IN ("pending", "preparing")', [status, id]);
+
+      // Lỗi 4: Tự động giải phóng bàn ăn về 'empty' khi hoàn tất pha chế hoặc trả món
       if (order.table_id) {
-        await conn.query('UPDATE `tables` SET status = "empty" WHERE id = ?', [order.table_id]);
+        const [activeOrders] = await conn.query(
+          'SELECT id FROM orders WHERE table_id = ? AND id != ? AND status IN ("pending", "preparing", "open")',
+          [order.table_id, id]
+        );
+        if (!activeOrders.length) {
+          await conn.query('UPDATE `tables` SET status = "empty" WHERE id = ?', [order.table_id]);
+          const io = req.app?.get('io');
+          if (io) io.emit('table:status_updated', { tableId: order.table_id, status: 'empty' });
+        }
+      }
+    } else if (status === 'paid') {
+      await conn.query('UPDATE orders SET status = "paid", payment_status = "paid", closed_at = NOW() WHERE id = ?', [id]);
+      if (order.table_id) {
+        const [activeOrders] = await conn.query(
+          'SELECT id FROM orders WHERE table_id = ? AND id != ? AND status IN ("pending", "preparing", "open")',
+          [order.table_id, id]
+        );
+        if (!activeOrders.length) {
+          await conn.query('UPDATE `tables` SET status = "empty" WHERE id = ?', [order.table_id]);
+          const io = req.app?.get('io');
+          if (io) io.emit('table:status_updated', { tableId: order.table_id, status: 'empty' });
+        }
       }
 
       // Record payment if not yet
@@ -1027,13 +1118,6 @@ const cancelOrder = async (req, res) => {
   try {
     await conn.beginTransaction();
     const userRole = req.user?.role;
-    if (!userRole || ['barista', 'waiter'].includes(userRole)) {
-      await conn.rollback();
-      return res.status(403).json({
-        success: false,
-        message: 'Quyền hạn: Pha chế hoặc Phục vụ không có quyền hủy đơn hàng. Chỉ Thu Ngân hoặc Quản Lý mới có quyền hủy đơn!',
-      });
-    }
     const { id } = req.params;
     const { cancel_reason } = req.body;
 
@@ -1050,13 +1134,48 @@ const cancelOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Đơn hàng này đã được hủy trước đó' });
     }
 
-    // Nghiệp vụ bảo vệ doanh thu: Đơn đã thanh toán bắt buộc phải là Quản Trị hoặc Quản Lý mới được phép hủy & hoàn tiền
-    if (order.payment_status === 'paid' && !['admin', 'manager'].includes(userRole)) {
+    // Lỗi 10: Phân quyền hủy đơn chuẩn xác theo vai trò
+    if (userRole === 'customer') {
+      // Khách hàng chỉ được hủy đơn của chính mình khi đơn còn ở trạng thái scheduled hoặc pending
+      const customerUserId = req.user?.id;
+      const customerPhone = req.user?.phone;
+      let isOwner = (order.created_by === customerUserId) ||
+                    (order.customer_id && req.user?.customer_id && order.customer_id === req.user.customer_id) ||
+                    (customerPhone && order.recipient_phone === customerPhone);
+
+      if (!isOwner && order.customer_id && customerPhone) {
+        const [cRows] = await conn.query('SELECT phone FROM customers WHERE id = ?', [order.customer_id]);
+        if (cRows.length && cRows[0].phone === customerPhone) {
+          isOwner = true;
+        }
+      }
+
+      if (!isOwner) {
+        await conn.rollback();
+        return res.status(403).json({ success: false, message: 'Bạn không có quyền hủy đơn hàng của khách khác!' });
+      }
+
+      if (!['scheduled', 'pending', 'open'].includes(order.status)) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Đơn hàng đang được pha chế hoặc đã hoàn tất, không thể tự hủy lúc này. Vui lòng liên hệ trực tiếp quán để được hỗ trợ!',
+        });
+      }
+    } else if (['barista', 'waiter'].includes(userRole)) {
       await conn.rollback();
       return res.status(403).json({
         success: false,
-        message: 'Đơn hàng đã thanh toán chỉ Quản Lý hoặc Admin mới có quyền duyệt hủy đơn và hoàn tiền!',
+        message: 'Quyền hạn: Pha chế hoặc Phục vụ không có quyền hủy đơn hàng. Chỉ Thu Ngân hoặc Quản Lý mới có quyền hủy đơn!',
       });
+    } else if (userRole === 'cashier') {
+      if (order.payment_status === 'paid' && !['scheduled', 'pending', 'open'].includes(order.status)) {
+        await conn.rollback();
+        return res.status(403).json({
+          success: false,
+          message: 'Đơn hàng đã thanh toán và đang pha chế, chỉ Quản Lý hoặc Admin mới có quyền duyệt hủy đơn và hoàn tiền!',
+        });
+      }
     }
 
     await conn.query("UPDATE orders SET status = 'cancelled', note = CONCAT(IFNULL(note, ''), ' [Hủy: ', ?, ']'), closed_at = NOW() WHERE id = ?", [cancel_reason || 'Khách hủy', id]);
@@ -1160,6 +1279,80 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+// POST /api/orders/:id/confirm-payment (Thu ngân hoặc Quản lý xác nhận tiền chuyển khoản của khách online đã vào tài khoản)
+const confirmPayment = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const { id } = req.params;
+    const [orders] = await conn.query('SELECT * FROM orders WHERE id = ? FOR UPDATE', [id]);
+    if (!orders.length) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+    }
+    const order = orders[0];
+    if (order.payment_status === 'paid') {
+      await conn.rollback();
+      return res.json({ success: true, message: 'Đơn hàng này đã được xác nhận thanh toán trước đó' });
+    }
+
+    await conn.query('UPDATE orders SET payment_status = "paid" WHERE id = ?', [id]);
+
+    // Ghi nhận thanh toán vào bảng payments nếu chưa có
+    const [existingPay] = await conn.query('SELECT id FROM payments WHERE order_id = ? AND type = "payment"', [id]);
+    if (!existingPay.length) {
+      await conn.query(
+        'INSERT INTO payments (order_id, method, amount, created_by) VALUES (?, "bank_transfer", ?, ?)',
+        [id, order.total, req.user?.id || 1]
+      );
+    }
+
+    // Trừ kho nguyên liệu cho đơn này nếu chưa trừ
+    const [existingMovements] = await conn.query(
+      'SELECT id FROM stock_movements WHERE ref_type = "orders" AND ref_id = ? AND movement_type = "sale"',
+      [id]
+    );
+    if (!existingMovements.length) {
+      const [orderItems] = await conn.query('SELECT product_size_id, quantity, product_name FROM order_items WHERE order_id = ? AND status != "cancelled"', [id]);
+      for (const item of orderItems) {
+        const [recipes] = await conn.query('SELECT ingredient_id, quantity FROM recipes WHERE product_size_id = ?', [item.product_size_id]);
+        for (const rec of recipes) {
+          const consumed = Number(rec.quantity) * Number(item.quantity);
+          const [ingRows] = await conn.query('SELECT current_stock, avg_cost FROM ingredients WHERE id = ? FOR UPDATE', [rec.ingredient_id]);
+          if (ingRows.length) {
+            const current = parseFloat(ingRows[0].current_stock);
+            const newBal = Math.max(0, current - consumed);
+            await conn.query('UPDATE ingredients SET current_stock = ? WHERE id = ?', [newBal, rec.ingredient_id]);
+            await conn.query(
+              'INSERT INTO stock_movements (ingredient_id, movement_type, quantity, unit_cost, balance_after, ref_type, ref_id, note, created_by) VALUES (?, "sale", ?, ?, ?, "orders", ?, ?, ?)',
+              [rec.ingredient_id, consumed, ingRows[0].avg_cost, newBal, id, `Bán món ${item.product_name} (${order.code})`, req.user?.id || 1]
+            );
+          }
+        }
+      }
+    }
+
+    await conn.commit();
+
+    const io = req.app?.get('io');
+    if (io) {
+      io.emit('order:status_updated', {
+        id: order.id,
+        orderId: order.id,
+        orderCode: order.code,
+        paymentStatus: 'paid'
+      });
+    }
+
+    res.json({ success: true, message: `Đã xác nhận thanh toán cho đơn #${order.code} thành công!` });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ success: false, message: 'Lỗi xác nhận thanh toán: ' + err.message });
+  } finally {
+    conn.release();
+  }
+};
+
 module.exports = {
   getOpen,
   getOne,
@@ -1172,5 +1365,6 @@ module.exports = {
   directCheckout,
   updateStatus,
   cancelOrder,
+  confirmPayment,
   getMyOrders,
 };

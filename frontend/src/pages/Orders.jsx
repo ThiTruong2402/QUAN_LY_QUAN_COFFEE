@@ -278,6 +278,16 @@ export default function Orders() {
     }
   };
 
+  const handleConfirmPayment = async (orderId) => {
+    try {
+      const res = await api.post(`/orders/${orderId}/confirm-payment`);
+      toast.success(res.data?.message || 'Xác nhận thanh toán thành công! 💵');
+      await loadData(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi xác nhận thanh toán');
+    }
+  };
+
   // Filter orders
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all') {
@@ -511,21 +521,28 @@ export default function Orders() {
                         {fmt(o.total)}
                       </td>
                       <td>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            background: meta.badgeBg,
-                            color: meta.badgeColor,
-                            border: `1px solid ${meta.badgeBorder}`,
-                            padding: '3px 8px',
-                            borderRadius: '12px',
-                            fontSize: '0.76rem',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {meta.label}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              background: meta.badgeBg,
+                              color: meta.badgeColor,
+                              border: `1px solid ${meta.badgeBorder}`,
+                              padding: '3px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {o.payment_status === 'unpaid' && o.status === 'pending' ? '⏳ Chờ TT • Chờ pha chế' : meta.label}
+                          </span>
+                          {o.payment_status === 'unpaid' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '1px 6px', borderRadius: '4px' }}>
+                              ⚠️ Chưa nhận tiền QR
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {meta.nextAction ? (
@@ -890,18 +907,73 @@ export default function Orders() {
               {selectedOrder?.table_code ? `🪑 Bán tại bàn (${selectedOrder.table_code})` : '🛍️ Đơn mang về (Online / POS)'}
             </span>
 
-            <span style={{
-              fontSize: '0.78rem',
-              fontWeight: 800,
-              padding: '3px 10px',
-              borderRadius: '6px',
-              background: 'rgba(16, 185, 129, 0.2)',
-              color: '#34d399',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-            }}>
-              💵 ĐÃ THANH TOÁN 100%
-            </span>
+            {selectedOrder?.payment_status === 'unpaid' ? (
+              <span style={{
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+              }}>
+                ⚠️ CHƯA NHẬN ĐƯỢC TIỀN
+              </span>
+            ) : (
+              <span style={{
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.2)',
+                color: '#34d399',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+              }}>
+                💵 ĐÃ THANH TOÁN 100%
+              </span>
+            )}
           </div>
+
+          {/* Banner & Nút xác nhận chuyển khoản cho khách online (Lỗi 5) */}
+          {selectedOrder?.payment_status === 'unpaid' && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1.5px dashed #ef4444',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: '#fca5a5', lineHeight: 1.4 }}>
+                ⚠️ Khách đặt online chọn chuyển khoản qua <strong>QR Banking</strong> nhưng quán chưa nhận được tiền hoặc chưa đối soát sao kê.
+              </div>
+              {['admin', 'manager', 'cashier'].includes(userRole) && (
+                <button
+                  type="button"
+                  onClick={() => handleConfirmPayment(selectedOrder.id)}
+                  style={{
+                    background: 'linear-gradient(135deg, #15803d, #166534)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontWeight: 800,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(21, 128, 61, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>💵</span>
+                  <span>Xác Nhận Đã Nhận Tiền Chuyển Khoản</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Service Channel Badge */}
           <div style={{ background: 'rgba(32, 20, 13, 0.75)', border: '1px solid rgba(245, 158, 11, 0.18)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

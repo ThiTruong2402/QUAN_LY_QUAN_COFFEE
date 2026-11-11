@@ -64,6 +64,19 @@ const reserveTable = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vui lòng cung cấp Tên khách hàng và Số điện thoại đặt bàn' });
     }
 
+    // Chặn ghi đè bàn đang có khách ngồi dùng đồ uống (Lỗi 7: Không đặt trước đè bàn occupied)
+    const [tableRows] = await db.query('SELECT id, code, status FROM `tables` WHERE id = ?', [req.params.id]);
+    if (!tableRows.length) {
+      return res.status(404).json({ success: false, message: 'Bàn không tồn tại' });
+    }
+    const table = tableRows[0];
+    if (table.status === 'occupied') {
+      return res.status(400).json({
+        success: false,
+        message: `Bàn ${table.code} hiện đang có khách ngồi dùng đồ uống tại quán, không thể đặt trước bàn này!`
+      });
+    }
+
     await db.query(
       `UPDATE \`tables\` SET 
         status='reserved', 
@@ -76,7 +89,7 @@ const reserveTable = async (req, res) => {
       [reservation_name, reservation_phone, reservation_time || 'Hôm nay', reservation_note || '', customer_count || 2, req.params.id]
     );
 
-    res.json({ success: true, message: 'Đặt bàn trước thành công' });
+    res.json({ success: true, message: `Đặt bàn ${table.code} trước thành công` });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Lỗi đặt bàn: ' + err.message });
   }
