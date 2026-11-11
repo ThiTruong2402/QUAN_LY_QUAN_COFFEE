@@ -384,19 +384,20 @@ export default function PosOrder() {
   // Tự động quay về TRANG CHỦ (Sơ đồ 20 bàn) sau khi thanh toán hoàn tất
   useEffect(() => {
     if (!completedOrder || !autoRedirectEnabled) return;
-    setRedirectCountdown(6);
-    const timer = setInterval(() => {
-      setRedirectCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          navigate('/');
-          return 0;
-        }
-        return prev - 1;
-      });
+
+    if (redirectCountdown <= 0) {
+      setAutoRedirectEnabled(false);
+      setCompletedOrder(null);
+      navigate('/');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setRedirectCountdown((prev) => Math.max(0, prev - 1));
     }, 1000);
-    return () => clearInterval(timer);
-  }, [completedOrder, autoRedirectEnabled, navigate]);
+
+    return () => clearTimeout(timer);
+  }, [completedOrder, autoRedirectEnabled, redirectCountdown, navigate]);
 
   // Submit Order (F9) -> LOGIC NGHIỆP VỤ: Khách thanh toán xong mới làm đồ uống
   // Hệ thống lưu payment_status = 'paid', xuất kho nguyên liệu theo đúng công thức món và chuyển sang 'pending' (đang chờ Barista pha chế)
@@ -472,7 +473,7 @@ export default function PosOrder() {
 
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       setAutoRedirectEnabled(true);
-      setRedirectCountdown(6);
+      setRedirectCountdown(4);
       clearCart();
     } catch (err) {
       console.error('POS Payment Error:', err);
@@ -2159,6 +2160,7 @@ export default function PosOrder() {
                 style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fef3c7', fontWeight: 700, padding: '7px 12px', fontSize: '0.82rem' }}
                 onClick={() => {
                   setAutoRedirectEnabled(false);
+                  setCompletedOrder(null);
                   navigate('/orders');
                 }}
               >

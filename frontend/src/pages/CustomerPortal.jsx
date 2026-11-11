@@ -74,8 +74,26 @@ export default function CustomerPortal() {
   const [paymentMethod, setPaymentMethod] = useState('QR Banking'); // 'QR Banking' | 'Tiền mặt'
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [completedOrderModal, setCompletedOrderModal] = useState(null);
+  const [customerRedirectCountdown, setCustomerRedirectCountdown] = useState(4);
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+
+  // Tự động chuyển sang Lịch Sử Đơn Hàng / Tiến trình pha chế sau khi đặt đơn thành công
+  useEffect(() => {
+    if (!completedOrderModal) return;
+
+    if (customerRedirectCountdown <= 0) {
+      setCompletedOrderModal(null);
+      setActiveTab('history');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCustomerRedirectCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [completedOrderModal, customerRedirectCountdown]);
 
   // --- STATE GIỜ MỞ CỬA & HẸN GIỜ ĐẶT TRƯỚC (QUÁN ĐÓNG CỬA HOẶC KHÁCH CHỦ ĐỘNG HẸN) ---
   const [storeHours, setStoreHours] = useState({
@@ -516,6 +534,7 @@ export default function CustomerPortal() {
           isScheduled: isSched,
           pickupTimeLabel: isSched ? (orderData?.pickupDisplayLabel || selectedSlotLabel) : null,
         });
+        setCustomerRedirectCountdown(4);
 
         // Dọn giỏ hàng & làm mới dữ liệu
         setCart([]);
@@ -2301,6 +2320,25 @@ export default function CustomerPortal() {
               </div>
             </div>
 
+            {/* Auto Redirect Countdown */}
+            <div
+              style={{
+                margin: '0 auto 14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: '#38bdf8',
+                padding: '4px 14px',
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+              }}
+            >
+              <span>⏳ Tự động chuyển xem tiến trình sau <strong>{customerRedirectCountdown}s</strong>...</span>
+            </div>
+
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => {
@@ -2319,7 +2357,7 @@ export default function CustomerPortal() {
                   cursor: 'pointer'
                 }}
               >
-                📜 Xem Tiến Độ Pha Chế
+                📜 Xem Tiến Độ Pha Chế ({customerRedirectCountdown}s)
               </button>
               <button
                 onClick={() => setCompletedOrderModal(null)}

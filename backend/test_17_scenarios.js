@@ -56,8 +56,8 @@ async function runTests() {
   const cashierLogin = await req('/auth/login', 'POST', { username: 'cashier', password: '123456' });
   const cashierToken = cashierLogin.data?.data?.accessToken;
 
-  // Ensure store is open: 06:00 - 23:59
-  await req('/settings/store-hours', 'PUT', { openTime: '06:00', closeTime: '23:59' }, adminToken);
+  // Ensure store is open: 00:00 - 23:59
+  await req('/settings/store-hours', 'PUT', { openTime: '00:00', closeTime: '23:59' }, adminToken);
 
   // --- ADM-01: Manager tạo/sửa/xóa/khóa tài khoản admin -> 403 ---
   try {
@@ -166,12 +166,12 @@ async function runTests() {
   // --- SET-01: Đổi giờ mở/đóng cửa trong Settings -> Áp dụng đúng cho POS & Portal ---
   try {
     const setRes = await req('/settings/store-hours', 'PUT', {
-      openTime: '06:00',
+      openTime: '00:00',
       closeTime: '23:59'
     }, adminToken);
 
     const getRes = await req('/settings/store-hours', 'GET');
-    const pass = setRes.status === 200 && (getRes.data?.data?.openTime === '06:00' || getRes.data?.data?.open_time === '06:00');
+    const pass = setRes.status === 200 && (getRes.data?.data?.openTime === '00:00' || getRes.data?.data?.open_time === '00:00');
     record(
       'SET-01',
       'Đổi giờ mở/đóng cửa trong Settings -> Áp dụng đúng cho POS và Customer Portal',
@@ -184,8 +184,8 @@ async function runTests() {
 
   // --- SET-02: Khách đặt món ngoài giờ mở cửa -> Bị chặn hoặc có thông báo rõ ---
   try {
-    // Đặt thử giờ đóng cửa thành 01:00 - 01:05 để giả lập ngoài giờ
-    await req('/settings/store-hours', 'PUT', { openTime: '01:00', closeTime: '01:05' }, adminToken);
+    // Đặt thử giờ đóng cửa thành 05:00 - 05:05 để giả lập ngoài giờ
+    await req('/settings/store-hours', 'PUT', { openTime: '05:00', closeTime: '05:05' }, adminToken);
     const orderRes = await req('/orders/direct-checkout', 'POST', {
       customer_name: 'Test Customer',
       customer_phone: '0977112233',
@@ -202,11 +202,11 @@ async function runTests() {
       `HTTP ${orderRes.status}: "${orderRes.data?.message}"`
     );
 
-    // Phục hồi lại giờ mở cửa 06:00 - 23:59 (luôn mở cửa)
-    await req('/settings/store-hours', 'PUT', { openTime: '06:00', closeTime: '23:59' }, adminToken);
+    // Phục hồi lại giờ mở cửa 00:00 - 23:59 (luôn mở cửa)
+    await req('/settings/store-hours', 'PUT', { openTime: '00:00', closeTime: '23:59' }, adminToken);
   } catch (err) {
     record('SET-02', 'Out of hours order check', false, err.message);
-    await req('/settings/store-hours', 'PUT', { openTime: '06:00', closeTime: '23:59' }, adminToken);
+    await req('/settings/store-hours', 'PUT', { openTime: '00:00', closeTime: '23:59' }, adminToken);
   }
 
   // --- CUS-01: Khách đăng ký, đăng nhập Customer Portal -> Chỉ thấy portal, không vào được quản trị ---
@@ -347,7 +347,7 @@ async function runTests() {
     // 1. Tạo 1 đơn mới pending của chính khách hàng này (dùng customerToken)
     await new Promise(r => setTimeout(r, 3500));
     const tempOrder = await req('/orders/direct-checkout', 'POST', {
-      customer_name: 'Khách Thử Nghiệm VIP',
+      customer_name: 'Khách Hủy Đơn Pending',
       customer_phone: '0912345678',
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
@@ -360,22 +360,33 @@ async function runTests() {
     // Hủy khi pending -> Được phép (HTTP 200)
     const cancelPending = await req(`/orders/${tempOrderId}/cancel`, 'PUT', { cancel_reason: 'Đổi ý' }, customerToken);
 
-    // 2. Chuyển 1 đơn sang preparing rồi thử hủy
-    await new Promise(r => setTimeout(r, 3500));
+    // 2. Dùng tài khoản khách thứ 2 để test hủy đơn đang preparing (tránh rate-limit spam)
+    let token2 = null;
+    const reg2 = await req('/auth/register', 'POST', {
+      phone: '0912345679',
+      password: 'password123',
+      full_name: 'Khách Hủy Đơn Prep'
+    });
+    token2 = reg2.data?.data?.accessToken;
+    if (!token2) {
+      const login2 = await req('/auth/login', 'POST', { username: '0912345679', password: 'password123' });
+      token2 = login2.data?.data?.accessToken;
+    }
+
     const orderPrep = await req('/orders/direct-checkout', 'POST', {
-      customer_name: 'Khách Thử Nghiệm VIP',
-      customer_phone: '0912345678',
+      customer_name: 'Khách Hủy Đơn Prep',
+      customer_phone: '0912345679',
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
       payment_method: 'Tiền mặt',
       payment_status: 'paid',
       status: 'pending'
-    }, customerToken);
+    }, token2);
     const prepId = orderPrep.data?.data?.orderId;
     await req(`/barista/orders/${prepId}/status`, 'PUT', { status: 'preparing' }, adminToken);
 
     // Khách thử hủy đơn đang pha chế -> Bị chặn (HTTP 400)
-    const cancelPrep = await req(`/orders/${prepId}/cancel`, 'PUT', { cancel_reason: 'Khách muốn hủy' }, customerToken);
+    const cancelPrep = await req(`/orders/${prepId}/cancel`, 'PUT', { cancel_reason: 'Khách muốn hủy' }, token2);
     const pass = cancelPending.status === 200 && cancelPrep.status === 400;
 
     record(
