@@ -1016,12 +1016,17 @@ const updateStatus = async (req, res) => {
 
     if (status === 'preparing') {
       await conn.query('UPDATE orders SET status = "preparing" WHERE id = ?', [id]);
-      await conn.query('UPDATE order_items SET status = "preparing", started_at = NOW() WHERE order_id = ? AND status = "pending"', [id]);
-    } else if (status === 'done' || status === 'served') {
-      await conn.query('UPDATE orders SET status = ?, closed_at = NOW() WHERE id = ?', [status, id]);
-      await conn.query('UPDATE order_items SET status = ?, done_at = NOW() WHERE order_id = ? AND status IN ("pending", "preparing")', [status, id]);
+      await conn.query('UPDATE order_items SET status = "preparing", started_at = IFNULL(started_at, NOW()) WHERE order_id = ? AND status = "pending"', [id]);
+    } else if (status === 'done') {
+      // Bước 3: Đã pha xong đồ uống - Sẵn sàng trên quầy chờ trả món
+      await conn.query('UPDATE orders SET status = "done" WHERE id = ?', [id]);
+      await conn.query('UPDATE order_items SET status = "done", done_at = IFNULL(done_at, NOW()) WHERE order_id = ? AND status IN ("pending", "preparing")', [id]);
+    } else if (status === 'served') {
+      // Bước 4: Đã trả món cho khách - Đơn hàng hoàn tất và dọn khỏi KDS
+      await conn.query('UPDATE orders SET status = "served", closed_at = IFNULL(closed_at, NOW()) WHERE id = ?', [id]);
+      await conn.query('UPDATE order_items SET status = "served", done_at = IFNULL(done_at, NOW()) WHERE order_id = ? AND status != "cancelled"', [id]);
 
-      // Lỗi 4: Tự động giải phóng bàn ăn về 'empty' khi hoàn tất pha chế hoặc trả món
+      // Lỗi 4: Tự động giải phóng bàn ăn về 'empty' khi đã trả món cho khách
       if (order.table_id) {
         const [activeOrders] = await conn.query(
           'SELECT id FROM orders WHERE table_id = ? AND id != ? AND status IN ("pending", "preparing", "open")',
@@ -1034,7 +1039,8 @@ const updateStatus = async (req, res) => {
         }
       }
     } else if (status === 'paid') {
-      await conn.query('UPDATE orders SET status = "paid", payment_status = "paid", closed_at = NOW() WHERE id = ?', [id]);
+      await conn.query('UPDATE orders SET status = "paid", payment_status = "paid", closed_at = IFNULL(closed_at, NOW()) WHERE id = ?', [id]);
+      await conn.query('UPDATE order_items SET status = "served", done_at = IFNULL(done_at, NOW()) WHERE order_id = ? AND status != "cancelled"', [id]);
       if (order.table_id) {
         const [activeOrders] = await conn.query(
           'SELECT id FROM orders WHERE table_id = ? AND id != ? AND status IN ("pending", "preparing", "open")',
@@ -1097,10 +1103,11 @@ const updateStatus = async (req, res) => {
 
     await conn.commit();
 
-    // Phát sự kiện Socket.IO thời gian thực khi chuyển trạng thái đơn
+    // Phát sự kiện Socket.IO thời gian thực khi chuyển trạng thái đơn (chuẩn hóa payload)
     const io = req.app?.get('io');
     if (io) {
-      io.emit('order:status_updated', { id, status });
+      io.emit('order:status_updated', { id: Number(id), orderId: Number(id), status });
+      io.emit('barista:item_updated', { orderId: Number(id), status });
     }
 
     res.json({ success: true, message: `Đã cập nhật trạng thái đơn thành ${status}` });

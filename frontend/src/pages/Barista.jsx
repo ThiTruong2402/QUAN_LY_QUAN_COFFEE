@@ -8,7 +8,7 @@ export default function Barista() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [channelFilter, setChannelFilter] = useState('all'); // 'all' | 'takeaway' | 'dine_in'
+  const [channelFilter, setChannelFilter] = useState('all'); // 'all' | 'drinks' | 'packaged' | 'takeaway' | 'dine_in'
   const [expandedRecipes, setExpandedRecipes] = useState({}); // { [itemId]: boolean }
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('vi-VN'));
 
@@ -18,7 +18,7 @@ export default function Barista() {
         setItems(r.data.data || []);
       })
       .catch((err) => {
-        toast.error('Lỗi tải hàng đợi pha chế: ' + (err.response?.data?.message || err.message));
+        console.warn('Lỗi tải hàng đợi pha chế:', err);
       })
       .finally(() => setLoading(false));
   };
@@ -97,11 +97,15 @@ export default function Barista() {
 
   // Lọc danh sách món
   const filteredItems = items.filter((i) => {
-    // Lọc theo kênh phục vụ
+    // Lọc theo kênh phục vụ hoặc chủng loại món
     if (channelFilter === 'takeaway') {
       if (i.table_code) return false;
     } else if (channelFilter === 'dine_in') {
       if (!i.table_code) return false;
+    } else if (channelFilter === 'drinks') {
+      if (i.is_packaged) return false;
+    } else if (channelFilter === 'packaged') {
+      if (!i.is_packaged) return false;
     }
 
     // Lọc theo từ khóa tìm kiếm
@@ -124,6 +128,8 @@ export default function Barista() {
   // Thống kê nhanh
   const takeawayCount = items.filter(i => !i.table_code).length;
   const dineInCount = items.filter(i => !!i.table_code).length;
+  const drinksCount = items.filter(i => !i.is_packaged).length;
+  const packagedCount = items.filter(i => !!i.is_packaged).length;
 
   // Render thẻ món Barista với đầy đủ quy trình và định lượng
   const renderItem = (item, actions) => {
@@ -239,8 +245,14 @@ export default function Barista() {
         {/* 4. TÊN MÓN, SIZE & SỐ LƯỢNG */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', margin: '4px 0 8px' }}>
           <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fef3c7', lineHeight: 1.3 }}>
-              {item.product_name} {sizeDisplay}
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fef3c7', lineHeight: 1.3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+              <span>{item.product_name}</span>
+              {sizeDisplay}
+              {item.is_packaged && (
+                <span style={{ fontSize: '0.68rem', background: 'rgba(234, 179, 8, 0.2)', color: '#fde047', border: '1px solid #eab308', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                  📦 Đóng gói lấy liền
+                </span>
+              )}
             </div>
           </div>
           <span
@@ -394,6 +406,29 @@ export default function Barista() {
 
         {/* 9. THAO TÁC HÀNH ĐỘNG THEO TIẾN TRÌNH */}
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+          {/* Nút giao ngay cho đồ đóng gói lấy liền (không cần qua pha chế) */}
+          {item.is_packaged && item.status !== 'done' && item.status !== 'served' && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                fontWeight: 800,
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)',
+                fontSize: '0.82rem',
+              }}
+              title="Đồ ăn đóng gói có sẵn - Bàn giao cho khách ngay"
+              onClick={() => updateStatus(item.id, 'served')}
+            >
+              ⚡ Giao ngay
+            </button>
+          )}
+
           {actions.map((a) => (
             <button
               key={a.label}
@@ -517,7 +552,7 @@ export default function Barista() {
           border: '1px solid rgba(245, 158, 11, 0.18)'
         }}
       >
-        {/* Filter channels */}
+        {/* Filter channels & Categories */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -534,6 +569,40 @@ export default function Barista() {
             onClick={() => setChannelFilter('all')}
           >
             📋 Tất cả ({items.length})
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${channelFilter === 'drinks' ? 'btn-primary' : 'btn-outline'}`}
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              padding: '5px 12px',
+              borderRadius: '6px',
+              background: channelFilter === 'drinks' ? 'linear-gradient(135deg, #b45309, #78350f)' : 'transparent',
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              color: channelFilter === 'drinks' ? '#fff' : '#fbbf24'
+            }}
+            onClick={() => setChannelFilter('drinks')}
+          >
+            ☕ Đồ uống cần pha ({drinksCount})
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${channelFilter === 'packaged' ? 'btn-primary' : 'btn-outline'}`}
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              padding: '5px 12px',
+              borderRadius: '6px',
+              background: channelFilter === 'packaged' ? 'linear-gradient(135deg, #ca8a04, #a16207)' : 'transparent',
+              borderColor: 'rgba(234, 179, 8, 0.3)',
+              color: channelFilter === 'packaged' ? '#fff' : '#fde047'
+            }}
+            onClick={() => setChannelFilter('packaged')}
+          >
+            📦 Đồ đóng gói ({packagedCount})
           </button>
 
           <button
@@ -571,8 +640,30 @@ export default function Barista() {
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search & Manual Refresh Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            onClick={() => {
+              load();
+              toast.success('🔄 Đã làm mới hàng đợi pha chế!');
+            }}
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              padding: '6px 12px',
+              borderRadius: '8px',
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              color: '#fbbf24',
+              background: 'rgba(245, 158, 11, 0.1)',
+              cursor: 'pointer'
+            }}
+            title="Tải lại dữ liệu thời gian thực"
+          >
+            🔄 Làm mới
+          </button>
+
           <input
             type="text"
             className="form-input"
@@ -580,7 +671,7 @@ export default function Barista() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
-              width: '260px',
+              width: '240px',
               padding: '6px 10px',
               fontSize: '0.8rem',
               background: 'rgba(20, 10, 5, 0.8)',

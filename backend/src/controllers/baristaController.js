@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 // GET /api/barista/queue
-// Lấy hàng đợi pha chế chi tiết kèm công thức, khách hàng, kênh bán, giờ hẹn
+// Lấy hàng đợi pha chế chi tiết kèm công thức, khách hàng, kênh bán, giờ hẹn, phân loại đồ uống vs đồ đóng gói
 const getQueue = async (req, res) => {
   try {
     const [items] = await db.query(
@@ -63,10 +63,15 @@ const getQueue = async (req, res) => {
       }
     }
 
-    const enrichedItems = items.map(it => ({
-      ...it,
-      recipe: recipeMap[it.product_size_id] || []
-    }));
+    const enrichedItems = items.map(it => {
+      const rec = recipeMap[it.product_size_id] || [];
+      return {
+        ...it,
+        recipe: rec,
+        // Nếu món không có công thức định lượng (đồ ăn vặt, snack đóng gói có sẵn lấy liền)
+        is_packaged: rec.length === 0
+      };
+    });
 
     res.json({ success: true, data: enrichedItems });
   } catch (err) {
@@ -75,7 +80,7 @@ const getQueue = async (req, res) => {
 };
 
 // PUT /api/barista/items/:id/status
-// Cập nhật trạng thái từng món trong đơn
+// Cập nhật trạng thái từng món trong đơn và đồng bộ trạng thái đơn hàng cha
 const updateItemStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -99,36 +104,74 @@ const updateItemStatus = async (req, res) => {
 
     // Đồng bộ trạng thái đơn hàng cha (orders.status)
     const [itemRows] = await db.query('SELECT order_id FROM order_items WHERE id = ?', [req.params.id]);
+    let orderId = null;
+    let newOrderStatus = null;
+
     if (itemRows.length) {
-      const orderId = itemRows[0].order_id;
+      orderId = itemRows[0].order_id;
       const [allOrderItems] = await db.query('SELECT status FROM order_items WHERE order_id = ? AND status != "cancelled"', [orderId]);
 
       const allServed = allOrderItems.length > 0 && allOrderItems.every(it => it.status === 'served');
       const allDoneOrServed = allOrderItems.length > 0 && allOrderItems.every(it => ['done', 'served'].includes(it.status));
       const anyPreparing = allOrderItems.some(it => it.status === 'preparing');
+      const anyDone = allOrderItems.some(it => it.status === 'done');
+      const allPending = allOrderItems.length > 0 && allOrderItems.every(it => it.status === 'pending');
 
-      let newOrderStatus = null;
       if (allServed) {
         newOrderStatus = 'served';
       } else if (allDoneOrServed) {
         newOrderStatus = 'done';
-      } else if (anyPreparing) {
+      } else if (anyPreparing || anyDone) {
         newOrderStatus = 'preparing';
+      } else if (allPending) {
+        newOrderStatus = 'pending';
       }
 
       if (newOrderStatus) {
-        await db.query('UPDATE orders SET status = ? WHERE id = ? AND status NOT IN ("cancelled", "paid")', [newOrderStatus, orderId]);
+        let updateOrderSql = 'UPDATE orders SET status = ?';
+        if (newOrderStatus === 'served') {
+          updateOrderSql += ', closed_at = IFNULL(closed_at, NOW())';
+        }
+        updateOrderSql += ' WHERE id = ? AND status != "cancelled"';
+        await db.query(updateOrderSql, [newOrderStatus, orderId]);
+
+        // Nếu toàn bộ đơn đã trả món (served), giải phóng bàn ăn nếu có
+        if (newOrderStatus === 'served') {
+          const [orderRows] = await db.query('SELECT table_id FROM orders WHERE id = ?', [orderId]);
+          if (orderRows.length && orderRows[0].table_id) {
+            const tableId = orderRows[0].table_id;
+            const [activeOrders] = await db.query(
+              'SELECT id FROM orders WHERE table_id = ? AND id != ? AND status IN ("pending", "preparing", "open")',
+              [tableId, orderId]
+            );
+            if (!activeOrders.length) {
+              await db.query('UPDATE `tables` SET status = "empty" WHERE id = ?', [tableId]);
+              const io = req.app?.get('io');
+              if (io) io.emit('table:status_updated', { tableId, status: 'empty' });
+            }
+          }
+        }
       }
     }
 
-    // Phát sự kiện Socket.IO thời gian thực tới màn hình Barista & Thu ngân
+    // Phát sự kiện Socket.IO thời gian thực chuẩn hóa cho toàn hệ thống
     const io = req.app?.get('io');
     if (io) {
-      io.emit('barista:item_updated', { itemId: req.params.id, status });
-      io.emit('order:status_updated', { itemId: req.params.id, status });
+      io.emit('barista:item_updated', { itemId: req.params.id, orderId, status });
+      io.emit('order:status_updated', {
+        id: orderId,
+        orderId,
+        status: newOrderStatus || status,
+        itemId: req.params.id,
+        itemStatus: status
+      });
     }
 
-    res.json({ success: true, message: `Đã cập nhật trạng thái món thành ${status}` });
+    res.json({
+      success: true,
+      message: `Đã cập nhật trạng thái món thành ${status}`,
+      data: { itemId: req.params.id, orderId, itemStatus: status, orderStatus: newOrderStatus }
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Lỗi khi cập nhật trạng thái món: ' + err.message });
   }
@@ -155,16 +198,42 @@ const updateOrderStatus = async (req, res) => {
     await db.query(itemQuery, [status, orderId]);
 
     // Cập nhật trạng thái đơn hàng cha
-    await db.query('UPDATE orders SET status = ? WHERE id = ? AND status NOT IN ("cancelled", "paid")', [status, orderId]);
+    let orderQuery = 'UPDATE orders SET status = ?';
+    if (status === 'served') {
+      orderQuery += ', closed_at = IFNULL(closed_at, NOW())';
+    }
+    orderQuery += ' WHERE id = ? AND status != "cancelled"';
+    await db.query(orderQuery, [status, orderId]);
 
-    // Phát sự kiện Socket.IO
-    const io = req.app?.get('io');
-    if (io) {
-      io.emit('barista:item_updated', { orderId, status });
-      io.emit('order:status_updated', { orderId, status });
+    // Giải phóng bàn ăn nếu chuyển sang served
+    if (status === 'served') {
+      const [orderRows] = await db.query('SELECT table_id FROM orders WHERE id = ?', [orderId]);
+      if (orderRows.length && orderRows[0].table_id) {
+        const tableId = orderRows[0].table_id;
+        const [activeOrders] = await db.query(
+          'SELECT id FROM orders WHERE table_id = ? AND id != ? AND status IN ("pending", "preparing", "open")',
+          [tableId, orderId]
+        );
+        if (!activeOrders.length) {
+          await db.query('UPDATE `tables` SET status = "empty" WHERE id = ?', [tableId]);
+          const io = req.app?.get('io');
+          if (io) io.emit('table:status_updated', { tableId, status: 'empty' });
+        }
+      }
     }
 
-    res.json({ success: true, message: `Đã cập nhật toàn bộ món của đơn #${orderId} sang ${status}` });
+    // Phát sự kiện Socket.IO chuẩn hóa
+    const io = req.app?.get('io');
+    if (io) {
+      io.emit('barista:item_updated', { orderId: Number(orderId), status });
+      io.emit('order:status_updated', { id: Number(orderId), orderId: Number(orderId), status });
+    }
+
+    res.json({
+      success: true,
+      message: `Đã cập nhật toàn bộ món của đơn #${orderId} sang ${status}`,
+      data: { orderId: Number(orderId), status }
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Lỗi khi cập nhật đơn hàng: ' + err.message });
   }

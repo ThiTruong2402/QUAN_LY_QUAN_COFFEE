@@ -75,21 +75,26 @@ const STATUS_META = {
     badgeBorder: 'rgba(56, 189, 248, 0.4)',
     stepIndex: 2,
     nextAction: {
-      label: '🔔 Pha xong & Trả món',
+      label: '🔔 Pha xong (Chờ trả)',
       status: 'done',
-      desc: 'Pha chế xong, báo chuông và trả món cho khách (Hoàn tất đơn)',
+      desc: 'Pha chế xong, báo chuông và sẵn sàng trả món cho khách',
       bg: '#10b981',
     },
   },
   done: {
     key: 'done',
-    label: '✅ Đã trả món (Hoàn tất)',
-    short: 'Hoàn tất',
+    label: '🔔 Đã pha xong - Chờ trả món',
+    short: 'Chờ trả',
     badgeBg: 'rgba(16, 185, 129, 0.2)',
     badgeColor: '#34d399',
     badgeBorder: 'rgba(16, 185, 129, 0.4)',
     stepIndex: 3,
-    nextAction: null,
+    nextAction: {
+      label: '🛎️ Xác nhận đã trả món',
+      status: 'served',
+      desc: 'Bàn giao đồ uống cho khách và hoàn tất đơn hàng',
+      bg: '#7c3aed',
+    },
   },
   served: {
     key: 'served',
@@ -98,7 +103,7 @@ const STATUS_META = {
     badgeBg: 'rgba(16, 185, 129, 0.2)',
     badgeColor: '#34d399',
     badgeBorder: 'rgba(16, 185, 129, 0.4)',
-    stepIndex: 3,
+    stepIndex: 4,
     nextAction: null,
   },
   paid: {
@@ -108,7 +113,7 @@ const STATUS_META = {
     badgeBg: 'rgba(16, 185, 129, 0.2)',
     badgeColor: '#34d399',
     badgeBorder: 'rgba(16, 185, 129, 0.4)',
-    stepIndex: 3,
+    stepIndex: 4,
     nextAction: null,
   },
   cancelled: {
@@ -191,25 +196,29 @@ export default function Orders() {
   useEffect(() => {
     loadData(false);
 
-    // Lắng nghe sự kiện thời gian thực từ Socket.IO
+    // Lắng nghe sự kiện thời gian thực từ Socket.IO đồng bộ 100% với Barista KDS
     const handleNewOrder = (data) => {
       playNotificationSound();
       toast.success(`🔔 Có đơn hàng mới: #${data?.orderCode || ''}!`, { duration: 5000 });
       loadData(true);
     };
 
+    const handleSync = () => {
+      loadData(true);
+    };
+
     socket.on('order:created', handleNewOrder);
-    socket.on('order:status_updated', () => {
-      loadData(true);
-    });
-    socket.on('order:cancelled', () => {
-      loadData(true);
-    });
+    socket.on('barista:new_order', handleNewOrder);
+    socket.on('order:status_updated', handleSync);
+    socket.on('barista:item_updated', handleSync);
+    socket.on('order:cancelled', handleSync);
 
     return () => {
       socket.off('order:created', handleNewOrder);
-      socket.off('order:status_updated');
-      socket.off('order:cancelled');
+      socket.off('barista:new_order', handleNewOrder);
+      socket.off('order:status_updated', handleSync);
+      socket.off('barista:item_updated', handleSync);
+      socket.off('order:cancelled', handleSync);
     };
   }, []);
 
@@ -1028,31 +1037,62 @@ export default function Orders() {
             </div>
           </div>
 
-          {/* Detailed Items in Selected Order */}
+          {/* Detailed Items in Selected Order - Đồng bộ tiến độ Barista theo từng món */}
           {orderDetails?.items && orderDetails.items.length > 0 && (
             <div>
-              <label className="form-label" style={{ fontSize: '0.82rem' }}>☕ Danh sách món ({orderDetails.items.length}):</label>
-              <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid rgba(245, 158, 11, 0.18)', borderRadius: '6px' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem' }}>☕ Danh sách món &amp; Tiến trình Barista ({orderDetails.items.length}):</label>
+              <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid rgba(245, 158, 11, 0.18)', borderRadius: '6px' }}>
                 <table className="mockup-table">
                   <thead>
                     <tr>
                       <th>Tên món</th>
-                      <th style={{ width: '50px', textAlign: 'center' }}>Size</th>
-                      <th style={{ width: '35px', textAlign: 'center' }}>SL</th>
-                      <th style={{ width: '80px', textAlign: 'right' }}>T.Tiền</th>
+                      <th style={{ width: '45px', textAlign: 'center' }}>Size</th>
+                      <th style={{ width: '30px', textAlign: 'center' }}>SL</th>
+                      <th style={{ width: '90px', textAlign: 'center' }}>Tiến độ KDS</th>
+                      <th style={{ width: '75px', textAlign: 'right' }}>T.Tiền</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {orderDetails.items.map((it, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontWeight: 600, color: '#fef3c7' }}>{it.product_name}</td>
-                        <td style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
-                          {it.size_name && it.size_name !== 'Tiêu chuẩn' ? it.size_name : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#fef3c7' }}>{it.quantity}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: '#fbbf24' }}>{fmt(it.line_total)}</td>
-                      </tr>
-                    ))}
+                    {orderDetails.items.map((it, idx) => {
+                      const itemStatusMap = {
+                        pending:   { label: '⏳ Chờ pha', bg: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '#f59e0b' },
+                        preparing: { label: '☕ Đang pha', bg: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '#38bdf8' },
+                        done:      { label: '🔔 Pha xong', bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '#10b981' },
+                        served:    { label: '✅ Đã trả',   bg: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', border: '#a855f7' },
+                        cancelled: { label: '❌ Đã hủy',   bg: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '#ef4444' },
+                      };
+                      const stMeta = itemStatusMap[it.status] || { label: it.status || 'Chờ pha', bg: '#334155', color: '#94a3b8', border: '#475569' };
+                      return (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 600, color: '#fef3c7', fontSize: '0.78rem' }}>
+                            <div>{it.product_name}</div>
+                            {it.toppings_summary && (
+                              <div style={{ fontSize: '0.68rem', color: '#fbbf24', opacity: 0.85 }}>+ {it.toppings_summary}</div>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
+                            {it.size_name && it.size_name !== 'Tiêu chuẩn' ? it.size_name : '—'}
+                          </td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: '#fef3c7' }}>{it.quantity}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              fontSize: '0.66rem',
+                              fontWeight: 800,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: stMeta.bg,
+                              color: stMeta.color,
+                              border: `1px solid ${stMeta.border}`,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {stMeta.label}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, color: '#fbbf24', fontSize: '0.76rem' }}>{fmt(it.line_total)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
