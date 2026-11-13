@@ -674,11 +674,27 @@ const directCheckout = async (req, res) => {
       }
     }
 
+    // Mô hình phục vụ: 'dine_in' (Tại quán) hoặc 'takeaway' (Mang về)
+    const normalizedOrderType = order_type === 'dine_in' ? 'dine_in' : 'takeaway';
+    const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
+    const isOnlineCustomer = req.user?.role === 'customer' || !req.user || req.body.is_online_order;
+
     // 2. Zero-Trust Promotions: Server tự kiểm tra và tính toán giảm giá từ bảng promotions
     let calculatedDiscount = 0;
     let validCouponCode = null;
     if (coupon_code) {
       const cleanCode = String(coupon_code).trim().toUpperCase();
+
+      // Phân quyền mã khuyến mãi: Khách hàng chỉ được sử dụng các mã khuyến mãi công khai dành cho khách
+      const CUSTOMER_ALLOWED_COUPONS = ['COFFEE10', 'GIAM20K', 'BANMOI', 'BANMOI20', 'MYCOFFEE20', 'FREESHIP'];
+      if (isOnlineCustomer && !CUSTOMER_ALLOWED_COUPONS.includes(cleanCode)) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Mã giảm giá "${cleanCode}" là mã nội bộ / sự kiện đặc biệt, không áp dụng cho khách tự đặt đơn!`
+        });
+      }
+
       const [promoRows] = await conn.query(
         `SELECT * FROM promotions 
          WHERE BINARY code = ? AND is_active = 1 
@@ -778,16 +794,11 @@ const directCheckout = async (req, res) => {
       }
     }
 
-    // Xử lý trạng thái thanh toán (Lỗi 5: Khách online chuyển khoản ngân hàng thì trạng thái thanh toán là unpaid chờ xác nhận)
-    const isOnlineCustomer = req.user?.role === 'customer' || !req.user || req.body.is_online_order;
+    // Xử lý trạng thái thanh toán (Khách online chuyển khoản ngân hàng thì trạng thái thanh toán là unpaid chờ xác nhận)
     const isTransfer = ['Chuyển khoản', 'QR Banking', 'Ví MoMo', 'ZaloPay', 'bank_transfer'].includes(payment_method);
     const finalPaymentStatus = (isOnlineCustomer && isTransfer) ? 'unpaid' : 'paid';
 
     const closedAt = finalOrderStatus === 'paid' && finalPaymentStatus === 'paid' ? 'NOW()' : 'NULL';
-
-    // Mô hình chỉ bán trực tiếp: 'dine_in' (Tại quán) hoặc 'takeaway' (Mang về)
-    const normalizedOrderType = order_type === 'dine_in' ? 'dine_in' : 'takeaway';
-    const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
 
     let orderRes;
     try {

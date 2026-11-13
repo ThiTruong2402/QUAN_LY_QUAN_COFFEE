@@ -65,7 +65,7 @@ export default function Login() {
         password: regForm.password,
         birthday: regForm.birthday || null,
       });
-      toast.success('🎉 Đăng ký thành công! Bạn nhận được 50 điểm thưởng chào mừng.');
+      toast.success('🎉 Đăng ký thành công! Dữ liệu tài khoản đã được lưu vào hệ thống.');
       navigate('/customer');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Đăng ký không thành công');
@@ -145,22 +145,18 @@ export default function Login() {
               />
             </div>
 
-            {/* Membership Promo Box */}
+            {/* Slogan Atmosphere Box */}
             <div style={{
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
+              background: 'rgba(0, 0, 0, 0.35)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
               borderRadius: '12px',
-              padding: '14px 16px',
+              padding: '16px',
               textAlign: 'center',
               marginTop: '16px'
             }}>
-              <div style={{ fontSize: '1.1rem', marginBottom: '4px' }}>🎁</div>
-              <p style={{ fontSize: '0.85rem', color: '#fef3c7', margin: 0, lineHeight: 1.4, fontWeight: 600 }}>
-                Đăng ký tài khoản thành viên ngay hôm nay!
+              <p style={{ fontSize: '0.88rem', color: '#fef3c7', margin: 0, fontWeight: 600, fontStyle: 'italic', lineHeight: 1.5 }}>
+                "Cà phê nguyên chất – Đậm đà phong vị – Phục vụ tận tâm"
               </p>
-              <div style={{ fontSize: '0.78rem', color: '#d4b094', marginTop: '4px' }}>
-                Tặng ngay <strong style={{ color: '#f59e0b' }}>50 điểm tích lũy</strong> và ưu đãi giảm giá trọn đời khi mua cà phê tại quán.
-              </div>
             </div>
           </div>
 
@@ -240,30 +236,26 @@ export default function Login() {
           {/* MODE: ĐĂNG NHẬP */}
           {mode === 'login' && (
             <div>
-              <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '22px' }}>
                 <h2 style={{
                   fontFamily: "'Playfair Display', serif",
                   fontSize: '1.6rem',
                   fontWeight: 800,
                   color: '#652b0f',
-                  margin: '0 0 4px'
+                  margin: 0
                 }}>
                   ĐĂNG NHẬP HỆ THỐNG
                 </h2>
-                <p style={{ color: '#8c674b', fontSize: '0.85rem', margin: 0 }}>
-                  Dành cho Nhân viên quán và Khách hàng đã có tài khoản
-                </p>
               </div>
 
-              <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#543310', marginBottom: '5px' }}>
                     👤 Tài khoản / Số điện thoại
                   </label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Nhập tên đăng nhập hoặc số điện thoại"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
                     required
@@ -272,13 +264,12 @@ export default function Login() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#543310', marginBottom: '5px' }}>
                     🔒 Mật khẩu
                   </label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     className="form-input"
-                    placeholder="Nhập mật khẩu"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     required
@@ -330,7 +321,7 @@ export default function Login() {
                     onClick={() => setMode('register')}
                     style={{ background: 'none', border: 'none', color: '#b45309', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
-                    Đăng ký thành viên (+50đ)
+                    Đăng ký tại đây
                   </button>
                 </div>
               </form>
@@ -340,93 +331,86 @@ export default function Login() {
           {/* MODE: ĐĂNG KÝ THÀNH VIÊN MỚI */}
           {mode === 'register' && (
             <div>
-              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <h2 style={{
                   fontFamily: "'Playfair Display', serif",
                   fontSize: '1.5rem',
                   fontWeight: 800,
                   color: '#652b0f',
-                  margin: '0 0 4px'
+                  margin: 0
                 }}>
                   ĐĂNG KÝ THÀNH VIÊN
                 </h2>
-                <p style={{ color: '#8c674b', fontSize: '0.82rem', margin: 0 }}>
-                  Nhận ngay <strong>50 điểm thưởng</strong> và mở khóa đặc quyền hội viên
-                </p>
               </div>
 
-              <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+              <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
-                    👤 Họ và tên quý khách *
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                    👤 Họ và tên *
                   </label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Ví dụ: Nguyễn Văn An"
                     value={regForm.full_name}
                     onChange={(e) => setRegForm({ ...regForm, full_name: e.target.value })}
                     required
-                    style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                    style={{ borderColor: '#d5c3b2', padding: '9px 12px', fontSize: '0.9rem' }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
-                    📱 Số điện thoại (dùng đăng nhập) *
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                    📱 Số điện thoại *
                   </label>
                   <input
                     type="tel"
                     className="form-input"
-                    placeholder="Ví dụ: 0901234567"
                     value={regForm.phone}
                     onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
                     required
-                    style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                    style={{ borderColor: '#d5c3b2', padding: '9px 12px', fontSize: '0.9rem' }}
                   />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
-                      🔒 Mật khẩu (≥ 6 ký tự) *
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                      🔒 Mật khẩu *
                     </label>
                     <input
                       type={showPassword ? 'text' : 'password'}
                       className="form-input"
-                      placeholder="Mật khẩu"
                       value={regForm.password}
                       onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
                       required
-                      style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                      style={{ borderColor: '#d5c3b2', padding: '9px 12px', fontSize: '0.9rem' }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
                       🔁 Xác nhận mật khẩu *
                     </label>
                     <input
                       type={showPassword ? 'text' : 'password'}
                       className="form-input"
-                      placeholder="Nhập lại mật khẩu"
                       value={regForm.confirmPassword}
                       onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
                       required
-                      style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.9rem' }}
+                      style={{ borderColor: '#d5c3b2', padding: '9px 12px', fontSize: '0.9rem' }}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '3px' }}>
-                    🎂 Ngày sinh (Tùy chọn - Nhận quà sinh nhật)
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#543310', marginBottom: '4px' }}>
+                    🎂 Ngày sinh
                   </label>
                   <input
                     type="date"
                     className="form-input"
                     value={regForm.birthday}
                     onChange={(e) => setRegForm({ ...regForm, birthday: e.target.value })}
-                    style={{ borderColor: '#d5c3b2', padding: '8px 12px', fontSize: '0.85rem' }}
+                    style={{ borderColor: '#d5c3b2', padding: '9px 12px', fontSize: '0.85rem' }}
                   />
                 </div>
 
@@ -461,7 +445,7 @@ export default function Login() {
                     marginTop: '4px'
                   }}
                 >
-                  {loading ? <div className="spinner" /> : <><span>🎁</span><span>ĐĂNG KÝ (+50 ĐIỂM THƯỞNG)</span></>}
+                  {loading ? <div className="spinner" /> : <span>ĐĂNG KÝ TÀI KHOẢN</span>}
                 </button>
 
                 <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '0.82rem', color: '#7c5843' }}>

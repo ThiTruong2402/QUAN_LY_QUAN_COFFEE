@@ -6,6 +6,27 @@ import { useAuth } from '../context/AuthContext';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 
+const getRoleBadge = (roleName) => {
+  switch (roleName) {
+    case 'admin':
+      return { label: '🛡️ Admin', bg: 'rgba(220, 38, 38, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)' };
+    case 'manager':
+      return { label: '👔 Quản lý', bg: 'rgba(217, 119, 6, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)' };
+    case 'cashier':
+      return { label: '💵 Thu ngân', bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)' };
+    case 'barista':
+      return { label: '☕ Pha chế', bg: 'rgba(2, 132, 199, 0.2)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)' };
+    case 'waiter':
+      return { label: '🛵 Phục vụ', bg: 'rgba(124, 58, 237, 0.2)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.35)' };
+    case 'warehouse':
+      return { label: '📦 Thủ kho', bg: 'rgba(234, 88, 12, 0.2)', color: '#fb923c', border: '1px solid rgba(251, 146, 60, 0.35)' };
+    case 'customer':
+      return { label: '🌟 Khách hàng (Đăng ký)', bg: 'rgba(13, 148, 136, 0.25)', color: '#2dd4bf', border: '1px solid rgba(45, 212, 191, 0.35)' };
+    default:
+      return { label: roleName || 'Khác', bg: 'rgba(255, 255, 255, 0.1)', color: '#fef3c7', border: '1px solid rgba(255, 255, 255, 0.2)' };
+  }
+};
+
 export default function Accounts() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -13,10 +34,12 @@ export default function Accounts() {
   const canManageStaff = ['admin', 'manager'].includes(user?.role);
   const [activeTab, setActiveTab] = useState('staff'); // 'staff' | 'customers' | 'promotions'
 
-  // STAFF STATE
+  // STAFF & USER ACCOUNTS STATE
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [accountRoleFilter, setAccountRoleFilter] = useState('all'); // 'all' | 'customer' | 'staff'
+  const [accountSearch, setAccountSearch] = useState('');
   const [staffForm, setStaffForm] = useState({
     code: 'NV005',
     username: '',
@@ -149,14 +172,43 @@ export default function Accounts() {
     try {
       if (isNew) {
         await api.post('/staff', staffForm);
-        toast.success('Thêm nhân viên thành công!');
+        toast.success('Thêm tài khoản thành công!');
       } else {
         await api.put(`/staff/${selectedUser.id}`, staffForm);
-        toast.success('Cập nhật nhân viên thành công!');
+        toast.success('Cập nhật tài khoản thành công!');
       }
       loadStaff();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
+    }
+  };
+
+  const handleToggleActive = async (targetUser) => {
+    const u = targetUser || selectedUser;
+    if (!u) return;
+    if (u.id === user?.id) return toast.error('Không thể tự khóa tài khoản của chính bạn!');
+    const nextState = u.is_active ? 0 : 1;
+    try {
+      await api.put(`/staff/${u.id}`, { ...u, is_active: nextState });
+      toast.success(nextState ? `Đã kích hoạt tài khoản ${u.full_name}` : `Đã tạm khóa tài khoản ${u.full_name}`);
+      loadStaff();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
+    }
+  };
+
+  const handleDeleteUser = async (targetUser) => {
+    const u = targetUser || selectedUser;
+    if (!u) return toast.error('Vui lòng chọn tài khoản cần xóa!');
+    if (u.id === user?.id) return toast.error('Không thể xóa tài khoản của chính bạn!');
+    if (!window.confirm(`Bạn có chắc muốn xóa tài khoản "${u.full_name}" (${u.username})?`)) return;
+    try {
+      const res = await api.delete(`/staff/${u.id}`);
+      toast.success(res.data?.message || 'Đã xóa tài khoản thành công!');
+      if (selectedUser?.id === u.id) setSelectedUser(null);
+      loadStaff();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi xóa tài khoản');
     }
   };
 
@@ -220,7 +272,7 @@ export default function Accounts() {
             }}
             onClick={() => setActiveTab('staff')}
           >
-            👥 PHÂN QUYỀN TÀI KHOẢN
+            👥 QUẢN LÝ TÀI KHOẢN &amp; PHÂN QUYỀN
           </button>
         )}
 
@@ -281,207 +333,370 @@ export default function Accounts() {
         )}
       </div>
 
-      {/* 2. TAB CONTENT: TÀI KHOẢN NHÂN VIÊN */}
-      {activeTab === 'staff' && canManageStaff && (
-        <div className="mockup-split-grid">
-          {/* Staff List */}
-          <div className="mockup-panel">
-            <div className="mockup-panel-header">
-              <div className="mockup-panel-title">
-                <span>👥</span>
-                <span>DANH SÁCH NHÂN VIÊN ({users.length} NHÂN VIÊN)</span>
-              </div>
-            </div>
+      {/* 2. TAB CONTENT: TÀI KHOẢN HỆ THỐNG & KHÁCH HÀNG ĐĂNG KÝ */}
+      {activeTab === 'staff' && canManageStaff && (() => {
+        const customerUsers = users.filter((u) => u.role_name === 'customer' || (u.code && u.code.startsWith('KH')));
+        const staffUsers = users.filter((u) => u.role_name !== 'customer' && (!u.code || !u.code.startsWith('KH')));
+        
+        const filteredUsers = users.filter((u) => {
+          if (accountRoleFilter === 'customer') {
+            if (u.role_name !== 'customer' && (!u.code || !u.code.startsWith('KH'))) return false;
+          } else if (accountRoleFilter === 'staff') {
+            if (u.role_name === 'customer' || (u.code && u.code.startsWith('KH'))) return false;
+          }
+          if (accountSearch.trim()) {
+            const q = accountSearch.toLowerCase().trim();
+            const name = String(u.full_name || '').toLowerCase();
+            const phone = String(u.phone || '').toLowerCase();
+            const username = String(u.username || '').toLowerCase();
+            const code = String(u.code || '').toLowerCase();
+            return name.includes(q) || phone.includes(q) || username.includes(q) || code.includes(q);
+          }
+          return true;
+        });
 
-            <div style={{ overflowX: 'auto', maxHeight: '560px' }}>
-              <table className="mockup-table">
-                <thead>
-                  <tr>
-                    <th>Mã NV</th>
-                    <th>Họ và Tên</th>
-                    <th>Tài khoản</th>
-                    <th>Vai trò</th>
-                    <th style={{ textAlign: 'center' }}>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => {
-                    const isSelected = selectedUser?.id === u.id;
-                    return (
-                      <tr
-                        key={u.id}
-                        onClick={() => selectStaffRow(u)}
-                        style={{
-                          cursor: 'pointer',
-                          background: isSelected ? 'rgba(217, 119, 6, 0.22)' : undefined,
-                          borderLeft: isSelected ? '3px solid #fbbf24' : '3px solid transparent',
-                        }}
-                      >
-                        <td style={{ fontWeight: 700, color: '#fbbf24' }}>{u.code || `NV00${u.id}`}</td>
-                        <td style={{ fontWeight: 600, color: '#fef3c7' }}>{u.full_name}</td>
-                        <td style={{ color: '#d5bba2' }}>{u.username}</td>
-                        <td>
-                          <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
-                            {u.role_name || u.role}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span style={{ color: u.is_active ? '#34d399' : '#f87171', fontWeight: 700, fontSize: '0.78rem' }}>
-                            {u.is_active ? '● Hoạt động' : '○ Tạm khóa'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Staff Form */}
-          <div className="mockup-panel">
-            <div className="mockup-panel-header">
-              <div className="mockup-panel-title">
-                <span>📝</span>
-                <span>{selectedUser ? `SỬA NHÂN VIÊN: ${selectedUser.full_name}` : 'THÊM NHÂN VIÊN MỚI'}</span>
-              </div>
-            </div>
-
-            <div className="mockup-panel-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label className="form-label">MÃ NHÂN VIÊN:</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={staffForm.code}
-                    onChange={(e) => setStaffForm({ ...staffForm, code: e.target.value })}
-                    style={{ width: '100%', padding: '8px' }}
-                  />
+        return (
+          <div className="mockup-split-grid">
+            {/* Account List */}
+            <div className="mockup-panel">
+              <div className="mockup-panel-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
+                <div className="mockup-panel-title">
+                  <span>👥</span>
+                  <span>DANH SÁCH TÀI KHOẢN ({filteredUsers.length} / {users.length})</span>
                 </div>
-                <div>
-                  <label className="form-label">VAI TRÒ (ROLE):</label>
-                  <select
-                    className="form-select"
-                    value={staffForm.role_id}
-                    onChange={(e) => setStaffForm({ ...staffForm, role_id: parseInt(e.target.value) })}
-                    style={{ width: '100%', padding: '8px' }}
-                  >
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>{r.label || r.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label">HỌ VÀ TÊN:</label>
+                {/* Search input */}
                 <input
                   type="text"
                   className="form-input"
-                  value={staffForm.full_name}
-                  onChange={(e) => setStaffForm({ ...staffForm, full_name: e.target.value })}
-                  style={{ width: '100%', padding: '8px' }}
+                  placeholder="🔍 Tìm theo Tên, SĐT, Mã..."
+                  value={accountSearch}
+                  onChange={(e) => setAccountSearch(e.target.value)}
+                  style={{ width: '210px', padding: '6px 10px', fontSize: '0.82rem' }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label className="form-label">TÊN ĐĂNG NHẬP:</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={staffForm.username}
-                    onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })}
-                    style={{ width: '100%', padding: '8px' }}
-                  />
-                </div>
-                <div>
-                  <label className="form-label">MẬT KHẨU {selectedUser ? '(Để trống nếu không đổi)' : ''}:</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    value={staffForm.password}
-                    onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                    placeholder={selectedUser ? '••••••••' : 'Nhập mật khẩu'}
-                    style={{ width: '100%', padding: '8px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label className="form-label">SỐ ĐIỆN THOẠI:</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={staffForm.phone}
-                    onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
-                    style={{ width: '100%', padding: '8px' }}
-                  />
-                </div>
-                <div>
-                  <label className="form-label">TRẠNG THÁI HOẠT ĐỘNG:</label>
-                  <select
-                    className="form-select"
-                    value={staffForm.is_active}
-                    onChange={(e) => setStaffForm({ ...staffForm, is_active: parseInt(e.target.value) })}
-                    style={{ width: '100%', padding: '8px' }}
-                  >
-                    <option value={1}>Đang hoạt động</option>
-                    <option value={0}>Đã tạm khóa / Nghỉ việc</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              {/* Filter Pills */}
+              <div style={{ padding: '10px 16px 4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  className="btn btn-outline"
-                  style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
-                  onClick={() => {
-                    setSelectedUser(null);
-                    setStaffForm({
-                      code: `NV00${users.length + 1}`,
-                      username: '',
-                      password: '',
-                      full_name: '',
-                      birthday: '1995-01-01',
-                      gender: 'Nam',
-                      phone: '',
-                      email: '',
-                      role_id: 2,
-                      is_active: 1,
-                    });
+                  onClick={() => setAccountRoleFilter('all')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    background: accountRoleFilter === 'all' ? '#d97706' : 'rgba(255,255,255,0.06)',
+                    color: accountRoleFilter === 'all' ? '#ffffff' : '#c4a482',
+                    border: accountRoleFilter === 'all' ? '1px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)'
                   }}
                 >
-                  ➕ LÀM MỚI FORM
+                  Tất cả ({users.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountRoleFilter('customer')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    background: accountRoleFilter === 'customer' ? '#0d9488' : 'rgba(255,255,255,0.06)',
+                    color: accountRoleFilter === 'customer' ? '#ffffff' : '#c4a482',
+                    border: accountRoleFilter === 'customer' ? '1px solid #2dd4bf' : '1px solid rgba(255,255,255,0.1)'
+                  }}
+                >
+                  🌟 Khách hàng đăng ký mới ({customerUsers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountRoleFilter('staff')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    background: accountRoleFilter === 'staff' ? '#2563eb' : 'rgba(255,255,255,0.06)',
+                    color: accountRoleFilter === 'staff' ? '#ffffff' : '#c4a482',
+                    border: accountRoleFilter === 'staff' ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.1)'
+                  }}
+                >
+                  👔 Nhân sự nội bộ ({staffUsers.length})
+                </button>
+              </div>
 
-                {selectedUser ? (
+              <div style={{ overflowX: 'auto', maxHeight: '560px' }}>
+                <table className="mockup-table">
+                  <thead>
+                    <tr>
+                      <th>Mã TK</th>
+                      <th>Họ và Tên</th>
+                      <th>Tài khoản / SĐT</th>
+                      <th>Vai trò</th>
+                      <th>Ngày tạo</th>
+                      <th style={{ textAlign: 'center' }}>Trạng thái</th>
+                      <th style={{ textAlign: 'center' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((u) => {
+                      const isSelected = selectedUser?.id === u.id;
+                      const badge = getRoleBadge(u.role_name || u.role);
+                      const isCust = u.role_name === 'customer' || (u.code && u.code.startsWith('KH'));
+                      return (
+                        <tr
+                          key={u.id}
+                          onClick={() => selectStaffRow(u)}
+                          style={{
+                            cursor: 'pointer',
+                            background: isSelected ? 'rgba(217, 119, 6, 0.22)' : undefined,
+                            borderLeft: isSelected ? '3px solid #fbbf24' : '3px solid transparent',
+                          }}
+                        >
+                          <td style={{ fontWeight: 700, color: isCust ? '#2dd4bf' : '#fbbf24' }}>
+                            {u.code || (isCust ? `KH00${u.id}` : `NV00${u.id}`)}
+                          </td>
+                          <td style={{ fontWeight: 600, color: '#fef3c7' }}>{u.full_name}</td>
+                          <td style={{ color: '#d5bba2' }}>{u.username}</td>
+                          <td>
+                            <span style={{
+                              background: badge.bg,
+                              color: badge.color,
+                              border: badge.border,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              display: 'inline-block',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {badge.label}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.78rem', color: '#c4a482' }}>
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : '---'}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={{ color: u.is_active ? '#34d399' : '#f87171', fontWeight: 700, fontSize: '0.78rem' }}>
+                              {u.is_active ? '● Hoạt động' : '○ Tạm khóa'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <button
+                              type="button"
+                              title={u.is_active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                              onClick={(e) => { e.stopPropagation(); handleToggleActive(u); }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                padding: '2px 5px',
+                                opacity: 0.85
+                              }}
+                            >
+                              {u.is_active ? '🔒' : '🔓'}
+                            </button>
+                            {isAdmin && u.id !== user?.id && (
+                              <button
+                                type="button"
+                                title="Xóa tài khoản"
+                                onClick={(e) => { e.stopPropagation(); handleDeleteUser(u); }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '1rem',
+                                  padding: '2px 5px',
+                                  opacity: 0.85
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredUsers.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#c4a482' }}>
+                          Không tìm thấy tài khoản nào phù hợp
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Account Form */}
+            <div className="mockup-panel">
+              <div className="mockup-panel-header">
+                <div className="mockup-panel-title">
+                  <span>📝</span>
+                  <span>
+                    {selectedUser
+                      ? (selectedUser.role_name === 'customer'
+                          ? `QUẢN LÝ TÀI KHOẢN KHÁCH: ${selectedUser.full_name}`
+                          : `QUẢN LÝ NHÂN SỰ: ${selectedUser.full_name}`)
+                      : 'THÊM TÀI KHOẢN MỚI'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mockup-panel-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="form-label">MÃ TÀI KHOẢN:</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={staffForm.code}
+                      onChange={(e) => setStaffForm({ ...staffForm, code: e.target.value })}
+                      style={{ width: '100%', padding: '8px' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">VAI TRÒ (ROLE):</label>
+                    <select
+                      className="form-select"
+                      value={staffForm.role_id}
+                      onChange={(e) => setStaffForm({ ...staffForm, role_id: parseInt(e.target.value) })}
+                      style={{ width: '100%', padding: '8px' }}
+                    >
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.id === 6 ? '🌟 Khách hàng (Đăng ký)' : r.label || r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">HỌ VÀ TÊN:</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={staffForm.full_name}
+                    onChange={(e) => setStaffForm({ ...staffForm, full_name: e.target.value })}
+                    style={{ width: '100%', padding: '8px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="form-label">TÊN ĐĂNG NHẬP / SĐT:</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={staffForm.username}
+                      onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })}
+                      style={{ width: '100%', padding: '8px' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">MẬT KHẨU MỚI {selectedUser ? '(Để trống nếu không đổi)' : ''}:</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      value={staffForm.password}
+                      onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                      placeholder={selectedUser ? '••••••••' : 'Nhập mật khẩu'}
+                      style={{ width: '100%', padding: '8px' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="form-label">SỐ ĐIỆN THOẠI:</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={staffForm.phone}
+                      onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                      style={{ width: '100%', padding: '8px' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">TRẠNG THÁI HOẠT ĐỘNG:</label>
+                    <select
+                      className="form-select"
+                      value={staffForm.is_active}
+                      onChange={(e) => setStaffForm({ ...staffForm, is_active: parseInt(e.target.value) })}
+                      style={{ width: '100%', padding: '8px' }}
+                    >
+                      <option value={1}>Đang hoạt động</option>
+                      <option value={0}>Đã tạm khóa / Vô hiệu hóa</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    style={{ flex: 1, background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
-                    onClick={() => handleSaveStaff(false)}
+                    className="btn btn-outline"
+                    style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setStaffForm({
+                        code: `NV00${users.length + 1}`,
+                        username: '',
+                        password: '',
+                        full_name: '',
+                        birthday: '1995-01-01',
+                        gender: 'Nam',
+                        phone: '',
+                        email: '',
+                        role_id: 2,
+                        is_active: 1,
+                      });
+                    }}
                   >
-                    💾 LƯU THAY ĐỔI
+                    ➕ LÀM MỚI FORM
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ flex: 1, background: 'linear-gradient(135deg, #15803d, #166534)', borderColor: '#15803d', fontWeight: 800 }}
-                    onClick={() => handleSaveStaff(true)}
-                  >
-                    + THÊM NHÂN VIÊN
-                  </button>
-                )}
+
+                  {selectedUser ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ flex: 1, background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
+                        onClick={() => handleSaveStaff(false)}
+                      >
+                        💾 LƯU THAY ĐỔI
+                      </button>
+                      {isAdmin && selectedUser.id !== user?.id && (
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)', fontWeight: 700 }}
+                          onClick={() => handleDeleteUser(selectedUser)}
+                        >
+                          🗑️ XÓA
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ flex: 1, background: 'linear-gradient(135deg, #15803d, #166534)', borderColor: '#15803d', fontWeight: 800 }}
+                      onClick={() => handleSaveStaff(true)}
+                    >
+                      + THÊM TÀI KHOẢN
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 3. TAB CONTENT: HỘI VIÊN & TÍCH ĐIỂM THỰC TẾ */}
       {activeTab === 'customers' && (

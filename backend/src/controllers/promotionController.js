@@ -74,9 +74,13 @@ const toggle = async (req, res) => {
   }
 };
 
+// Danh sách các mã khuyến mãi công khai dành riêng cho khách hàng sử dụng
+const CUSTOMER_ALLOWED_COUPONS = ['COFFEE10', 'GIAM20K', 'BANMOI', 'BANMOI20', 'MYCOFFEE20', 'FREESHIP'];
+
 // GET /api/promotions/active
 const getActive = async (req, res) => {
   try {
+    const isCustomer = req.user?.role === 'customer' || req.query.audience === 'customer';
     const [rows] = await db.query(
       `SELECT id, code, name, type, value, min_order_value, max_discount, description 
        FROM promotions 
@@ -85,7 +89,12 @@ const getActive = async (req, res) => {
          AND (end_date IS NULL OR end_date >= CURDATE())
        ORDER BY value DESC`
     );
-    res.json({ success: true, data: rows });
+
+    const filteredRows = isCustomer
+      ? rows.filter(r => r.code && CUSTOMER_ALLOWED_COUPONS.includes(String(r.code).trim().toUpperCase()))
+      : rows;
+
+    res.json({ success: true, data: filteredRows });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -94,9 +103,21 @@ const getActive = async (req, res) => {
 // POST /api/promotions/validate
 const validateCoupon = async (req, res) => {
   try {
-    const { code, subtotal = 0 } = req.body;
+    const { code, subtotal = 0, is_customer = false } = req.body;
     if (!code) {
       return res.status(400).json({ success: false, message: 'Vui lòng nhập mã giảm giá' });
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+    const isCustomerUser = req.user?.role === 'customer' || is_customer;
+
+    // Phân quyền mã: Khách hàng chỉ được dùng một số mã giảm giá công khai
+    if (isCustomerUser && !CUSTOMER_ALLOWED_COUPONS.includes(cleanCode)) {
+      return res.json({
+        success: false,
+        valid: false,
+        message: `Mã "${cleanCode}" là mã nội bộ / đặc quyền tại quầy, không áp dụng cho khách tự đặt trực tuyến!`
+      });
     }
 
     const [rows] = await db.query(
@@ -104,7 +125,7 @@ const validateCoupon = async (req, res) => {
        WHERE BINARY code = ? AND is_active = 1 
          AND (start_date IS NULL OR start_date <= CURDATE())
          AND (end_date IS NULL OR end_date >= CURDATE())`,
-      [code.trim().toUpperCase()]
+      [cleanCode]
     );
 
     if (!rows.length) {

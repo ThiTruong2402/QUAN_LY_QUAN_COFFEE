@@ -18,19 +18,22 @@ const getQueue = async (req, res) => {
               COALESCE(c.phone, o.recipient_phone, '') AS customer_phone,
               p.category_id,
               cat.name AS category_name,
-              GROUP_CONCAT(DISTINCT CONCAT(oit.topping_name, '×', oit.quantity) SEPARATOR ', ') AS toppings
+              oit_agg.toppings
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        LEFT JOIN \`tables\` t ON t.id = o.table_id
        LEFT JOIN areas a ON a.id = t.area_id
        LEFT JOIN customers c ON c.id = o.customer_id
-       LEFT JOIN order_item_toppings oit ON oit.order_item_id = oi.id
        LEFT JOIN product_sizes ps ON ps.id = oi.product_size_id
        LEFT JOIN products p ON p.id = ps.product_id
        LEFT JOIN categories cat ON cat.id = p.category_id
+       LEFT JOIN (
+         SELECT order_item_id, GROUP_CONCAT(CONCAT(topping_name, '×', quantity) SEPARATOR ', ') AS toppings
+         FROM order_item_toppings
+         GROUP BY order_item_id
+       ) oit_agg ON oit_agg.order_item_id = oi.id
        WHERE oi.status IN ('pending', 'preparing', 'done')
          AND o.status NOT IN ('cancelled', 'scheduled')
-       GROUP BY oi.id 
        ORDER BY oi.sent_at ASC`
     );
 

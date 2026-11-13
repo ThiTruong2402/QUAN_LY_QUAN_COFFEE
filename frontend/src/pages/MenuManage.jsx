@@ -693,9 +693,6 @@ export default function MenuManage() {
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: '0.74rem', color: '#c4a482', marginTop: '2px' }}>
-                          {canEdit ? '👑 Quản lý / Admin: Toàn quyền cấu hình định lượng cho từng size' : '🍹 Barista: Chế độ tra cứu định lượng chuẩn để pha chế'}
-                        </div>
                       </div>
 
                       <div style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 700 }}>
@@ -873,11 +870,7 @@ export default function MenuManage() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '0.72rem', color: '#fbbf24' }}>
-                          💡 Gợi ý: 25g cà phê = 0.025 | 150g đá = 0.150 | 35ml sữa = 0.040 | 15g đường = 0.015
-                        </div>
-
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                         <button
                           type="submit"
                           className="btn btn-sm"
@@ -887,11 +880,7 @@ export default function MenuManage() {
                         </button>
                       </div>
                     </form>
-                  ) : (
-                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '10px 14px', borderRadius: '8px', color: '#34d399', fontSize: '0.78rem' }}>
-                      💡 Nhân viên pha chế đối chiếu định lượng ở bảng trên để đảm bảo chất lượng và hương vị đồng đều cho từng ly đồ uống.
-                    </div>
-                  )}
+                  ) : null}
                 </>
               )}
             </div>

@@ -99,6 +99,27 @@ export default function Shifts() {
     }
   };
 
+  // Lấy danh sách nhân sự cần hiển thị trên thời khóa biểu (kết hợp từ danh sách nhân viên hoặc ca trực hiện có)
+  const displayUsers = useMemo(() => {
+    if (users && users.length > 0) return users;
+    if (shifts && shifts.length > 0) {
+      const map = new Map();
+      shifts.forEach(s => {
+        if (!map.has(s.user_id)) {
+          map.set(s.user_id, {
+            id: s.user_id,
+            full_name: s.user_name,
+            code: s.user_code,
+            role_name: s.role_name,
+            role_label: s.role_label,
+          });
+        }
+      });
+      return Array.from(map.values());
+    }
+    return [];
+  }, [users, shifts]);
+
   // Compute 7 days of the selected week (Mon - Sun)
   const currentWeekDays = useMemo(() => {
     const today = new Date();
@@ -298,7 +319,7 @@ export default function Shifts() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
+                {displayUsers.map((u) => {
                   return (
                     <tr key={u.id}>
                       <td style={{ background: 'rgba(28, 18, 11, 0.85)', borderRight: '1px solid rgba(245, 158, 11, 0.15)' }}>
@@ -365,8 +386,7 @@ export default function Shifts() {
             </table>
           </div>
 
-          <div style={{ padding: '12px 18px', background: 'rgba(32, 20, 13, 0.75)', borderTop: '1px solid rgba(245, 158, 11, 0.18)', fontSize: '0.82rem', color: '#c4a482', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>💡 <strong>Mẹo:</strong> Bấm trực tiếp vào ô ca trực trên thời khóa biểu để xem chi tiết hoặc chỉnh sửa.</span>
+          <div style={{ padding: '12px 18px', background: 'rgba(32, 20, 13, 0.75)', borderTop: '1px solid rgba(245, 158, 11, 0.18)', fontSize: '0.82rem', color: '#c4a482', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
             <button
               className="btn btn-sm btn-outline"
               style={{ borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fef3c7', fontWeight: 700, background: 'transparent' }}

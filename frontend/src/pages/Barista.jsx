@@ -121,9 +121,9 @@ export default function Barista() {
     );
   });
 
-  const pending   = filteredItems.filter((i) => i.status === 'pending');
+  const pending = filteredItems.filter((i) => i.status === 'pending');
   const preparing = filteredItems.filter((i) => i.status === 'preparing');
-  const done      = filteredItems.filter((i) => i.status === 'done');
+  const done = filteredItems.filter((i) => i.status === 'done');
 
   // Thống kê nhanh
   const takeawayCount = items.filter(i => !i.table_code).length;
@@ -160,8 +160,8 @@ export default function Barista() {
           border: item.status === 'preparing'
             ? '1.5px solid #38bdf8'
             : item.status === 'done'
-            ? '1.5px solid #10b981'
-            : (elapsedWait >= 10 ? '1.5px solid #ef4444' : '1px solid rgba(245, 158, 11, 0.25)'),
+              ? '1.5px solid #10b981'
+              : (elapsedWait >= 10 ? '1.5px solid #ef4444' : '1px solid rgba(245, 158, 11, 0.25)'),
           boxShadow: item.status === 'preparing'
             ? '0 4px 20px rgba(56, 189, 248, 0.25)'
             : '0 4px 16px rgba(0, 0, 0, 0.4)',
@@ -408,11 +408,7 @@ export default function Barista() {
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div style={{ color: '#a89078', fontStyle: 'italic', textAlign: 'center', padding: '4px 0' }}>
-                  💡 Món ăn nhanh đóng gói sẵn / Bếp hâm nóng phục vụ trực tiếp.
-                </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>

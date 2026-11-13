@@ -10,7 +10,7 @@ const getAll = async (req, res) => {
               r.name AS role_name, r.label AS role_label
        FROM users u
        JOIN roles r ON r.id = u.role_id
-       ORDER BY u.id`
+       ORDER BY u.id DESC`
     );
     const [roles] = await db.query('SELECT * FROM roles ORDER BY id');
     res.json({ success: true, data: { users, roles } });
@@ -166,19 +166,32 @@ const remove = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Không thể xóa hoặc vô hiệu hóa tài khoản Quản trị viên (Admin) cuối cùng của hệ thống!' });
       }
     }
-    // Soft delete: chuyển sang trạng thái Nghỉ việc (is_active = 0) để tránh vỡ FK và lưu trữ lịch sử
-    await db.query('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
 
-    logAudit({
-      userId: req.user?.id || null,
-      action: 'DELETE_STAFF',
-      entityType: 'USER',
-      entityId: id,
-      reason: `Chuyển nhân sự ID #${id} sang trạng thái Nghỉ việc / Khóa tài khoản`,
-      ipAddress: req.ip
-    });
-
-    res.json({ success: true, message: 'Đã chuyển nhân viên sang trạng thái Nghỉ việc' });
+    // Thử xóa vĩnh viễn khỏi bảng users nếu tài khoản chưa có ràng buộc khóa ngoại (ví dụ tài khoản khách đăng ký thử)
+    try {
+      await db.query('DELETE FROM users WHERE id = ?', [id]);
+      logAudit({
+        userId: req.user?.id || null,
+        action: 'DELETE_USER',
+        entityType: 'USER',
+        entityId: id,
+        reason: `Xóa tài khoản ID #${id} khỏi hệ thống`,
+        ipAddress: req.ip
+      });
+      return res.json({ success: true, message: 'Đã xóa tài khoản thành công khỏi hệ thống' });
+    } catch (fkErr) {
+      // Nếu có ràng buộc khóa ngoại (đã có đơn hàng, hóa đơn, v.v.), chuyển sang soft delete (khóa tài khoản)
+      await db.query('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
+      logAudit({
+        userId: req.user?.id || null,
+        action: 'DELETE_STAFF',
+        entityType: 'USER',
+        entityId: id,
+        reason: `Chuyển tài khoản ID #${id} sang trạng thái Nghỉ việc / Khóa tài khoản do có dữ liệu liên kết`,
+        ipAddress: req.ip
+      });
+      return res.json({ success: true, message: 'Tài khoản đã có dữ liệu giao dịch liên kết, đã chuyển sang trạng thái Tạm khóa / Vô hiệu hóa' });
+    }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
