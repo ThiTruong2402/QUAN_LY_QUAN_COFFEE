@@ -1264,20 +1264,21 @@ export default function PosOrder() {
                 <button
                   type="button"
                   style={{
-                    background: 'none',
-                    border: '1px dashed rgba(245, 158, 11, 0.35)',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.25)',
                     color: '#fbbf24',
-                    fontSize: '0.74rem',
+                    fontSize: '0.78rem',
                     fontWeight: 700,
-                    padding: '6px',
+                    padding: '8px',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     textAlign: 'center',
+                    transition: 'all 0.15s ease'
                   }}
                   onClick={handleOpenPayment}
                   disabled={cart.length === 0 || isSubmitting}
                 >
-                  ⚙️ Quầy thu ngân nâng cao (Numpad, tính tiền thừa, mã QR lớn) ➔
+                  ⚙️ Quầy thu ngân nâng cao ➔
                 </button>
               </div>
             </div>

@@ -742,7 +742,7 @@ export default function MenuManage() {
                           <th>Nguyên liệu</th>
                           <th style={{ textAlign: 'left' }}>Định lượng / Ly</th>
                           <th style={{ textAlign: 'center', width: '110px' }}>Trừ kho / Ly</th>
-                          <th>Cơ chế cộng dồn trừ kho thực tế</th>
+                          <th>Quy đổi trừ kho</th>
                           {canEdit && <th style={{ width: '40px', textAlign: 'center' }}>Xóa</th>}
                         </tr>
                       </thead>
@@ -801,25 +801,13 @@ export default function MenuManage() {
                     </table>
                   </div>
 
-                  {/* Thẻ giải thích nguyên tắc cộng dồn trừ kho thực tế */}
-                  <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '1.3rem' }}>⚡</span>
-                    <div style={{ fontSize: '0.78rem', color: '#a7f3d0', lineHeight: '1.4' }}>
-                      <strong style={{ color: '#34d399', marginRight: '6px' }}>Cơ chế trừ kho tự động thực tế:</strong>
-                      Khi thu ngân chốt đơn tại quầy POS, hệ thống tự động tích lũy định lượng của từng ly và trừ lùi trực tiếp vào số dư kho. Khi bán đủ số ly (ví dụ: 40 ly cà phê 25g = hết 1 cân, 25 ly cà phê sữa 35ml = hết 1 hộp sữa đặc, 12.5 ly bạc xỉu 80ml = hết 1 hộp sữa tươi 1L), kho sẽ hao hụt đúng chuẩn nguyên tắc vận hành thực tế.
-                    </div>
-                  </div>
-
                   {/* Form Thêm nguyên liệu: Admin & Manager (Gắn đúng theo Size đang chọn) */}
                   {canEdit ? (
-                    <form onSubmit={handleAddRecipeIngredient} style={{ background: 'rgba(28, 17, 10, 0.95)', border: '1px dashed rgba(245, 158, 11, 0.35)', padding: '14px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <form onSubmit={handleAddRecipeIngredient} style={{ background: 'rgba(28, 17, 10, 0.95)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '14px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>
-                          ➕ THÊM NGUYÊN LIỆU VÀO SIZE {activeSize?.name || 'M'}:
+                          ➕ THÊM NGUYÊN LIỆU VÀO SIZE {activeSize?.name || 'M'}
                         </div>
-                        <span style={{ fontSize: '0.72rem', color: '#a8a29e' }}>
-                          (Đơn vị gốc lưu trữ theo kho)
-                        </span>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>

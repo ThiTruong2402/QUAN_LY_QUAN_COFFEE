@@ -2204,7 +2204,7 @@ export default function CustomerPortal() {
               {/* Ghi chú dặn Barista */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#d4b094', marginBottom: '4px' }}>
-                  📝 Ghi chú cho món này (tùy chọn):
+                  📝 Ghi chú cho món:
                 </label>
                 <input
                   type="text"
