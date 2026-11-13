@@ -76,9 +76,6 @@ export default function Settings() {
             <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#fef3c7', fontFamily: "'Playfair Display', Georgia, serif" }}>
               CẤU HÌNH HỆ THỐNG &amp; GIỜ PHỤC VỤ
             </h1>
-            <div style={{ fontSize: '0.8rem', color: '#c4a482', marginTop: '2px' }}>
-              Quyền quản trị cấp cao nhất (Chỉ dành riêng cho Admin / Chủ quán)
-            </div>
           </div>
         </div>
 
@@ -112,9 +109,6 @@ export default function Settings() {
           <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#fbbf24', fontWeight: 700 }}>
             🕒 1. Khung Giờ Mở Cửa &amp; Phục Vụ
           </h3>
-          <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#a89078' }}>
-            Khách đặt hàng ngoài khung giờ này sẽ bắt buộc chuyển sang chế độ Đặt trước (SCHEDULED).
-          </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -145,11 +139,8 @@ export default function Settings() {
 
         <div style={{ borderBottom: '1px solid rgba(245, 158, 11, 0.15)', paddingBottom: '10px', marginTop: '10px' }}>
           <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#fbbf24', fontWeight: 700 }}>
-            🗓️ 2. Thông Số Đặt Trước Hẹn Giờ (Scheduled Orders)
+            🗓️ 2. Thông Số Đặt Trước Hẹn Giờ
           </h3>
-          <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#a89078' }}>
-            Điều khiển các bước chọn giờ và quy tắc tự động hóa đẩy đơn cho quầy pha chế Barista.
-          </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -161,11 +152,10 @@ export default function Settings() {
               onChange={(e) => setConfig({ ...config, slot_step_minutes: Number(e.target.value) })}
               style={{ fontWeight: 700 }}
             >
-              <option value={10}>10 phút (7:00, 7:10, 7:20...)</option>
-              <option value={15}>15 phút (7:00, 7:15, 7:30...)</option>
-              <option value={30}>30 phút (7:00, 7:30, 8:00...)</option>
+              <option value={10}>10 phút</option>
+              <option value={15}>15 phút</option>
+              <option value={30}>30 phút</option>
             </select>
-            <small style={{ color: '#8c7662', fontSize: '0.72rem' }}>Khoảng cách giữa các mốc giờ khách có thể chọn</small>
           </div>
 
           <div>
@@ -180,7 +170,6 @@ export default function Settings() {
               required
               style={{ fontWeight: 700 }}
             />
-            <small style={{ color: '#8c7662', fontSize: '0.72rem' }}>Khoảng thời gian chuẩn bị tối thiểu kể từ lúc khách đặt</small>
           </div>
         </div>
 
@@ -197,7 +186,6 @@ export default function Settings() {
               required
               style={{ fontWeight: 700 }}
             />
-            <small style={{ color: '#8c7662', fontSize: '0.72rem' }}>Hệ thống tự động chuyển SCHEDULED ➔ PENDING trước giờ hẹn nhận</small>
           </div>
 
           <div>
@@ -212,7 +200,6 @@ export default function Settings() {
               required
               style={{ fontWeight: 700 }}
             />
-            <small style={{ color: '#8c7662', fontSize: '0.72rem' }}>Số ngày tương lai tối đa khách được phép đặt trước</small>
           </div>
         </div>
 

@@ -14,7 +14,7 @@ const getQueue = async (req, res) => {
               o.opened_at,
               o.status AS order_status,
               o.payment_status,
-              COALESCE(c.name, 'Khách vãng lai') AS customer_name,
+              COALESCE(c.name, 'Khách') AS customer_name,
               COALESCE(c.phone, o.recipient_phone, '') AS customer_phone,
               p.category_id,
               cat.name AS category_name,

@@ -790,7 +790,7 @@ export default function Accounts() {
                       <tr key={c.id}>
                         <td>{idx + 1}</td>
                         <td style={{ fontWeight: 800, color: '#fbbf24' }}>{c.phone}</td>
-                        <td style={{ fontWeight: 700, color: '#fef3c7' }}>{c.name || 'Khách vãng lai'}</td>
+                        <td style={{ fontWeight: 700, color: '#fef3c7' }}>{c.name || 'Khách'}</td>
                         <td>
                           <span
                             style={{

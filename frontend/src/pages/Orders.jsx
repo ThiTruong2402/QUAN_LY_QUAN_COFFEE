@@ -226,7 +226,7 @@ export default function Orders() {
     setSelectedOrder(o);
     setForm({
       code: o.code || o.invoice_no,
-      customer_name: o.customer_name || 'Khách vãng lai',
+      customer_name: o.customer_name || 'Khách',
       customer_phone: o.customer_phone || '',
       opened_at: o.opened_at ? o.opened_at.replace('T', ' ').slice(0, 16) : '',
       total: o.total,
@@ -507,7 +507,7 @@ export default function Orders() {
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600, color: '#fef3c7' }}>{o.customer_name || 'Khách vãng lai'}</div>
+                        <div style={{ fontWeight: 600, color: '#fef3c7' }}>{o.customer_name || 'Khách'}</div>
                         <div style={{ fontSize: '0.73rem', color: '#c4a482' }}>{o.customer_phone || ''}</div>
                       </td>
                       <td style={{ fontSize: '0.78rem', color: '#e5d5c5', maxWidth: '220px' }}>

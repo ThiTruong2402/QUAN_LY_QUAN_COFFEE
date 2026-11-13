@@ -56,7 +56,7 @@ export default function PosOrder() {
 
   // Customer & Loyalty System (10k = 1 điểm, 1 điểm = 1k đ)
   const [customerPhone, setCustomerPhone] = useState(queryCustomerPhone || '0901234567');
-  const [customerName, setCustomerName] = useState(queryCustomerName || 'Khách vãng lai');
+  const [customerName, setCustomerName] = useState(queryCustomerName || 'Khách');
   const [customerInfo, setCustomerInfo] = useState(null); // { id, name, phone, points_balance, total_spent, tier_name, discount_pct }
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);

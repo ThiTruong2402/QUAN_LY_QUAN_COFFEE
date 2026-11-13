@@ -289,7 +289,7 @@ export default function Customers() {
                         📞 {c.phone}
                       </td>
                       <td style={{ fontWeight: 700, color: '#fef3c7' }}>
-                        {c.name || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Khách vãng lai</span>}
+                        {c.name || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Khách</span>}
                       </td>
                       <td>{getTierBadge(c.tier_name)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 800, color: '#fbbf24' }}>

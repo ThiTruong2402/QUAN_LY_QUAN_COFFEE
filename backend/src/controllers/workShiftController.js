@@ -11,7 +11,8 @@ const getAll = async (req, res) => {
              u.role_id, r.name AS role_name, COALESCE(r.description, r.label, r.name) AS role_label
       FROM work_shifts ws
       JOIN users u ON u.id = ws.user_id
-      LEFT JOIN roles r ON r.id = u.role_id
+      JOIN roles r ON r.id = u.role_id
+      WHERE r.name NOT IN ('customer')
       ORDER BY ws.shift_date DESC, ws.id DESC
     `);
 
@@ -26,7 +27,8 @@ const getAll = async (req, res) => {
                u.role_id, r.name AS role_name, COALESCE(r.description, r.label, r.name) AS role_label
         FROM work_shifts ws
         JOIN users u ON u.id = ws.user_id
-        LEFT JOIN roles r ON r.id = u.role_id
+        JOIN roles r ON r.id = u.role_id
+        WHERE r.name NOT IN ('customer')
         ORDER BY ws.shift_date DESC, ws.id DESC
       `);
       rows = reloaded;
@@ -95,6 +97,13 @@ const seedDefaultShifts = async () => {
 const create = async (req, res) => {
   try {
     const { shift_code, user_id, shift_type, shift_date, status, note } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, message: 'Vui lòng chọn nhân viên' });
+
+    const [uRows] = await db.query('SELECT r.name as role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?', [user_id]);
+    if (uRows.length && uRows[0].role === 'customer') {
+      return res.status(400).json({ success: false, message: 'Tài khoản khách hàng không có quyền phân ca trực!' });
+    }
+
     const [result] = await db.query(
       'INSERT INTO work_shifts (shift_code, user_id, shift_type, shift_date, status, note) VALUES (?, ?, ?, ?, ?, ?)',
       [shift_code || 'LT001', user_id, shift_type, shift_date, status || 'Chưa bắt đầu', note || null]
@@ -110,6 +119,14 @@ const update = async (req, res) => {
   try {
     const { id } = req.params;
     const { shift_code, user_id, shift_type, shift_date, status, note } = req.body;
+
+    if (user_id) {
+      const [uRows] = await db.query('SELECT r.name as role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?', [user_id]);
+      if (uRows.length && uRows[0].role === 'customer') {
+        return res.status(400).json({ success: false, message: 'Tài khoản khách hàng không có quyền phân ca trực!' });
+      }
+    }
+
     await db.query(
       'UPDATE work_shifts SET shift_code=?, user_id=?, shift_type=?, shift_date=?, status=?, note=? WHERE id=?',
       [shift_code, user_id, shift_type, shift_date, status, note, id]

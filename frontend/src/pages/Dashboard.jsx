@@ -884,7 +884,7 @@ export default function Dashboard() {
                           </div>
                           <div>
                             <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#fef3c7' }}>
-                              {o.customer_name || 'Khách vãng lai'}
+                              {o.customer_name || 'Khách'}
                             </div>
                             <div style={{ fontSize: '0.72rem', color: '#a88d79' }}>
                               {o.table_code ? `Bàn: ${o.table_code}` : 'Tại quầy POS'}

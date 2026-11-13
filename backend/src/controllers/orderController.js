@@ -471,7 +471,7 @@ const directCheckout = async (req, res) => {
 
     // Check or find customer (tự động nhận diện tài khoản khách hàng nếu đang đăng nhập)
     const effectivePhone = customer_phone || (req.user?.role === 'customer' ? (req.user.phone || req.user.username) : null);
-    const effectiveName = customer_name || (req.user?.role === 'customer' ? req.user.full_name : 'Khách vãng lai');
+    const effectiveName = customer_name || (req.user?.role === 'customer' ? req.user.full_name : 'Khách');
 
     // Chống spam / double-click tức thì (Idempotency in-memory lock chặn đứng race-condition)
     if (effectivePhone) {

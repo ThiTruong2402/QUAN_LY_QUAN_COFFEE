@@ -233,7 +233,7 @@ export default function Barista() {
         {/* 3. THÔNG TIN KHÁCH HÀNG */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#d4b094', marginBottom: '8px', borderBottom: '1px dashed rgba(245, 158, 11, 0.15)', paddingBottom: '6px' }}>
           <div>
-            👤 <strong>{item.customer_name || 'Khách vãng lai'}</strong>
+            👤 <strong>{item.customer_name || 'Khách'}</strong>
           </div>
           {item.customer_phone && (
             <div style={{ color: '#fef3c7' }}>

@@ -630,7 +630,7 @@ export default function CustomerPortal() {
                 MY COFFEE HOUSE • ĐẶT MÓN ONLINE
               </h1>
               <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#d4b094' }}>
-                Xin chào, <strong style={{ color: '#fff' }}>{user?.full_name || 'Quý khách'}</strong>! Tự chọn đồ uống đóng cốc sẵn sàng mang về hoặc dùng tại quán.
+                Xin chào, <strong style={{ color: '#fff' }}>{user?.full_name || 'Khách'}</strong>!
               </p>
             </div>
           </div>
@@ -1159,15 +1159,7 @@ export default function CustomerPortal() {
                           </button>
                         ))}
                       </div>
-                    ) : (
-                      myEligibleVouchers.length > 0 && (
-                        <div style={{ fontSize: '0.72rem', color: '#c4a482', fontStyle: 'italic', marginTop: '2px' }}>
-                          {totalAmount > 0
-                            ? `💡 Mua thêm ${fmt(Math.max(0, Number(myEligibleVouchers[0].min_order_value || 0) - totalAmount))} để dùng mã [${myEligibleVouchers[0].code}]!`
-                            : '💡 Thêm món vào đơn để sử dụng mã ưu đãi của bạn.'}
-                        </div>
-                      )
-                    )}
+                    ) : null}
 
                     {appliedVoucher && (
                       <div style={{ marginTop: '6px', fontSize: '0.74rem', color: '#4ade80', fontWeight: 700 }}>
@@ -1179,12 +1171,12 @@ export default function CustomerPortal() {
                   {/* 3. GHI CHÚ ĐƠN */}
                   <div>
                     <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '2px' }}>
-                      📝 Ghi chú đơn hàng (dặn Barista):
+                      📝 Ghi chú đơn hàng:
                     </label>
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="Ghi chú pha chế (ít đá, ít đường, không sữa...)"
+                      placeholder="Ghi chú pha chế..."
                       value={orderGeneralNote}
                       onChange={(e) => setOrderGeneralNote(e.target.value)}
                       style={{ fontSize: '0.8rem', padding: '6px 8px', width: '100%' }}
@@ -1336,7 +1328,7 @@ export default function CustomerPortal() {
                           }}
                           onClick={() => setOrderTimingMode('now')}
                         >
-                          ⚡ Nhận ngay (10-15p)
+                          ⚡ Nhận ngay
                         </button>
                         <button
                           type="button"

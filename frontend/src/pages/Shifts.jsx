@@ -1,10 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
+import { Navigate } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
 export default function Shifts() {
   const { user } = useAuth();
+
+  // Khách hàng tuyệt đối không có quyền vào xem hoặc sửa ca trực
+  if (user?.role === 'customer') {
+    return <Navigate to="/customer" replace />;
+  }
+
   const [shifts, setShifts] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedShift, setSelectedShift] = useState(null);
@@ -41,8 +48,14 @@ export default function Shifts() {
 
     try {
       const staffRes = await api.get('/staff');
-      const userList = staffRes.data?.data?.users || [];
-      setUsers(userList);
+      const allUsers = staffRes.data?.data?.users || [];
+      // Chỉ lấy tài khoản nhân viên nội bộ, loại bỏ hoàn toàn tài khoản khách hàng
+      const staffOnly = allUsers.filter(u => {
+        const rName = String(u.role_name || u.role || '').toLowerCase();
+        const rLabel = String(u.role_label || '').toLowerCase();
+        return rName !== 'customer' && !rLabel.includes('khách') && (['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse'].includes(rName) || (u.role_id && u.role_id < 6));
+      });
+      setUsers(staffOnly);
     } catch {
       // Non-blocking fallback
     }
@@ -99,10 +112,12 @@ export default function Shifts() {
     }
   };
 
-  // Lấy danh sách nhân sự cần hiển thị trên thời khóa biểu (kết hợp từ danh sách nhân viên hoặc ca trực hiện có)
+  // Lấy danh sách nhân sự cần hiển thị trên thời khóa biểu (chỉ giữ lại tài khoản nhân viên, loại bỏ hoàn toàn tài khoản khách)
   const displayUsers = useMemo(() => {
-    if (users && users.length > 0) return users;
-    if (shifts && shifts.length > 0) {
+    let list = [];
+    if (users && users.length > 0) {
+      list = users;
+    } else if (shifts && shifts.length > 0) {
       const map = new Map();
       shifts.forEach(s => {
         if (!map.has(s.user_id)) {
@@ -115,9 +130,13 @@ export default function Shifts() {
           });
         }
       });
-      return Array.from(map.values());
+      list = Array.from(map.values());
     }
-    return [];
+    return list.filter((u) => {
+      const rName = String(u.role_name || u.role || '').toLowerCase();
+      const rLabel = String(u.role_label || '').toLowerCase();
+      return rName !== 'customer' && !rLabel.includes('khách') && (['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse'].includes(rName) || (u.role_id && u.role_id < 6));
+    });
   }, [users, shifts]);
 
   // Compute 7 days of the selected week (Mon - Sun)
@@ -275,23 +294,6 @@ export default function Shifts() {
                 Từ {currentWeekDays[0]?.displayDate} đến {currentWeekDays[6]?.displayDate}
               </span>
             </div>
-          </div>
-
-          {/* Quick Legend Bar */}
-          <div style={{ display: 'flex', gap: '16px', padding: '10px 18px', background: 'rgba(32, 20, 13, 0.75)', borderBottom: '1px solid rgba(245, 158, 11, 0.18)', fontSize: '0.82rem', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, color: '#fef3c7' }}>Chú thích ca:</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-              🌅 <strong>Ca Sáng:</strong> 06:30 - 14:30
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(234, 88, 12, 0.2)', color: '#fb923c', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(234, 88, 12, 0.3)' }}>
-              🌙 <strong>Ca Tối:</strong> 14:30 - 22:30
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              💼 <strong>Hành Chính:</strong> 08:00 - 17:00
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 255, 255, 0.08)', color: '#94a3b8', padding: '2px 8px', borderRadius: '4px' }}>
-              🛌 <strong>Nghỉ</strong>
-            </span>
           </div>
 
           {/* Weekly Timetable Grid Table */}
