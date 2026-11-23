@@ -1030,6 +1030,16 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.3; color: var(--text-p
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* ---- Căn giữa hình ảnh món ăn, không mất góc ---- */
+.product-card img,
+.card-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  display: block;
+}
+
 /* ---- Table status left strip ---- */
 .table-status-strip {
   position: absolute;

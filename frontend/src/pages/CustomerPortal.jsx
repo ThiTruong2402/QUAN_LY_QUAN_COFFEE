@@ -898,12 +898,19 @@ export default function CustomerPortal() {
                             onClick={() => handleOpenSizeModal(p)}
                           >
                             {/* Ảnh món */}
-                            <div style={{ position: 'relative', overflow: 'hidden', height: '140px', background: '#24140b' }}>
+                            <div style={{ position: 'relative', overflow: 'hidden', height: '155px', background: '#150d08', borderTopLeftRadius: '11px', borderTopRightRadius: '11px' }}>
                               <img
                                 src={p.image_url || FALLBACK_DRINK_IMG}
                                 alt={p.name}
                                 onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
                                 className="card-img"
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  objectPosition: 'center center',
+                                  display: 'block',
+                                }}
                               />
                               {inCartQty > 0 && (
                                 <span

@@ -605,12 +605,28 @@ export default function PosOrder() {
                         transition: 'transform 0.2s ease, border-color 0.2s ease',
                       }}
                     >
-                      <div style={{ position: 'relative' }}>
+                      <div
+                        style={{
+                          position: 'relative',
+                          height: '155px',
+                          overflow: 'hidden',
+                          background: '#150d08',
+                          borderTopLeftRadius: '11px',
+                          borderTopRightRadius: '11px',
+                        }}
+                      >
                         <img
                           src={p.image_url || FALLBACK_DRINK_IMG}
                           alt={p.name}
                           onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
-                          style={{ width: '100%', height: '140px', objectFit: 'cover' }}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            objectPosition: 'center center',
+                            display: 'block',
+                            transition: 'transform 0.3s ease',
+                          }}
                         />
                         {inCartQty > 0 && (
                           <span
