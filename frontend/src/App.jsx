@@ -130,7 +130,7 @@ export default function App() {
           <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* Cổng Khách Hàng: Mở cho mọi khách hàng và ban quản lý (hỗ trợ cả khách vãng lai và thành viên) */}
+          {/* Cổng Khách Hàng: Mở cho mọi Khách Hàng và ban quản lý (hỗ trợ cả Khách Hàng và thành viên) */}
           <Route path="/customer" element={<CustomerPortal />} />
 
           <Route path="/" element={<AppLayout />}>

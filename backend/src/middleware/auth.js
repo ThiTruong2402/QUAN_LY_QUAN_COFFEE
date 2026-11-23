@@ -28,7 +28,7 @@ const optionalAuthenticate = (req, res, next) => {
         req.user = decoded;
       }
     } catch {
-      // Khách vãng lai / token hết hạn vẫn cho phép đặt món trực tuyến
+      // Khách Hàng / token hết hạn vẫn cho phép đặt món trực tuyến
     }
   }
   next();

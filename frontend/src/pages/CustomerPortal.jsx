@@ -22,6 +22,9 @@ const getCategoryIcon = (catId) => {
   }
 };
 
+const QUICK_SUGAR_OPTIONS = ['100% đường', '70% đường', '50% đường', 'Không đường'];
+const QUICK_ICE_OPTIONS = ['Đá chung', 'Ít đá', 'Đá riêng', 'Không đá'];
+
 export default function CustomerPortal() {
   const { user, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -55,6 +58,8 @@ export default function CustomerPortal() {
   const [selectedProductForSize, setSelectedProductForSize] = useState(null);
   const [modalSelectedSize, setModalSelectedSize] = useState(null);
   const [modalQuantity, setModalQuantity] = useState(1);
+  const [modalSugar, setModalSugar] = useState('100% đường');
+  const [modalIce, setModalIce] = useState('Đá chung');
   const [modalNote, setModalNote] = useState('');
 
   // --- STATE THANH TOÁN & ƯU ĐÃI ---
@@ -293,6 +298,8 @@ export default function CustomerPortal() {
       });
     }
     setModalQuantity(1);
+    setModalSugar('100% đường');
+    setModalIce('Đá chung');
     setModalNote('');
   };
 
@@ -300,6 +307,8 @@ export default function CustomerPortal() {
     setSelectedProductForSize(null);
     setModalSelectedSize(null);
     setModalQuantity(1);
+    setModalSugar('100% đường');
+    setModalIce('Đá chung');
     setModalNote('');
   };
 
@@ -310,7 +319,16 @@ export default function CustomerPortal() {
     const unitPrice = Number(modalSelectedSize.price || selectedProductForSize.price || 0);
     const rawSizeName = modalSelectedSize.name || modalSelectedSize.size || '';
     const sizeName = isDrink ? (rawSizeName || 'M') : '';
-    const cartItemId = `${selectedProductForSize.id}-${modalSelectedSize.id || sizeName || 'standard'}-${modalNote.trim()}`;
+
+    const noteParts = [];
+    if (isDrink) {
+      if (modalSugar && modalSugar !== '100% đường') noteParts.push(modalSugar);
+      if (modalIce && modalIce !== 'Đá chung') noteParts.push(modalIce);
+    }
+    if (modalNote && modalNote.trim()) noteParts.push(modalNote.trim());
+    const finalNote = noteParts.join(', ');
+
+    const cartItemId = `${selectedProductForSize.id}-${modalSelectedSize.id || sizeName || 'standard'}-${finalNote}`;
 
     setCart(prevCart => {
       const existingIdx = prevCart.findIndex(item => item.cartItemId === cartItemId);
@@ -330,7 +348,7 @@ export default function CustomerPortal() {
             is_drink: isDrink,
             price: unitPrice,
             quantity: modalQuantity,
-            note: modalNote.trim(),
+            note: finalNote,
             image_url: selectedProductForSize.image_url
           }
         ];
@@ -523,7 +541,7 @@ export default function CustomerPortal() {
             : `🎉 Đặt đơn thành công! Đơn hàng đã chuyển sang quầy Barista pha chế.`
         );
 
-        // Lưu đơn hàng khách vãng lai vào localStorage để xem lại ở tab Lịch sử
+        // Lưu đơn hàng Khách Hàng vào localStorage để xem lại ở tab Lịch sử
         if (!user) {
           try {
             const guestOrders = JSON.parse(localStorage.getItem('guest_orders') || '[]');
@@ -1581,7 +1599,7 @@ export default function CustomerPortal() {
                     </div>
                   </div>
 
-                  {/* Thông tin khách hàng vãng lai (nếu chưa đăng nhập) */}
+                  {/* Thông tin Khách Hàng (nếu chưa đăng nhập) */}
                   {!user && (
                     <div style={{
                       background: 'rgba(217, 119, 6, 0.12)',
@@ -2176,6 +2194,77 @@ export default function CustomerPortal() {
                   <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>
                     {fmt(modalSelectedSize?.price || selectedProductForSize.price || 0)}
                   </span>
+                </div>
+              )}
+
+              {/* Tùy chọn Mức Đường & Mức Đá cho đồ uống */}
+              {isDrinkProduct(selectedProductForSize) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* Chọn mức đường */}
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fde68a', marginBottom: '6px' }}>
+                      🍯 Mức đường:
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                      {QUICK_SUGAR_OPTIONS.map((sugar) => {
+                        const isSelected = modalSugar === sugar;
+                        return (
+                          <button
+                            key={sugar}
+                            type="button"
+                            onClick={() => setModalSugar(sugar)}
+                            style={{
+                              padding: '7px 4px',
+                              fontSize: '0.74rem',
+                              fontWeight: isSelected ? 800 : 500,
+                              borderRadius: '6px',
+                              border: isSelected ? '1.5px solid #d97706' : '1px solid #3d2314',
+                              background: isSelected ? '#78350f' : '#24140b',
+                              color: isSelected ? '#fbbf24' : '#d4b094',
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {sugar}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Chọn mức đá */}
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fde68a', marginBottom: '6px' }}>
+                      🧊 Mức đá:
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                      {QUICK_ICE_OPTIONS.map((ice) => {
+                        const isSelected = modalIce === ice;
+                        return (
+                          <button
+                            key={ice}
+                            type="button"
+                            onClick={() => setModalIce(ice)}
+                            style={{
+                              padding: '7px 4px',
+                              fontSize: '0.74rem',
+                              fontWeight: isSelected ? 800 : 500,
+                              borderRadius: '6px',
+                              border: isSelected ? '1.5px solid #0284c7' : '1px solid #3d2314',
+                              background: isSelected ? '#0369a1' : '#24140b',
+                              color: isSelected ? '#e0f2fe' : '#d4b094',
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {ice}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 

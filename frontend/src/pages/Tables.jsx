@@ -1,2031 +1,751 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Coffee,
-  Users,
-  Calendar,
-  ShoppingBag,
-  RefreshCw,
-  MapPin,
-  Plus,
-  Clock,
-  User,
-  Phone,
-  Search,
-  X,
-  Sparkles,
-  Armchair,
-  CheckCircle2,
-  Trash2,
-  ChevronRight,
-  AlertCircle
-} from 'lucide-react';
 import api from '../api/axios';
 import socket from '../api/socket';
-import { playNotificationSound } from '../utils/sound';
 import toast from 'react-hot-toast';
-
-// Cấu hình màu sắc & nhãn cho trạng thái bàn
-const STATUS_CFG = {
-  empty: {
-    label: 'Trống',
-    color: '#34d399',
-    strip: '#10b981',
-    badgeBg: 'rgba(16, 185, 129, 0.12)',
-    badgeBorder: 'rgba(16, 185, 129, 0.35)',
-  },
-  occupied: {
-    label: 'Đang phục vụ',
-    color: '#f87171',
-    strip: '#ef4444',
-    badgeBg: 'rgba(239, 68, 68, 0.14)',
-    badgeBorder: 'rgba(239, 68, 68, 0.4)',
-  },
-  reserved: {
-    label: 'Đã đặt trước',
-    color: '#fbbf24',
-    strip: '#f59e0b',
-    badgeBg: 'rgba(245, 158, 11, 0.14)',
-    badgeBorder: 'rgba(245, 158, 11, 0.4)',
-  },
-  disabled: {
-    label: 'Tạm khóa',
-    color: '#94a3b8',
-    strip: '#64748b',
-    badgeBg: 'rgba(148, 163, 184, 0.1)',
-    badgeBorder: 'rgba(148, 163, 184, 0.3)',
-  },
+ 
+const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+ 
+const getElapsedMinutes = (openedAt) => {
+  if (!openedAt) return 0;
+  const diff = Date.now() - new Date(openedAt).getTime();
+  return Math.max(1, Math.floor(diff / 60000));
 };
-
-const NL = { fontVariantNumeric: 'lining-nums tabular-nums' };
-
-const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
-
-// Rút gọn tên khu vực để không bị tràn dòng
-const shortArea = (name = '') => {
-  if (!name) return '';
-  return name.replace(/\s*-\s*.*$/, '').trim();
+ 
+const Icon = {
+  Plus: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  ),
+  Refresh: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" />
+    </svg>
+  ),
+  Search: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  ),
+  Users: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  Clock: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  Swap: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  ),
+  Check: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  Calendar: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  ),
+  ArrowRight: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+    </svg>
+  ),
 };
-
-// Tính thời gian đếm ngược đặt bàn
-const countdown = (resTime) => {
-  if (!resTime) return null;
-  const parts = String(resTime).split(':');
-  if (parts.length < 2) return null;
-  const target = new Date();
-  target.setHours(Number(parts[0]), Number(parts[1]), 0, 0);
-  const diffMins = Math.round((target - new Date()) / 60000);
-  if (diffMins > 0) return `Còn ${diffMins} phút`;
-  if (diffMins < 0 && diffMins > -120) return `Quá hẹn ${Math.abs(diffMins)} phút`;
-  return null;
-};
-
-// Tính thời gian khách đã ngồi
-const seatedMins = (openedAt) => {
-  if (!openedAt) return null;
-  const mins = Math.round((new Date() - new Date(openedAt)) / 60000);
-  if (mins < 1) return 'Vừa vào';
-  if (mins < 60) return `Ngồi ${mins} phút`;
-  return `Ngồi ${Math.floor(mins / 60)}h ${mins % 60}m`;
-};
-
-// ==========================================
-// SUB-COMPONENTS
-// ==========================================
-
-// 1. KPI Card theo chuẩn trang Đơn hàng & Thống kê (Thiết kế liền mạch, KHÔNG DÙNG vạch cắt gây thừa góc)
-function KpiCard({ icon: Icon, iconColor, iconBg, label, value, unit, subtitle, active, onClick, borderStrip }) {
-  return (
-    <div
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      className="mockup-panel"
-      style={{
-        padding: '14px 18px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '14px',
-        cursor: onClick ? 'pointer' : 'default',
-        borderRadius: '12px',
-        position: 'relative',
-        overflow: 'hidden',
-        border: active
-          ? '1.5px solid #fbbf24'
-          : borderStrip
-          ? `1px solid ${borderStrip}44`
-          : '1px solid rgba(245, 158, 11, 0.18)',
-        borderTop: borderStrip ? `3px solid ${borderStrip}` : active ? '3px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.18)',
-        background: active
-          ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.22), rgba(180, 83, 9, 0.12))'
-          : 'rgba(26, 16, 10, 0.92)',
-        boxShadow: active
-          ? '0 4px 18px rgba(217, 119, 6, 0.25)'
-          : '0 4px 16px rgba(0, 0, 0, 0.35)',
-        transition: 'all 0.2s ease',
-        userSelect: 'none',
-      }}
-      onKeyDown={(e) => e.key === 'Enter' && onClick && onClick()}
-    >
-      <div
-        style={{
-          width: '44px',
-          height: '44px',
-          borderRadius: '10px',
-          background: iconBg || 'rgba(245, 158, 11, 0.12)',
-          border: `1px solid ${iconColor ? iconColor + '33' : 'rgba(245, 158, 11, 0.2)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <Icon size={22} color={iconColor || '#fbbf24'} />
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: '0.74rem',
-            fontWeight: 700,
-            color: '#c4a482',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            marginBottom: '2px',
-          }}
-        >
-          {label}
-        </div>
-        <div
-          style={{
-            fontSize: '1.55rem',
-            fontWeight: 900,
-            color: iconColor || '#fef3c7',
-            lineHeight: 1.1,
-            ...NL,
-          }}
-        >
-          {value}{' '}
-          {unit && (
-            <span style={{ fontSize: '0.85rem', color: '#c4a482', fontWeight: 500 }}>
-              {unit}
-            </span>
-          )}
-        </div>
-        {subtitle && (
-          <div
-            style={{
-              fontSize: '0.72rem',
-              color: '#a88265',
-              marginTop: '2px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {subtitle}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// 2. Chip Lọc theo chuẩn Pill Button của trang Đơn hàng
-function FilterChip({ active, label, count, onClick, dotColor }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '6px 14px',
-        borderRadius: '20px',
-        fontWeight: 700,
-        fontSize: '0.8rem',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-        background: active ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255, 255, 255, 0.04)',
-        color: active ? '#ffffff' : '#d5bba2',
-        border: active ? '1.5px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.2)',
-        boxShadow: active ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
-      }}
-    >
-      {dotColor && (
-        <span
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: dotColor,
-            display: 'inline-block',
-            boxShadow: `0 0 6px ${dotColor}`,
-          }}
-        />
-      )}
-      <span>{label}</span>
-      {count !== undefined && (
-        <span
-          style={{
-            fontSize: '0.72rem',
-            fontWeight: 800,
-            padding: '1px 7px',
-            borderRadius: '10px',
-            background: active ? 'rgba(0, 0, 0, 0.28)' : 'rgba(255, 255, 255, 0.08)',
-            color: active ? '#fff' : '#c4a482',
-            ...NL,
-          }}
-        >
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-// 3. Status Badge với chấm tròn + chữ
-function StatusBadge({ status }) {
-  const cfg = STATUS_CFG[status] || STATUS_CFG.empty;
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        background: cfg.badgeBg,
-        color: cfg.color,
-        fontSize: '0.74rem',
-        fontWeight: 700,
-        padding: '3px 9px',
-        borderRadius: '12px',
-        border: `1px solid ${cfg.badgeBorder}`,
-        letterSpacing: '0.02em',
-      }}
-    >
-      <span
-        style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          backgroundColor: cfg.color,
-          display: 'inline-block',
-          boxShadow: `0 0 5px ${cfg.color}`,
-        }}
-      />
-      {cfg.label}
-    </span>
-  );
-}
-
-// 4. Skeleton Card khi Loading
-function SkeletonCard() {
-  return (
-    <div
-      className="mockup-panel"
-      style={{
-        padding: '16px',
-        borderRadius: '12px',
-        minHeight: '220px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        background: 'rgba(26, 15, 8, 0.6)',
-        border: '1px solid rgba(245, 158, 11, 0.08)',
-        animation: 'pulse 1.8s infinite',
-      }}
-    >
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ width: '80px', height: '22px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px' }} />
-          <div style={{ width: '70px', height: '20px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px' }} />
-        </div>
-        <div style={{ width: '120px', height: '14px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px' }} />
-      </div>
-      <div style={{ height: '70px', background: 'rgba(0,0,0,0.25)', borderRadius: '8px' }} />
-      <div style={{ height: '36px', background: 'rgba(255,255,255,0.06)', borderRadius: '6px' }} />
-    </div>
-  );
-}
-
-// 5. Nút Outline chuyển Solid khi Hover
-function BtnOutlineHover({
-  children,
-  onClick,
-  borderColor,
-  color,
-  hoverBg,
-  hoverColor = '#ffffff',
-  style,
-  title,
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className="btn btn-sm"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        border: `1.5px solid ${borderColor}`,
-        background: hovered ? hoverBg : 'transparent',
-        color: hovered ? hoverColor : color,
-        fontWeight: 700,
-        fontSize: '0.8rem',
-        padding: '8px 12px',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        transition: 'all 0.18s ease',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '6px',
-        ...style,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-// 6. Thẻ Bàn (Table Card) - Chuẩn hóa khung chung 4 hàng, bo góc mượt mà chuyên nghiệp như POS
-function TableCard({
-  table,
-  onOpenToPos,
-  onFreeTable,
-  onCheckIn,
-  onCancelReserve,
-}) {
-  const cfg = STATUS_CFG[table.status] || STATUS_CFG.empty;
-  const isEmpty = table.status === 'empty';
-  const isOccupied = table.status === 'occupied';
-  const isReserved = table.status === 'reserved';
-
-  const cdText = isReserved ? countdown(table.reservation_time) : null;
-  const sitText = isOccupied ? seatedMins(table.current_order_time) : null;
-
-  // SỬA LỖI BÀN 10: Đọc chính xác dữ liệu từ server, không fallback sai
-  const itemCount = Number(table.current_item_count ?? 0);
-  const orderTotal = Number(table.current_order_total ?? 0);
-
-  return (
-    <div
-      className="mockup-panel"
-      style={{
-        padding: '16px',
-        borderRadius: '12px',
-        position: 'relative',
-        overflow: 'hidden',
-        border: isOccupied
-          ? '1.5px solid rgba(239, 68, 68, 0.6)'
-          : isReserved
-          ? '1.5px solid rgba(245, 158, 11, 0.6)'
-          : '1px solid rgba(52, 211, 153, 0.35)',
-        background: isOccupied
-          ? 'linear-gradient(145deg, rgba(42, 18, 14, 0.95), rgba(26, 13, 9, 0.95))'
-          : isReserved
-          ? 'linear-gradient(145deg, rgba(42, 28, 12, 0.95), rgba(26, 16, 7, 0.95))'
-          : 'rgba(26, 16, 10, 0.95)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        minHeight: '220px',
-        gap: '10px',
-        boxShadow: isOccupied
-          ? '0 6px 20px rgba(239, 68, 68, 0.18)'
-          : isReserved
-          ? '0 6px 20px rgba(245, 158, 11, 0.18)'
-          : '0 4px 16px rgba(0, 0, 0, 0.35)',
-        transition: 'all 0.2s ease',
-      }}
-    >
-      {/* HÀNG 1: Tên bàn kiểu badge POS + Badge trạng thái */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <span
-            style={{
-              fontSize: '0.92rem',
-              fontWeight: 900,
-              color: '#fbbf24',
-              background: 'rgba(251, 191, 36, 0.12)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(251, 191, 36, 0.25)',
-              letterSpacing: '0.5px',
-              fontFamily: "'Playfair Display', Georgia, serif",
-              ...NL,
-            }}
-          >
-            {table.code}
-          </span>
-          <StatusBadge status={table.status} />
-        </div>
-
-        {/* HÀNG 2: Khu vực rút gọn · Số ghế */}
-        <div
-          style={{
-            fontSize: '0.78rem',
-            color: '#c4a482',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          title={`${table.area_name} • ${table.seats} ghế`}
-        >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <MapPin size={13} color="#a88265" />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }}>
-              {shortArea(table.area_name)}
-            </span>
-          </span>
-          <span style={{ color: '#5a341e' }}>•</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', ...NL }}>
-            <Armchair size={13} color="#a88265" />
-            <span>{table.seats} ghế</span>
-          </span>
-        </div>
-      </div>
-
-      {/* HÀNG 3 (THÂN): Chi tiết theo từng trạng thái */}
-      <div
-        style={{
-          background: 'rgba(15, 8, 4, 0.65)',
-          borderRadius: '8px',
-          padding: '10px 12px',
-          border: '1px solid rgba(245, 158, 11, 0.1)',
-          minHeight: '74px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-        }}
-      >
-        {/* TRẠNG THÁI: TRỐNG (Tối giản, chuyên nghiệp) */}
-        {isEmpty && (
-          <div
-            style={{
-              textAlign: 'center',
-              color: '#a88265',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-          >
-            <Sparkles size={14} color="#34d399" />
-            <span>Sẵn sàng đón khách</span>
-          </div>
-        )}
-
-        {/* TRẠNG THÁI: ĐANG PHỤC VỤ (Nổi bật vừa phải, số liệu chuẩn xác) */}
-        {isOccupied && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.8rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#c4a482' }}>Số món đang dùng:</span>
-              <strong style={{ color: '#fef3c7', ...NL }}>
-                {itemCount > 0 ? `${itemCount} món` : 'Đang chọn món'}
-              </strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ color: '#c4a482' }}>Tạm tính:</span>
-              <strong
-                style={{
-                  color: orderTotal > 0 ? '#fbbf24' : '#c4a482',
-                  fontSize: '0.96rem',
-                  fontWeight: 900,
-                  ...NL,
-                }}
-              >
-                {orderTotal > 0 ? fmt(orderTotal) : '0 đ'}
-              </strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#a88265', marginTop: '2px' }}>
-              <span>
-                {table.customer_count > 0 ? `${table.customer_count} khách` : 'Khách tại bàn'}
-              </span>
-              {sitText && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#fbbf24' }}>
-                  <Clock size={11} /> {sitText}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TRẠNG THÁI: ĐÃ ĐẶT TRƯỚC */}
-        {isReserved && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.78rem' }}>
-            <div
-              style={{
-                color: '#fbbf24',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-              title={`${table.reservation_name || 'Khách đặt bàn'} (${table.reservation_phone || ''})`}
-            >
-              <User size={13} color="#fbbf24" style={{ flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {table.reservation_name || 'Khách đặt bàn'}
-              </span>
-              {table.reservation_phone && (
-                <span style={{ color: '#c4a482', fontSize: '0.72rem', fontWeight: 500, flexShrink: 0, ...NL }}>
-                  ({table.reservation_phone})
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fef3c7' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <Clock size={12} color="#fbbf24" />
-                <strong style={{ ...NL }}>{table.reservation_time || '19:30'}</strong>
-                <span style={{ color: '#c4a482', fontSize: '0.72rem' }}>
-                  ({table.customer_count || 2} khách)
-                </span>
-              </span>
-              {cdText && (
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    color: cdText.includes('Quá') ? '#f87171' : '#34d399',
-                    ...NL,
-                  }}
-                >
-                  {cdText}
-                </span>
-              )}
-            </div>
-
-            {table.reservation_note && (
-              <div
-                style={{
-                  color: '#d5bba2',
-                  fontStyle: 'italic',
-                  fontSize: '0.72rem',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  lineHeight: 1.25,
-                }}
-                title={table.reservation_note}
-              >
-                &ldquo;{table.reservation_note}&rdquo;
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* HÀNG 4 (CHÂN): Nút hành động chuẩn POS */}
-      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-        {isEmpty && (
-          <button
-            type="button"
-            className="btn btn-sm"
-            style={{
-              flex: 1,
-              background: '#15803d',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: '0.82rem',
-              padding: '7px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-              cursor: 'pointer',
-            }}
-            onClick={() => onOpenToPos(table)}
-          >
-            <Coffee size={14} />
-            <span>Mở bàn / Gọi món</span>
-          </button>
-        )}
-
-        {isOccupied && (
-          <>
-            <button
-              type="button"
-              className="btn btn-sm"
-              style={{
-                flex: 1,
-                background: '#d97706',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                padding: '7px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                cursor: 'pointer',
-              }}
-              onClick={() => onOpenToPos(table)}
-              title="Gọi thêm món hoặc thanh toán tại quầy"
-            >
-              <Plus size={14} />
-              <span>Thêm món</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={() => onFreeTable(table.id, table.code)}
-              style={{
-                background: '#24160e',
-                borderColor: 'rgba(239, 68, 68, 0.45)',
-                color: '#f87171',
-                fontWeight: 700,
-                fontSize: '0.78rem',
-                padding: '7px 12px',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                cursor: 'pointer',
-              }}
-              title="Dọn dẹp và trả bàn về trạng thái trống"
-            >
-              <Trash2 size={13} />
-              <span>Trả bàn</span>
-            </button>
-          </>
-        )}
-
-        {isReserved && (
-          <>
-            <button
-              type="button"
-              className="btn btn-sm"
-              style={{
-                flex: 1,
-                background: '#15803d',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                padding: '7px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                cursor: 'pointer',
-              }}
-              onClick={() => onCheckIn(table)}
-            >
-              <CheckCircle2 size={14} />
-              <span>Khách đã đến</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={() => onCancelReserve(table.id, table.code)}
-              style={{
-                background: '#24160e',
-                borderColor: 'rgba(239, 68, 68, 0.45)',
-                color: '#f87171',
-                fontWeight: 700,
-                fontSize: '0.78rem',
-                padding: '7px 12px',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                cursor: 'pointer',
-              }}
-              title="Hủy đặt bàn"
-            >
-              <X size={13} />
-              <span>Hủy</span>
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// 7. Nhóm bàn theo khu vực khi chọn "Tất cả"
-function AreaGroup({ areaName, tables, onOpenToPos, onFreeTable, onCheckIn, onCancelReserve }) {
-  const emptyCount = tables.filter((t) => t.status === 'empty').length;
-  const occupiedCount = tables.filter((t) => t.status === 'occupied').length;
-  const reservedCount = tables.filter((t) => t.status === 'reserved').length;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {/* Tiêu đề khu vực: Tên · Số bàn · Số bàn trống */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingBottom: '8px',
-          borderBottom: '1px solid rgba(245, 158, 11, 0.15)',
-          flexWrap: 'wrap',
-          gap: '8px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MapPin size={16} color="#d97706" />
-          <h3
-            style={{
-              margin: 0,
-              fontSize: '1.05rem',
-              fontWeight: 800,
-              color: '#fef3c7',
-              fontFamily: "'Playfair Display', Georgia, serif",
-              letterSpacing: '0.02em',
-            }}
-          >
-            {areaName}
-          </h3>
-          <span style={{ color: '#a88265', fontSize: '0.82rem', ...NL }}>
-            ({tables.length} bàn)
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.78rem', ...NL }}>
-          <span style={{ color: '#34d399' }}>● {emptyCount} trống</span>
-          {occupiedCount > 0 && <span style={{ color: '#f87171' }}>● {occupiedCount} có khách</span>}
-          {reservedCount > 0 && <span style={{ color: '#fbbf24' }}>● {reservedCount} đặt trước</span>}
-        </div>
-      </div>
-
-      {/* Lưới bàn của khu vực */}
-      <div
-        className="table-card-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '14px',
-        }}
-      >
-        {tables.map((table) => (
-          <TableCard
-            key={table.id}
-            table={table}
-            onOpenToPos={onOpenToPos}
-            onFreeTable={onFreeTable}
-            onCheckIn={onCheckIn}
-            onCancelReserve={onCancelReserve}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ==========================================
-// MAIN COMPONENT: TABLES (SƠ ĐỒ BÀN)
-// ==========================================
+ 
 export default function Tables() {
   const navigate = useNavigate();
-
-  // State
-  const [data, setData] = useState({ tables: [], areas: [] });
+  const [tables, setTables] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [onlineOrdersCount, setOnlineOrdersCount] = useState(0);
+  const [storeIsOpen, setStoreIsOpen] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+ 
   const [selectedArea, setSelectedArea] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
-  const [onlineOrders, setOnlineOrders] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-
-  // Modals state
-  const [showReserveModal, setShowReserveModal] = useState(false);
-  const [reserveTableTarget, setReserveTableTarget] = useState(null);
-  const [reserveForm, setReserveForm] = useState({
-    name: '',
-    phone: '',
-    time: '19:30',
-    guests: 4,
-    note: '',
+ 
+  const [reserveModal, setReserveModal] = useState({
+    open: false, tableId: '', reservation_name: '', reservation_phone: '',
+    reservation_time: '19:30', customer_count: 2, reservation_note: '',
   });
-
-  // Tải dữ liệu bàn từ backend
-  const loadTables = async () => {
+  const [transferModal, setTransferModal] = useState({ open: false, fromTable: null, toTableId: '' });
+ 
+  const fetchData = async () => {
     try {
-      setLoading(true);
-      setLoadError(null);
-      const res = await api.get('/tables');
-      if (res.data?.data) {
-        setData(res.data.data);
-        setLastUpdated(new Date());
+      const [tblRes, ordRes, storeRes] = await Promise.all([
+        api.get('/tables'),
+        api.get('/orders/all?limit=50').catch(() => ({ data: { data: [] } })),
+        api.get('/settings/store-hours').catch(() => ({ data: { data: { isOpen: true } } })),
+      ]);
+ 
+      if (tblRes.data?.success) {
+        setTables(tblRes.data.data.tables || []);
+        setAreas(tblRes.data.data.areas || []);
       }
-    } catch (err) {
-      console.error('Lỗi tải danh sách bàn:', err);
-      setLoadError('Không thể tải sơ đồ bàn. Vui lòng kiểm tra lại kết nối!');
+ 
+      const allOrds = Array.isArray(ordRes.data?.data) ? ordRes.data.data : [];
+      const activeOnline = allOrds.filter(
+        (o) => o.order_type === 'takeaway' && ['awaiting_payment', 'pending', 'preparing', 'done'].includes(o.status)
+      );
+      setOnlineOrdersCount(activeOnline.length);
+ 
+      if (storeRes.data?.data) setStoreIsOpen(Boolean(storeRes.data.data.isOpen));
+      setLastUpdated(new Date());
+    } catch {
+      toast.error('Không thể tải sơ đồ bàn');
     } finally {
       setLoading(false);
     }
   };
-
-  // Tải đơn hàng online / mang về
-  const loadOnlineOrders = async () => {
-    try {
-      const res = await api.get('/orders/all');
-      const list = res.data?.data || [];
-      const active = list.filter((o) =>
-        ['takeaway', 'dine_in'].includes(o.order_type) &&
-        ['scheduled', 'pending', 'preparing', 'open'].includes(o.status)
-      );
-      setOnlineOrders(active);
-    } catch (err) {
-      console.warn('Could not load online orders:', err);
-    }
-  };
-
-  // Cập nhật trạng thái đơn online
-  const handleUpdateOnlineStatus = async (orderId, targetStatus) => {
-    try {
-      await api.put(`/orders/${orderId}/status`, { status: targetStatus });
-      toast.success(
-        targetStatus === 'preparing'
-          ? 'Đã chuyển sang: Đang pha chế'
-          : 'Đã chuyển sang: Pha xong & Trả món'
-      );
-      loadOnlineOrders();
-      loadTables();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi khi cập nhật trạng thái đơn');
-    }
-  };
-
-  // Effects & Realtime Socket
+ 
   useEffect(() => {
-    loadTables();
-    loadOnlineOrders();
-
-    const handleNewOrder = (payload) => {
-      playNotificationSound();
-      toast.success(`CÓ ĐƠN HÀNG ONLINE MỚI: #${payload?.orderCode || ''}!`, { duration: 6000 });
-      loadTables();
-      loadOnlineOrders();
-    };
-
-    const handleSync = () => {
-      loadTables();
-      loadOnlineOrders();
-    };
-
-    socket.on('order:created', handleNewOrder);
-    socket.on('barista:new_order', handleSync);
-    socket.on('order:status_updated', handleSync);
-    socket.on('barista:item_updated', handleSync);
-    socket.on('order:cancelled', handleSync);
-
-    const interval = setInterval(() => {
-      loadTables();
-      loadOnlineOrders();
-    }, 10000);
-
+    fetchData();
+    const syncHandler = () => fetchData();
+    socket.on('table:status_updated', syncHandler);
+    socket.on('order:created', syncHandler);
+    socket.on('order:status_updated', syncHandler);
+    socket.on('order:cancelled', syncHandler);
+ 
+    const timer = setInterval(() => setLastUpdated(new Date()), 30000);
     return () => {
-      clearInterval(interval);
-      socket.off('order:created', handleNewOrder);
-      socket.off('barista:new_order', handleSync);
-      socket.off('order:status_updated', handleSync);
-      socket.off('barista:item_updated', handleSync);
-      socket.off('order:cancelled', handleSync);
+      clearInterval(timer);
+      socket.off('table:status_updated', syncHandler);
+      socket.off('order:created', syncHandler);
+      socket.off('order:status_updated', syncHandler);
+      socket.off('order:cancelled', syncHandler);
     };
   }, []);
-
-  // Mở bàn chuyển sang POS
-  const handleOpenTableToPos = (table) => {
-    let url = `/pos?table_id=${table.id}&table_code=${encodeURIComponent(table.code)}`;
-    if (table.reservation_name) {
-      url += `&customer_name=${encodeURIComponent(table.reservation_name)}`;
-    }
-    if (table.reservation_phone) {
-      url += `&customer_phone=${encodeURIComponent(table.reservation_phone)}`;
-    }
-    navigate(url);
-  };
-
-  // Mở modal đặt bàn trước
-  const handleOpenReserve = (table = null) => {
-    setReserveTableTarget(table);
-    setReserveForm({
-      name: '',
-      phone: '',
-      time: '19:30',
-      guests: table ? table.seats : 4,
-      note: '',
-    });
-    setShowReserveModal(true);
-  };
-
-  // Lưu đặt bàn
-  const handleSaveReservation = async (e) => {
-    e.preventDefault();
-    if (!reserveTableTarget) {
-      toast.error('Vui lòng chọn bàn để đặt');
-      return;
-    }
-    try {
-      await api.post(`/tables/${reserveTableTarget.id}/reserve`, {
-        reservation_name: reserveForm.name,
-        reservation_phone: reserveForm.phone,
-        reservation_time: reserveForm.time,
-        reservation_note: reserveForm.note,
-        customer_count: reserveForm.guests,
-      });
-      toast.success(`Đã đặt trước ${reserveTableTarget.code} cho khách ${reserveForm.name}!`);
-      setShowReserveModal(false);
-      loadTables();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi khi đặt bàn');
-    }
-  };
-
-  // Hủy đặt bàn
-  const handleCancelReservation = async (tableId, tableCode) => {
-    if (!window.confirm(`Xác nhận hủy đặt bàn ${tableCode}?`)) return;
-    try {
-      await api.post(`/tables/${tableId}/cancel-reservation`);
-      toast.success(`Đã hủy đặt bàn ${tableCode}`);
-      loadTables();
-    } catch (err) {
-      toast.error('Lỗi khi hủy đặt bàn');
-    }
-  };
-
-  // Khách đặt bàn đã tới -> Nhận bàn
-  const handleCheckInReservedTable = async (table) => {
-    try {
-      await api.put(`/tables/${table.id}/status`, { status: 'occupied' });
-      toast.success(`Khách ${table.reservation_name || ''} đã nhận bàn ${table.code}!`);
-      handleOpenTableToPos(table);
-    } catch (err) {
-      toast.error('Lỗi nhận bàn');
-    }
-  };
-
-  // Trả bàn về trống
-  const handleFreeTable = async (tableId, tableCode) => {
-    if (!window.confirm(`Xác nhận dọn bàn và trả ${tableCode} về trạng thái TRỐNG?`)) return;
-    try {
-      await api.put(`/tables/${tableId}/status`, { status: 'empty' });
-      toast.success(`Đã giải phóng ${tableCode} thành bàn Trống!`);
-      loadTables();
-    } catch (err) {
-      toast.error('Lỗi khi đổi trạng thái bàn');
-    }
-  };
-
-  // Xóa tất cả bộ lọc
-  const clearAllFilters = () => {
-    setSelectedArea('all');
-    setStatusFilter('all');
-    setSearchQuery('');
-  };
-
-  // Tính các chỉ số KPI
-  const counts = useMemo(() => {
-    const all = data.tables || [];
-    return {
-      total: all.length,
-      empty: all.filter((t) => t.status === 'empty').length,
-      occupied: all.filter((t) => t.status === 'occupied').length,
-      reserved: all.filter((t) => t.status === 'reserved').length,
-    };
-  }, [data.tables]);
-
-  // Giờ hẹn gần nhất
-  const nearestRes = useMemo(() => {
-    const list = (data.tables || [])
-      .filter((t) => t.status === 'reserved' && t.reservation_time)
-      .map((t) => t.reservation_time)
-      .sort();
-    return list[0] || null;
-  }, [data.tables]);
-
-  // Lọc bàn theo Khu vực, Trạng thái & Ô tìm kiếm
+ 
+  const stats = useMemo(() => {
+    const total = tables.length;
+    const empty = tables.filter((t) => t.status === 'empty').length;
+    const occupied = tables.filter((t) => t.status === 'occupied').length;
+    const reserved = tables.filter((t) => t.status === 'reserved').length;
+    const emptyPct = total > 0 ? Math.round((empty / total) * 100) : 0;
+    const occPct = total > 0 ? Math.round((occupied / total) * 100) : 0;
+    const nextReserved = tables.find((t) => t.status === 'reserved' && t.reservation_time);
+    return { total, empty, occupied, reserved, emptyPct, occPct, nextReservedTime: nextReserved?.reservation_time };
+  }, [tables]);
+ 
   const filteredTables = useMemo(() => {
-    let list = data.tables || [];
-
-    if (selectedArea !== 'all') {
-      list = list.filter((t) => String(t.area_id) === String(selectedArea));
-    }
-
-    if (statusFilter !== 'all') {
-      list = list.filter((t) => t.status === statusFilter);
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (t) =>
-          t.code.toLowerCase().includes(q) ||
-          (t.area_name && t.area_name.toLowerCase().includes(q)) ||
-          (t.reservation_name && t.reservation_name.toLowerCase().includes(q)) ||
-          (t.reservation_phone && t.reservation_phone.includes(q))
-      );
-    }
-
-    return list;
-  }, [data.tables, selectedArea, statusFilter, searchQuery]);
-
-  // Nhóm theo khu vực khi chọn "Tất cả" & không có tìm kiếm
-  const groupedByArea = useMemo(() => {
-    if (selectedArea !== 'all' || searchQuery.trim() !== '' || statusFilter !== 'all') {
-      return null;
-    }
-    const groups = {};
-    (data.areas || []).forEach((a) => {
-      groups[a.id] = { name: a.name, tables: [] };
+    return tables.filter((t) => {
+      const matchArea = selectedArea === 'all' || String(t.area_id) === String(selectedArea);
+      const matchStatus = statusFilter === 'all' || t.status === statusFilter;
+      const q = searchQuery.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        (t.code || '').toLowerCase().includes(q) ||
+        (t.area_name || '').toLowerCase().includes(q) ||
+        (t.reservation_name || '').toLowerCase().includes(q) ||
+        (t.reservation_phone || '').toLowerCase().includes(q);
+      return matchArea && matchStatus && matchSearch;
     });
-    (data.tables || []).forEach((t) => {
-      if (groups[t.area_id]) {
-        groups[t.area_id].tables.push(t);
-      } else {
-        groups[t.area_id] = { name: t.area_name || 'Khu vực khác', tables: [t] };
-      }
+  }, [tables, selectedArea, statusFilter, searchQuery]);
+ 
+  const groupedAreas = useMemo(() => {
+    return areas
+      .filter((a) => selectedArea === 'all' || String(a.id) === String(selectedArea))
+      .map((area) => {
+        const areaTables = filteredTables.filter((t) => String(t.area_id) === String(area.id));
+        const allAreaTables = tables.filter((t) => String(t.area_id) === String(area.id));
+        return {
+          ...area,
+          tables: areaTables,
+          emptyCount: allAreaTables.filter((t) => t.status === 'empty').length,
+          occupiedCount: allAreaTables.filter((t) => t.status === 'occupied').length,
+          reservedCount: allAreaTables.filter((t) => t.status === 'reserved').length,
+        };
+      })
+      .filter((g) => g.tables.length > 0);
+  }, [areas, filteredTables, tables, selectedArea]);
+ 
+  const handleOpenTablePos = (table) => {
+    const params = new URLSearchParams({ table_id: String(table.id), table_code: table.code });
+    if (table.reservation_name) params.set('customer_name', table.reservation_name);
+    if (table.reservation_phone) params.set('customer_phone', table.reservation_phone);
+    navigate(`/pos?${params.toString()}`);
+  };
+ 
+  const handleReleaseTable = async (e, table) => {
+    e.stopPropagation();
+    if (!window.confirm(`Xác nhận khách đã rời ${table.code} và chuyển bàn sang Trống?`)) return;
+    try {
+      await api.put(`/tables/${table.id}/status`, { status: 'empty' });
+      toast.success(`Đã dọn ${table.code} về trạng thái trống`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật trạng thái bàn');
+    }
+  };
+ 
+  const handleCancelReservation = async (e, table) => {
+    e.stopPropagation();
+    if (!window.confirm(`Hủy lịch đặt trước tại ${table.code} của khách ${table.reservation_name}?`)) return;
+    try {
+      await api.post(`/tables/${table.id}/cancel-reservation`);
+      toast.success(`Đã hủy đặt trước ${table.code}`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi hủy đặt bàn');
+    }
+  };
+ 
+  const handleOpenReserveModal = (tableId = '') => {
+    const firstEmpty = tables.find((t) => t.status === 'empty');
+    setReserveModal({
+      open: true,
+      tableId: tableId || (firstEmpty ? String(firstEmpty.id) : ''),
+      reservation_name: '', reservation_phone: '',
+      reservation_time: '19:30', customer_count: 2, reservation_note: '',
     });
-    return Object.values(groups).filter((g) => g.tables.length > 0);
-  }, [data.tables, data.areas, selectedArea, searchQuery, statusFilter]);
-
+  };
+ 
+  const handleSubmitReserve = async (e) => {
+    e.preventDefault();
+    if (!reserveModal.tableId) return toast.error('Vui lòng chọn bàn trống');
+    if (!reserveModal.reservation_name.trim() || !reserveModal.reservation_phone.trim()) {
+      return toast.error('Vui lòng nhập tên và số điện thoại khách');
+    }
+    try {
+      await api.post(`/tables/${reserveModal.tableId}/reserve`, {
+        reservation_name: reserveModal.reservation_name.trim(),
+        reservation_phone: reserveModal.reservation_phone.trim(),
+        reservation_time: reserveModal.reservation_time,
+        customer_count: Number(reserveModal.customer_count) || 2,
+        reservation_note: reserveModal.reservation_note.trim(),
+      });
+      toast.success('Đặt bàn trước thành công');
+      setReserveModal((prev) => ({ ...prev, open: false }));
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể đặt bàn');
+    }
+  };
+ 
+  const handleOpenTransferModal = (e, table) => {
+    e.stopPropagation();
+    const firstEmpty = tables.find((t) => t.status === 'empty' && t.id !== table.id);
+    setTransferModal({ open: true, fromTable: table, toTableId: firstEmpty ? String(firstEmpty.id) : '' });
+  };
+ 
+  const handleSubmitTransfer = async (e) => {
+    e.preventDefault();
+    if (!transferModal.fromTable || !transferModal.toTableId) return;
+    try {
+      await api.post(`/tables/${transferModal.fromTable.id}/transfer`, { to_table_id: Number(transferModal.toTableId) });
+      toast.success(`Đã chuyển đơn từ ${transferModal.fromTable.code} sang bàn mới`);
+      setTransferModal({ open: false, fromTable: null, toTableId: '' });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi chuyển bàn');
+    }
+  };
+ 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ========================================================
-          A. PAGE HEADER (Tiêu đề + Cập nhật + Nút Đặt bàn + 1 Nút Làm mới)
-          ======================================================== */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}
-      >
+    <div className="pos-floor-page">
+      <style>{`
+        .pos-floor-page {
+          color: #1C1917;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .fp-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 14px;
+        }
+        .fp-title {
+          margin: 0;
+          font-size: 1.45rem;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: #1C1917;
+        }
+        .fp-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 12px;
+        }
+        .fp-kpi-card {
+          background: #FFFFFF;
+          border: 1px solid #E7E2DA;
+          border-radius: 14px;
+          padding: 14px 16px;
+          cursor: pointer;
+          transition: all 0.16s ease;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          text-align: left;
+          box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
+        }
+        .fp-kpi-card:hover {
+          border-color: #D6CFC4;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 14px rgba(28, 25, 23, 0.06);
+        }
+        .fp-kpi-card.active {
+          border-color: #2C1A12;
+          box-shadow: 0 0 0 1.5px #2C1A12;
+        }
+        .fp-toolbar {
+          background: #FFFFFF;
+          border: 1px solid #E7E2DA;
+          border-radius: 14px;
+          padding: 10px 14px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .fp-area-pill {
+          padding: 6px 14px;
+          border-radius: 999px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #78716C;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+        }
+        .fp-area-pill:hover { background: #F5F2EC; color: #1C1917; }
+        .fp-area-pill.active { background: #2C1A12; color: #FFFFFF; }
+        .fp-search-input {
+          background: #F6F4F0;
+          border: 1px solid #E7E2DA;
+          border-radius: 999px;
+          padding: 7px 14px 7px 34px;
+          color: #1C1917;
+          font-size: 0.82rem;
+          width: 240px;
+          outline: none;
+        }
+        .fp-search-input:focus { background: #FFFFFF; border-color: #C86A28; }
+        .fp-table-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+          gap: 12px;
+        }
+        .fp-table-card {
+          border-radius: 14px;
+          padding: 14px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 138px;
+          cursor: pointer;
+          transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+        }
+        .fp-table-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(28, 25, 23, 0.08);
+        }
+        .fp-table-card.empty { background: #FFFFFF; border: 1px solid #E7E2DA; }
+        .fp-table-card.empty:hover { border-color: #16A34A; }
+        .fp-table-card.occupied { background: #FFF8F1; border: 1.5px solid #D97706; }
+        .fp-table-card.reserved { background: #FAF5FF; border: 1.5px solid #9333EA; }
+        .fp-action-btn {
+          border: none;
+          border-radius: 8px;
+          padding: 6px 10px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          transition: opacity 0.15s ease;
+        }
+        .fp-action-btn:hover { opacity: 0.88; }
+        .fp-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(28, 25, 23, 0.45);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          z-index: 9999;
+        }
+        .fp-modal-box {
+          background: #FFFFFF;
+          border: 1px solid #E7E2DA;
+          border-radius: 16px;
+          width: 100%;
+          max-width: 440px;
+          padding: 22px;
+          color: #1C1917;
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.16);
+        }
+        .fp-field-input {
+          width: 100%;
+          background: #FAF8F5;
+          border: 1px solid #E7E2DA;
+          border-radius: 9px;
+          padding: 9px 12px;
+          color: #1C1917;
+          font-size: 0.85rem;
+          outline: none;
+        }
+        .fp-field-input:focus { background: #FFFFFF; border-color: #C86A28; }
+      `}</style>
+ 
+      {/* 1. HEADER */}
+      <div className="fp-header">
         <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: '1.75rem',
-              fontWeight: 900,
-              color: '#fef3c7',
-              fontFamily: "'Playfair Display', Georgia, serif",
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-            }}
-          >
-            SƠ ĐỒ BÀN
-          </h1>
-          <div
-            style={{
-              fontSize: '0.78rem',
-              color: '#a88265',
-              marginTop: '2px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              ...NL,
-            }}
-          >
-            <Clock size={12} color="#a88265" />
-            <span>
-              Cập nhật lúc {lastUpdated.toLocaleTimeString('vi-VN')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h1 className="fp-title">Sơ đồ bàn phục vụ</h1>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              fontSize: '0.74rem', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
+              background: storeIsOpen ? '#ECFDF5' : '#FEF2F2',
+              color: storeIsOpen ? '#15803D' : '#DC2626',
+              border: `1px solid ${storeIsOpen ? '#BBF7D0' : '#FECACA'}`
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: storeIsOpen ? '#16A34A' : '#DC2626' }} />
+              {storeIsOpen ? 'Cổng Online: Đang nhận đơn' : 'Cổng Online: Ngoài giờ'}
             </span>
-            <span style={{ color: '#4a2c18' }}>•</span>
-            <span style={{ color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <span
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: '#10b981',
-                  animation: 'blink-dot 1.5s infinite',
-                }}
-              />
-              Trực tuyến sẵn sàng
-            </span>
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#78716C', marginTop: '3px' }}>
+            Đồng bộ thời gian thực • Cập nhật lúc {lastUpdated.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
-
-        {/* Cổng đặt món online dạng pill nhỏ gọn */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            onClick={() => {
-              if (onlineOrders.length > 0) {
-                const el = document.getElementById('online-orders-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                else navigate('/orders');
-              } else {
-                navigate('/orders');
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              background: onlineOrders.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(26, 15, 8, 0.8)',
-              border: onlineOrders.length > 0 ? '1px solid #f59e0b' : '1px solid rgba(245, 158, 11, 0.2)',
-              fontSize: '0.76rem',
-              color: onlineOrders.length > 0 ? '#fbbf24' : '#c4a482',
-              cursor: 'pointer',
-              userSelect: 'none',
-              ...NL,
-            }}
-            title="Bấm để xem danh sách đơn online"
-          >
-            <ShoppingBag size={14} color={onlineOrders.length > 0 ? '#fbbf24' : '#10b981'} />
-            <span>
-              Cổng Online:{' '}
-              <strong style={{ color: onlineOrders.length > 0 ? '#fbbf24' : '#34d399' }}>
-                {onlineOrders.length > 0 ? `${onlineOrders.length} đơn chờ` : 'Đang hoạt động'}
-              </strong>
-            </span>
-          </div>
-
-          {/* Nút đặt bàn trước (màu cam chuẩn Thống kê) */}
+ 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
-            className="btn btn-primary"
+            onClick={() => handleOpenReserveModal()}
             style={{
-              background: 'linear-gradient(135deg, #d97706, #b45309)',
-              borderColor: '#d97706',
-              color: '#ffffff',
-              fontWeight: 800,
-              fontSize: '0.82rem',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
-              cursor: 'pointer',
+              background: '#2C1A12', color: '#FFFFFF', border: 'none',
+              padding: '9px 16px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 700,
+              display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
             }}
-            onClick={() => handleOpenReserve(null)}
           >
-            <Plus size={16} />
-            <span>ĐẶT BÀN TRƯỚC</span>
+            <Icon.Plus /> <span>Đặt bàn trước</span>
           </button>
-
-          {/* NÚT LÀM MỚI DUY NHẤT (dạng icon + tooltip) */}
           <button
             type="button"
-            className="btn btn-outline"
-            onClick={() => {
-              loadTables();
-              loadOnlineOrders();
-            }}
-            disabled={loading}
-            title="Làm mới sơ đồ bàn và đơn online"
+            onClick={() => { fetchData(); toast.success('Đã làm mới sơ đồ bàn'); }}
             style={{
-              width: '38px',
-              height: '38px',
-              padding: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '8px',
-              borderColor: '#4a2c18',
-              color: '#d5bba2',
-              cursor: 'pointer',
+              background: '#FFFFFF', color: '#1C1917', border: '1px solid #E7E2DA',
+              width: '36px', height: '36px', borderRadius: '10px',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
             }}
+            title="Làm mới dữ liệu"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <Icon.Refresh />
           </button>
         </div>
       </div>
-
-      {/* ========================================================
-          B. HÀNG KPI (5 CHỈ SỐ - CHUẨN THỐNG KÊ)
-          ======================================================== */}
-      <div
-        className="kpi-grid-5"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '12px',
-        }}
-      >
-        <KpiCard
-          icon={Coffee}
-          iconColor="#fbbf24"
-          iconBg="rgba(245, 158, 11, 0.12)"
-          label="TỔNG SỐ BÀN"
-          value={counts.total}
-          unit="Bàn"
-          subtitle="Toàn bộ khu vực"
-          active={statusFilter === 'all' && selectedArea === 'all' && !searchQuery}
-          onClick={clearAllFilters}
-        />
-
-        <KpiCard
-          icon={Armchair}
-          iconColor="#34d399"
-          iconBg="rgba(16, 185, 129, 0.14)"
-          borderStrip="#10b981"
-          label="BÀN TRỐNG"
-          value={counts.empty}
-          unit="Bàn"
-          subtitle={
-            counts.total > 0
-              ? `${Math.round((counts.empty / counts.total) * 100)}% công suất còn`
-              : 'Sẵn sàng đón khách'
-          }
-          active={statusFilter === 'empty'}
-          onClick={() => setStatusFilter(statusFilter === 'empty' ? 'all' : 'empty')}
-        />
-
-        <KpiCard
-          icon={Users}
-          iconColor="#f87171"
-          iconBg="rgba(239, 68, 68, 0.14)"
-          borderStrip="#ef4444"
-          label="ĐANG CÓ KHÁCH"
-          value={counts.occupied}
-          unit="Bàn"
-          subtitle={
-            counts.total > 0
-              ? `Chiếm ${Math.round((counts.occupied / counts.total) * 100)}% tổng số`
-              : 'Đang phục vụ'
-          }
-          active={statusFilter === 'occupied'}
-          onClick={() => setStatusFilter(statusFilter === 'occupied' ? 'all' : 'occupied')}
-        />
-
-        <KpiCard
-          icon={Calendar}
-          iconColor="#fbbf24"
-          iconBg="rgba(245, 158, 11, 0.14)"
-          borderStrip="#f59e0b"
-          label="KHÁCH ĐẶT TRƯỚC"
-          value={counts.reserved}
-          unit="Bàn"
-          subtitle={nearestRes ? `Giờ hẹn gần: ${nearestRes}` : 'Chưa có lịch mới'}
-          active={statusFilter === 'reserved'}
-          onClick={() => setStatusFilter(statusFilter === 'reserved' ? 'all' : 'reserved')}
-        />
-
-        <KpiCard
-          icon={ShoppingBag}
-          iconColor={onlineOrders.length > 0 ? '#fbbf24' : '#38bdf8'}
-          iconBg={onlineOrders.length > 0 ? 'rgba(245, 158, 11, 0.16)' : 'rgba(56, 189, 248, 0.12)'}
-          borderStrip={onlineOrders.length > 0 ? '#f59e0b' : '#38bdf8'}
-          label="ĐƠN ONLINE / MANG VỀ"
-          value={onlineOrders.length}
-          unit="Đơn"
-          subtitle={onlineOrders.length > 0 ? 'Cần xử lý ngay' : 'Đang trực tuyến'}
-          active={false}
-          onClick={() => {
-            if (onlineOrders.length > 0) {
-              const el = document.getElementById('online-orders-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-              else navigate('/orders');
-            } else {
-              navigate('/orders');
-            }
-          }}
-        />
+ 
+      {/* 2. KPI KIÊM BỘ LỌC TRẠNG THÁI */}
+      <div className="fp-kpi-grid">
+        <button type="button" className={`fp-kpi-card ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>
+          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#78716C', textTransform: 'uppercase' }}>Tất cả bàn</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#1C1917' }}>{stats.total}</span>
+            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{areas.length} khu vực</span>
+          </div>
+        </button>
+ 
+        <button type="button" className={`fp-kpi-card ${statusFilter === 'empty' ? 'active' : ''}`} onClick={() => setStatusFilter(statusFilter === 'empty' ? 'all' : 'empty')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#15803D', textTransform: 'uppercase' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A' }} />
+            <span>Bàn trống</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#15803D' }}>{stats.empty}</span>
+            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{stats.emptyPct}% sẵn sàng</span>
+          </div>
+        </button>
+ 
+        <button type="button" className={`fp-kpi-card ${statusFilter === 'occupied' ? 'active' : ''}`} onClick={() => setStatusFilter(statusFilter === 'occupied' ? 'all' : 'occupied')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#C86A28', textTransform: 'uppercase' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#D97706' }} />
+            <span>Đang có khách</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#C86A28' }}>{stats.occupied}</span>
+            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{stats.occPct}% công suất</span>
+          </div>
+        </button>
+ 
+        <button type="button" className={`fp-kpi-card ${statusFilter === 'reserved' ? 'active' : ''}`} onClick={() => setStatusFilter(statusFilter === 'reserved' ? 'all' : 'reserved')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#7E22CE', textTransform: 'uppercase' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#9333EA' }} />
+            <span>Đã đặt trước</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#7E22CE' }}>{stats.reserved}</span>
+            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{stats.nextReservedTime ? `Hẹn ${stats.nextReservedTime}` : 'Không có lịch'}</span>
+          </div>
+        </button>
+ 
+        <button type="button" className="fp-kpi-card" onClick={() => navigate('/orders')}>
+          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Đơn Online / Mang về</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#0369A1' }}>{onlineOrdersCount}</span>
+            <span style={{ fontSize: '0.76rem', color: '#0369A1', fontWeight: 600 }}>Xem danh sách →</span>
+          </div>
+        </button>
       </div>
-
-      {/* ========================================================
-          C. KHỐI ĐƠN ONLINE & MANG VỀ (CHỈ HIỆN KHI CÓ ĐƠN ĐANG CHỜ)
-          ======================================================== */}
-      {onlineOrders.length > 0 && (
-        <div
-          id="online-orders-section"
-          className="mockup-panel"
-          style={{
-            padding: '16px 20px',
-            border: '1.5px solid #d97706',
-            background: 'linear-gradient(135deg, rgba(42, 22, 11, 0.95), rgba(24, 13, 6, 0.95))',
-            borderRadius: '12px',
-            boxShadow: '0 8px 24px rgba(217, 119, 6, 0.2)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '14px',
-              flexWrap: 'wrap',
-              gap: '10px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'rgba(245, 158, 11, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ShoppingBag size={20} color="#fbbf24" />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#fbbf24', fontWeight: 800 }}>
-                  ĐƠN ĐẶT ONLINE & MANG VỀ ĐANG CHỜ ({onlineOrders.length} ĐƠN)
-                </h3>
-                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#d4b094' }}>
-                  Khách hàng vừa đặt trực tuyến qua website. Tự động đồng bộ sang Barista & Thu ngân.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => navigate('/orders')}
-              style={{
-                background: '#d97706',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: '0.78rem',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <span>Xem tại List Đơn Hàng</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
-              gap: '12px',
-            }}
-          >
-            {onlineOrders.map((o) => {
-              const isScheduled = o.status === 'scheduled';
-              const isPending = o.status === 'pending' || o.status === 'open';
-              return (
-                <div
-                  key={o.id}
-                  style={{
-                    background: '#1c1008',
-                    border: isScheduled
-                      ? '1px solid #a855f7'
-                      : isPending
-                      ? '1px solid #f59e0b'
-                      : '1px solid #38bdf8',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 800, color: '#fbbf24', fontSize: '0.92rem', ...NL }}>
-                        #{o.code || o.invoice_no}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          background: isScheduled
-                            ? 'rgba(168, 85, 247, 0.2)'
-                            : isPending
-                            ? 'rgba(245, 158, 11, 0.2)'
-                            : 'rgba(56, 189, 248, 0.2)',
-                          color: isScheduled ? '#c084fc' : isPending ? '#fbbf24' : '#38bdf8',
-                          border: isScheduled
-                            ? '1px solid #a855f7'
-                            : isPending
-                            ? '1px solid #f59e0b'
-                            : '1px solid #38bdf8',
-                          ...NL,
-                        }}
-                      >
-                        {isScheduled
-                          ? `Hẹn: ${o.pickup_time ? String(o.pickup_time).replace('T', ' ').slice(11, 16) : 'Trước'}`
-                          : isPending
-                          ? 'Chờ pha chế'
-                          : 'Đang pha chế'}
-                      </span>
-                    </div>
-
-                    <div style={{ fontSize: '0.82rem', color: '#fef3c7', fontWeight: 700, marginBottom: '2px' }}>
-                      {o.customer_name || 'Khách đặt online'} {o.customer_phone ? `(${o.customer_phone})` : ''}
-                    </div>
-
-                    {isScheduled && o.pickup_time && (
-                      <div
-                        style={{
-                          fontSize: '0.74rem',
-                          color: '#e9d5ff',
-                          background: 'rgba(168, 85, 247, 0.15)',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          margin: '4px 0',
-                          border: '1px solid rgba(168, 85, 247, 0.3)',
-                          ...NL,
-                        }}
-                      >
-                        Giờ nhận: <strong>{String(o.pickup_time).replace('T', ' ').slice(0, 16)}</strong>
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: '#e5d5c5',
-                        margin: '6px 0',
-                        lineHeight: 1.35,
-                        maxHeight: '44px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {o.items_summary || 'Món đang tải...'}
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        borderTop: '1px solid #382012',
-                        paddingTop: '6px',
-                        fontSize: '0.82rem',
-                      }}
-                    >
-                      <span style={{ color: '#a88265', fontWeight: 600 }}>Tổng tiền:</span>
-                      <span style={{ fontWeight: 900, color: '#fbbf24', fontSize: '0.96rem', ...NL }}>
-                        {fmt(o.total)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                    {isScheduled ? (
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        onClick={() => handleUpdateOnlineStatus(o.id, 'preparing')}
-                        title="Khách đến sớm - Bắt đầu pha chế ngay"
-                        style={{
-                          flex: 1,
-                          background: '#7c3aed',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '0.78rem',
-                          padding: '6px',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Pha chế sớm
-                      </button>
-                    ) : isPending ? (
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        onClick={() => handleUpdateOnlineStatus(o.id, 'preparing')}
-                        style={{
-                          flex: 1,
-                          background: '#d97706',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '0.78rem',
-                          padding: '6px',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Bắt đầu pha chế
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        onClick={() => handleUpdateOnlineStatus(o.id, 'done')}
-                        style={{
-                          flex: 1,
-                          background: '#10b981',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '0.78rem',
-                          padding: '6px',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Pha xong & Trả món
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline"
-                      onClick={() => navigate('/orders')}
-                      style={{
-                        borderColor: '#5a341e',
-                        color: '#d4b094',
-                        fontWeight: 600,
-                        fontSize: '0.75rem',
-                        padding: '6px 10px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Chi tiết
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          D. THANH BỘ LỌC (KHU VỰC, TRẠNG THÁI & TÌM KIẾM - CHUẨN POS)
-          ======================================================== */}
-      <div
-        className="mockup-panel"
-        style={{
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          borderRadius: '12px',
-        }}
-      >
-        {/* Hàng 1: Chip Khu Vực (chuẩn danh mục POS) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              color: '#c4a482',
-              letterSpacing: '0.04em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              marginRight: '4px',
-            }}
-          >
-            <MapPin size={14} color="#d97706" />
-            KHU VỰC:
-          </span>
-
-          <FilterChip
-            active={selectedArea === 'all'}
-            label="Tất cả"
-            count={counts.total}
-            onClick={() => setSelectedArea('all')}
-          />
-
-          {(data.areas || []).map((a) => {
-            const count = (data.tables || []).filter((t) => String(t.area_id) === String(a.id)).length;
+ 
+      {/* 3. THANH LỌC KHU VỰC & TÌM KIẾM */}
+      <div className="fp-toolbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button type="button" className={`fp-area-pill ${selectedArea === 'all' ? 'active' : ''}`} onClick={() => setSelectedArea('all')}>
+            Tất cả khu vực ({tables.length})
+          </button>
+          {areas.map((a) => {
+            const count = tables.filter((t) => String(t.area_id) === String(a.id)).length;
             return (
-              <FilterChip
-                key={a.id}
-                active={selectedArea === String(a.id)}
-                label={a.name}
-                count={count}
-                onClick={() => setSelectedArea(String(a.id))}
-              />
+              <button key={a.id} type="button" className={`fp-area-pill ${String(selectedArea) === String(a.id) ? 'active' : ''}`} onClick={() => setSelectedArea(String(a.id))}>
+                {a.name} ({count})
+              </button>
             );
           })}
         </div>
-
-        {/* Hàng 2: Lọc Trạng Thái + Ô Tìm Bàn */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            paddingTop: '10px',
-            borderTop: '1px solid rgba(245, 158, 11, 0.1)',
-          }}
-        >
-          {/* Lọc Trạng Thái */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#c4a482', letterSpacing: '0.04em' }}>
-              TRẠNG THÁI:
-            </span>
-            <FilterChip
-              active={statusFilter === 'all'}
-              label="Tất cả"
-              onClick={() => setStatusFilter('all')}
-            />
-            <FilterChip
-              active={statusFilter === 'empty'}
-              label="Trống"
-              count={counts.empty}
-              dotColor="#10b981"
-              onClick={() => setStatusFilter(statusFilter === 'empty' ? 'all' : 'empty')}
-            />
-            <FilterChip
-              active={statusFilter === 'occupied'}
-              label="Đang phục vụ"
-              count={counts.occupied}
-              dotColor="#ef4444"
-              onClick={() => setStatusFilter(statusFilter === 'occupied' ? 'all' : 'occupied')}
-            />
-            <FilterChip
-              active={statusFilter === 'reserved'}
-              label="Đã đặt trước"
-              count={counts.reserved}
-              dotColor="#f59e0b"
-              onClick={() => setStatusFilter(statusFilter === 'reserved' ? 'all' : 'reserved')}
-            />
-          </div>
-
-          {/* Ô Tìm Bàn (UI thuần, chuẩn POS) */}
-          <div style={{ position: 'relative', minWidth: '220px', flex: '0 1 280px' }}>
-            <Search
-              size={15}
-              color="#a88265"
-              style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }}
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm bàn (VD: 01, Tầng 1, Linh...)"
-              className="form-input"
-              style={{
-                width: '100%',
-                paddingLeft: '32px',
-                paddingRight: searchQuery ? '30px' : '10px',
-                paddingTop: '6px',
-                paddingBottom: '6px',
-                fontSize: '0.82rem',
-                borderRadius: '8px',
-                background: 'rgba(20, 10, 5, 0.7)',
-                borderColor: 'rgba(245, 158, 11, 0.25)',
-                color: '#fef3c7',
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: '#a88265',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  display: 'flex',
-                }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+ 
+        <div style={{ position: 'relative' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#78716C', display: 'flex' }}>
+            <Icon.Search />
+          </span>
+          <input
+            type="text"
+            className="fp-search-input"
+            placeholder="Tìm số bàn, tên khách đặt..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
-
-      {/* ========================================================
-          E. LƯỚI BÀN (SKELETON / ERROR / EMPTY / GROUPED / FLAT)
-          ======================================================== */}
-      {loading && data.tables.length === 0 ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '14px',
-          }}
-        >
-          {Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : loadError ? (
-        <div
-          className="mockup-panel"
-          style={{
-            padding: '36px',
-            textAlign: 'center',
-            borderRadius: '12px',
-            border: '1.5px solid rgba(239, 68, 68, 0.4)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-          }}
-        >
-          <AlertCircle size={40} color="#ef4444" />
-          <h3 style={{ margin: 0, color: '#f87171', fontSize: '1.1rem' }}>{loadError}</h3>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={loadTables}
-            style={{
-              background: 'linear-gradient(135deg, #d97706, #b45309)',
-              borderColor: '#d97706',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <RefreshCw size={14} />
-            <span>Thử lại</span>
-          </button>
-        </div>
-      ) : filteredTables.length === 0 ? (
-        <div
-          className="mockup-panel"
-          style={{
-            padding: '48px 24px',
-            textAlign: 'center',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '10px',
-          }}
-        >
-          <Coffee size={40} color="#c4a482" />
-          <h3 style={{ margin: 0, color: '#fef3c7', fontSize: '1.1rem' }}>
-            Không tìm thấy bàn nào phù hợp
-          </h3>
-          <p style={{ margin: 0, color: '#a88265', fontSize: '0.85rem' }}>
-            Vui lòng thử đổi khu vực, bộ lọc trạng thái hoặc từ khóa tìm kiếm.
-          </p>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={clearAllFilters}
-            style={{ marginTop: '8px', borderColor: '#d97706', color: '#fbbf24', fontWeight: 700 }}
-          >
-            Xóa tất cả bộ lọc
-          </button>
-        </div>
-      ) : groupedByArea ? (
-        /* Khi chọn "Tất cả" & không có tìm kiếm: Nhóm bàn theo từng khu vực */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {groupedByArea.map((group) => (
-            <AreaGroup
-              key={group.name}
-              areaName={group.name}
-              tables={group.tables}
-              onOpenToPos={handleOpenTableToPos}
-              onFreeTable={handleFreeTable}
-              onCheckIn={handleCheckInReservedTable}
-              onCancelReserve={handleCancelReservation}
-            />
-          ))}
+ 
+      {/* 4. LƯỚI SƠ ĐỒ BÀN THEO KHU VỰC */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: '#78716C' }}>Đang tải dữ liệu sơ đồ bàn...</div>
+      ) : groupedAreas.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 20px', background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E7E2DA', color: '#78716C' }}>
+          Không tìm thấy bàn nào phù hợp với bộ lọc hiện tại.
         </div>
       ) : (
-        /* Khi đã lọc theo khu vực, trạng thái hoặc tìm kiếm: Lưới phẳng */
-        <div
-          className="table-card-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '14px',
-          }}
-        >
-          {filteredTables.map((table) => (
-            <TableCard
-              key={table.id}
-              table={table}
-              onOpenToPos={handleOpenTableToPos}
-              onFreeTable={handleFreeTable}
-              onCheckIn={handleCheckInReservedTable}
-              onCancelReserve={handleCancelReservation}
-            />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+          {groupedAreas.map((group) => (
+            <section key={group.id}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '6px', borderBottom: '1px solid #E7E2DA' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 700, color: '#2C1A12' }}>{group.name}</h2>
+                  <span style={{ fontSize: '0.78rem', color: '#78716C' }}>({group.tables.length} bàn)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.76rem', fontWeight: 600 }}>
+                  <span style={{ color: '#15803D' }}>● {group.emptyCount} trống</span>
+                  {group.occupiedCount > 0 && <span style={{ color: '#C86A28' }}>● {group.occupiedCount} có khách</span>}
+                  {group.reservedCount > 0 && <span style={{ color: '#7E22CE' }}>● {group.reservedCount} đặt trước</span>}
+                </div>
+              </div>
+ 
+              <div className="fp-table-grid">
+                {group.tables.map((t) => {
+                  const isEmpty = t.status === 'empty';
+                  const isOccupied = t.status === 'occupied';
+                  const isReserved = t.status === 'reserved';
+                  const mins = isOccupied ? getElapsedMinutes(t.current_order_time) : 0;
+ 
+                  return (
+                    <div key={t.id} className={`fp-table-card ${t.status}`} onClick={() => handleOpenTablePos(t)}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1C1917' }}>{t.code}</span>
+                          <span style={{
+                            fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
+                            background: isEmpty ? '#ECFDF5' : isOccupied ? '#FEF3C7' : '#F3E8FF',
+                            color: isEmpty ? '#15803D' : isOccupied ? '#B45309' : '#7E22CE'
+                          }}>
+                            {isEmpty ? 'Trống' : isOccupied ? 'Đang phục vụ' : 'Đặt trước'}
+                          </span>
+                        </div>
+ 
+                        {isEmpty && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#78716C' }}>
+                            <Icon.Users /><span>{t.seats} ghế tiêu chuẩn</span>
+                          </div>
+                        )}
+ 
+                        {isOccupied && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                            <div style={{ fontSize: '1.02rem', fontWeight: 800, color: '#C86A28' }}>
+                              {Number(t.current_order_total || 0) > 0 ? fmt(t.current_order_total) : 'Đang chọn món'}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.74rem', color: '#57534E' }}>
+                              <span>{t.current_item_count || 0} món</span>
+                              {mins > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Icon.Clock /> {mins}p</span>}
+                            </div>
+                          </div>
+                        )}
+ 
+                        {isReserved && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+                            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#581C87' }}>
+                              {t.reservation_name} • {t.reservation_time}
+                            </div>
+                            <div style={{ fontSize: '0.73rem', color: '#7E22CE' }}>
+                              {t.customer_count || t.seats} khách {t.reservation_phone ? `• ${t.reservation_phone}` : ''}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+ 
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>
+                        {isEmpty && (
+                          <>
+                            <button type="button" className="fp-action-btn"
+                              style={{ flex: 1, background: '#ECFDF5', color: '#15803D', border: '1px solid #BBF7D0' }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
+                            >
+                              <span>Mở bàn</span> <Icon.ArrowRight />
+                            </button>
+                            <button type="button" className="fp-action-btn"
+                              style={{ background: '#F6F4F0', color: '#57534E', border: '1px solid #E7E2DA' }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenReserveModal(String(t.id)); }}
+                              title="Đặt trước bàn này"
+                            >
+                              <Icon.Calendar />
+                            </button>
+                          </>
+                        )}
+ 
+                        {isOccupied && (
+                          <>
+                            <button type="button" className="fp-action-btn"
+                              style={{ flex: 1, background: '#C86A28', color: '#FFFFFF' }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
+                            >
+                              Gọi thêm
+                            </button>
+                            <button type="button" className="fp-action-btn"
+                              style={{ background: '#FFFFFF', color: '#57534E', border: '1px solid #E7E2DA' }}
+                              onClick={(e) => handleOpenTransferModal(e, t)} title="Chuyển bàn"
+                            >
+                              <Icon.Swap />
+                            </button>
+                            <button type="button" className="fp-action-btn"
+                              style={{ background: '#ECFDF5', color: '#15803D', border: '1px solid #BBF7D0' }}
+                              onClick={(e) => handleReleaseTable(e, t)} title="Khách về / Dọn bàn trống"
+                            >
+                              <Icon.Check />
+                            </button>
+                          </>
+                        )}
+ 
+                        {isReserved && (
+                          <>
+                            <button type="button" className="fp-action-btn"
+                              style={{ flex: 1, background: '#9333EA', color: '#FFFFFF' }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
+                            >
+                              Nhận bàn
+                            </button>
+                            <button type="button" className="fp-action-btn"
+                              style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
+                              onClick={(e) => handleCancelReservation(e, t)}
+                            >
+                              Hủy
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           ))}
         </div>
       )}
-
-      {/* ========================================================
-          F. MODAL: ĐẶT BÀN TRƯỚC
-          ======================================================== */}
-      {showReserveModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 99999,
-            padding: '20px',
-          }}
-          onClick={() => setShowReserveModal(false)}
-        >
-          <div
-            className="animate-fade-in"
-            style={{
-              background: '#1c120b',
-              borderRadius: '16px',
-              maxWidth: '480px',
-              width: '100%',
-              border: '2px solid rgba(245, 158, 11, 0.4)',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.85)',
-              overflow: 'hidden',
-              color: '#fdf8f0',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #2a180e, #1c1008)',
-                padding: '16px 20px',
-                borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calendar size={20} color="#fbbf24" />
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fef3c7' }}>
-                  ĐẶT BÀN TRƯỚC CHO KHÁCH
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowReserveModal(false)}
-                style={{ background: 'none', border: 'none', color: '#c4a482', cursor: 'pointer', padding: '4px' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleSaveReservation}
-              style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}
-            >
+ 
+      {/* 5. MODAL ĐẶT BÀN TRƯỚC */}
+      {reserveModal.open && (
+        <div className="fp-modal-backdrop" onClick={() => setReserveModal((p) => ({ ...p, open: false }))}>
+          <form className="fp-modal-box" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmitReserve}>
+            <h3 style={{ margin: '0 0 14px', fontSize: '1.12rem', fontWeight: 800, color: '#2C1A12' }}>Đặt bàn trước</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '4px' }}>
-                  CHỌN BÀN:
-                </label>
-                <select
-                  className="form-select"
-                  value={reserveTableTarget ? reserveTableTarget.id : ''}
-                  onChange={(e) => {
-                    const t = data.tables.find((tbl) => String(tbl.id) === e.target.value);
-                    setReserveTableTarget(t || null);
-                  }}
-                  style={{ width: '100%', padding: '8px 12px' }}
-                  required
-                >
-                  <option value="">-- Chọn bàn muốn đặt --</option>
-                  {(data.tables || []).map((t) => (
-                    <option key={t.id} value={t.id} disabled={t.status === 'occupied'}>
-                      {t.code} ({t.area_name} - {t.seats} ghế){' '}
-                      {t.status === 'occupied'
-                        ? ' [Đang có khách]'
-                        : t.status === 'reserved'
-                        ? ' [Đã có người đặt]'
-                        : ''}
-                    </option>
+                <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Chọn bàn trống</label>
+                <select className="fp-field-input" value={reserveModal.tableId} onChange={(e) => setReserveModal((p) => ({ ...p, tableId: e.target.value }))}>
+                  <option value="">-- Chọn bàn --</option>
+                  {tables.filter((t) => t.status === 'empty').map((t) => (
+                    <option key={t.id} value={t.id}>{t.code} ({t.area_name} • {t.seats} ghế)</option>
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
-                  TÊN KHÁCH HÀNG:
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ví dụ: Anh Hoàng"
-                  value={reserveForm.name}
-                  onChange={(e) => setReserveForm({ ...reserveForm, name: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px' }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
-                  SỐ ĐIỆN THOẠI:
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="0988 123 456"
-                  value={reserveForm.phone}
-                  onChange={(e) => setReserveForm({ ...reserveForm, phone: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px' }}
-                  required
-                />
-              </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
-                    GIỜ HẸN ĐẾN:
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="19:30"
-                    value={reserveForm.time}
-                    onChange={(e) => setReserveForm({ ...reserveForm, time: e.target.value })}
-                    style={{ width: '100%', padding: '8px 12px' }}
-                    required
-                  />
+                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Tên khách *</label>
+                  <input type="text" className="fp-field-input" placeholder="Anh Hoàng..." value={reserveModal.reservation_name} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_name: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
-                    SỐ LƯỢNG KHÁCH:
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    min="1"
-                    max="20"
-                    value={reserveForm.guests}
-                    onChange={(e) => setReserveForm({ ...reserveForm, guests: Number(e.target.value) })}
-                    style={{ width: '100%', padding: '8px 12px' }}
-                  />
+                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Số điện thoại *</label>
+                  <input type="tel" className="fp-field-input" placeholder="0901234567" value={reserveModal.reservation_phone} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_phone: e.target.value }))} />
                 </div>
               </div>
-
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Giờ đến</label>
+                  <input type="time" className="fp-field-input" value={reserveModal.reservation_time} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_time: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Số lượng khách</label>
+                  <input type="number" min="1" max="20" className="fp-field-input" value={reserveModal.customer_count} onChange={(e) => setReserveModal((p) => ({ ...p, customer_count: e.target.value }))} />
+                </div>
+              </div>
               <div>
-                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
-                  GHI CHÚ / YÊU CẦU ĐẶC BIỆT:
-                </label>
-                <textarea
-                  className="form-input"
-                  rows={2}
-                  placeholder="Ví dụ: Sinh nhật, cần chuẩn bị hoa, bàn view đẹp..."
-                  value={reserveForm.note}
-                  onChange={(e) => setReserveForm({ ...reserveForm, note: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px' }}
-                />
+                <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Ghi chú</label>
+                <input type="text" className="fp-field-input" placeholder="Bàn gần cửa sổ, ghế trẻ em..." value={reserveModal.reservation_note} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_note: e.target.value }))} />
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  style={{ borderColor: '#4a2c18', color: '#d5bba2' }}
-                  onClick={() => setShowReserveModal(false)}
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    background: 'linear-gradient(135deg, #d97706, #b45309)',
-                    borderColor: '#d97706',
-                    fontWeight: 800,
-                    padding: '8px 20px',
-                  }}
-                >
-                  LƯU ĐẶT BÀN
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
+              <button type="button" onClick={() => setReserveModal((p) => ({ ...p, open: false }))} style={{ background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#57534E', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Đóng</button>
+              <button type="submit" style={{ background: '#2C1A12', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer' }}>Xác nhận đặt bàn</button>
+            </div>
+          </form>
+        </div>
+      )}
+ 
+      {/* 6. MODAL CHUYỂN BÀN */}
+      {transferModal.open && transferModal.fromTable && (
+        <div className="fp-modal-backdrop" onClick={() => setTransferModal({ open: false, fromTable: null, toTableId: '' })}>
+          <form className="fp-modal-box" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmitTransfer}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.12rem', fontWeight: 800, color: '#2C1A12' }}>Chuyển từ {transferModal.fromTable.code}</h3>
+            <p style={{ margin: '0 0 14px', fontSize: '0.82rem', color: '#78716C' }}>
+              Toàn bộ đơn hàng đang phục vụ tại {transferModal.fromTable.code} sẽ được chuyển sang bàn trống mới.
+            </p>
+            <select className="fp-field-input" value={transferModal.toTableId} onChange={(e) => setTransferModal((p) => ({ ...p, toTableId: e.target.value }))}>
+              <option value="">-- Chọn bàn đích còn trống --</option>
+              {tables.filter((t) => t.status === 'empty' && t.id !== transferModal.fromTable.id).map((t) => (
+                <option key={t.id} value={t.id}>{t.code} ({t.area_name} • {t.seats} ghế)</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
+              <button type="button" onClick={() => setTransferModal({ open: false, fromTable: null, toTableId: '' })} style={{ background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#57534E', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Hủy</button>
+              <button type="submit" style={{ background: '#2C1A12', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer' }}>Chuyển bàn ngay</button>
+            </div>
+          </form>
         </div>
       )}
     </div>
