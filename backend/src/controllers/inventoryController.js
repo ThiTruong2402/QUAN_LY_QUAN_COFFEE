@@ -18,17 +18,42 @@ const createIngredient = async (req, res) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    const { name, unit, min_stock, current_stock, avg_cost, code, image_url } = req.body;
+    let { name, unit, min_stock, current_stock, avg_cost, code, image_url } = req.body;
     if (!name || !unit) {
       await conn.rollback();
       return res.status(400).json({ success: false, message: 'Tên và đơn vị không được để trống' });
     }
+
+    let cleanCode = (code && typeof code === 'string') ? code.trim() : '';
+    if (cleanCode) {
+      const [dup] = await conn.query('SELECT id, name FROM ingredients WHERE code = ?', [cleanCode]);
+      if (dup.length) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Mã nguyên liệu "${cleanCode}" đã tồn tại (${dup[0].name}). Vui lòng nhập mã khác hoặc để trống để tự sinh mã!`
+        });
+      }
+    } else {
+      // Tự động sinh mã duy nhất dạng NL001, NL002...
+      const [allCodes] = await conn.query("SELECT code FROM ingredients WHERE code LIKE 'NL%'");
+      let maxNum = 0;
+      for (const r of allCodes) {
+        const m = r.code ? r.code.match(/^NL(\d+)$/) : null;
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+      cleanCode = `NL${String(maxNum + 1).padStart(3, '0')}`;
+    }
+
     const initialStock = parseFloat(current_stock || 0);
     const initialCost = parseFloat(avg_cost || 0);
 
     const [result] = await conn.query(
       'INSERT INTO ingredients (name, unit, min_stock, current_stock, avg_cost, code, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, unit, min_stock || 0, initialStock, initialCost, code || null, image_url || null]
+      [name.trim(), unit.trim(), min_stock || 0, initialStock, initialCost, cleanCode, image_url || null]
     );
     const ingredientId = result.insertId;
 
@@ -42,9 +67,15 @@ const createIngredient = async (req, res) => {
     }
 
     await conn.commit();
-    res.status(201).json({ success: true, message: 'Thêm nguyên liệu thành công', data: { id: ingredientId } });
+    res.status(201).json({ success: true, message: `Thêm nguyên liệu thành công (Mã: ${cleanCode})`, data: { id: ingredientId, code: cleanCode } });
   } catch (err) {
     await conn.rollback();
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã nguyên liệu đã tồn tại trong hệ thống. Vui lòng nhập mã khác hoặc để trống để tự sinh mã!'
+      });
+    }
     res.status(500).json({ success: false, message: 'Lỗi khi tạo nguyên liệu: ' + err.message });
   } finally {
     conn.release();
@@ -65,13 +96,25 @@ const updateIngredient = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy nguyên liệu' });
     }
 
+    const cleanCode = (code && typeof code === 'string') ? code.trim() : null;
+    if (cleanCode) {
+      const [dup] = await conn.query('SELECT id, name FROM ingredients WHERE code = ? AND id != ?', [cleanCode, id]);
+      if (dup.length) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Mã nguyên liệu "${cleanCode}" đã thuộc về nguyên liệu khác (${dup[0].name})!`
+        });
+      }
+    }
+
     const oldStock = parseFloat(existing[0].current_stock);
     const newStock = current_stock !== undefined ? parseFloat(current_stock) : oldStock;
     const cost = avg_cost !== undefined ? parseFloat(avg_cost) : parseFloat(existing[0].avg_cost);
 
     await conn.query(
       'UPDATE ingredients SET name = ?, unit = ?, min_stock = ?, current_stock = ?, avg_cost = ?, code = COALESCE(?, code), image_url = COALESCE(?, image_url) WHERE id = ?',
-      [name, unit, min_stock, newStock, cost, code || null, image_url || null, id]
+      [name ? String(name).trim() : existing[0].name, unit ? String(unit).trim() : existing[0].unit, min_stock, newStock, cost, cleanCode, image_url || null, id]
     );
 
     // Ghi nhận biến động sổ kho nếu số lượng tồn thay đổi trực tiếp
@@ -88,6 +131,12 @@ const updateIngredient = async (req, res) => {
     res.json({ success: true, message: 'Cập nhật nguyên liệu thành công' });
   } catch (err) {
     await conn.rollback();
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã nguyên liệu đã tồn tại ở nguyên liệu khác!'
+      });
+    }
     res.status(500).json({ success: false, message: 'Lỗi khi cập nhật nguyên liệu: ' + err.message });
   } finally {
     conn.release();

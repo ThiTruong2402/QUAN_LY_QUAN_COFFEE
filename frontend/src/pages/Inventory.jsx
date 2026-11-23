@@ -53,14 +53,35 @@ export default function Inventory() {
     });
   };
 
+  const handleResetForm = () => {
+    setSelectedIng(null);
+    setForm({
+      code: '',
+      name: '',
+      current_stock: 0,
+      unit: 'kg',
+      min_stock: 5,
+      avg_cost: 0,
+      received_date: new Date().toISOString().split('T')[0],
+      note: '',
+      image_url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&auto=format&fit=crop&q=80',
+    });
+  };
+
   const handleCreate = async () => {
     if (!form.name || !form.unit) return toast.error('Vui lòng nhập tên và đơn vị!');
     try {
-      await api.post('/inventory/ingredients', form);
-      toast.success('Thêm nguyên liệu thành công! 📦');
+      const payload = { ...form };
+      // Nếu đang chọn dòng cũ mà bấm thêm mới không đổi mã, để trống mã để hệ thống tự động sinh mã NL tiếp theo
+      if (selectedIng && payload.code === selectedIng.code) {
+        payload.code = '';
+      }
+      const res = await api.post('/inventory/ingredients', payload);
+      toast.success(res.data?.message || 'Thêm nguyên liệu thành công! 📦');
       loadData();
+      handleResetForm();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo nguyên liệu');
     }
   };
 
@@ -250,21 +271,32 @@ export default function Inventory() {
 
         {/* RIGHT: THÔNG TIN NGUYÊN LIỆU */}
         <div className="mockup-panel">
-          <div className="mockup-panel-header">
+          <div className="mockup-panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="mockup-panel-title">
-              <span>📝</span>
-              <span>THÔNG TIN NGUYÊN LIỆU</span>
+              <span>{selectedIng ? '✏️' : '➕'}</span>
+              <span>{selectedIng ? `SỬA NGUYÊN LIỆU (${selectedIng.code || selectedIng.id})` : 'THÊM NGUYÊN LIỆU MỚI'}</span>
             </div>
+            {selectedIng && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                style={{ fontSize: '0.75rem', padding: '3px 8px', color: '#fbbf24', borderColor: '#d97706' }}
+                onClick={handleResetForm}
+                title="Bỏ chọn để thêm nguyên liệu mới"
+              >
+                ➕ Nhập mới
+              </button>
+            )}
           </div>
 
           <div className="mockup-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
-              <label className="form-label" style={{ fontSize: '0.82rem' }}>🏷️ Mã nguyên liệu :</label>
+              <label className="form-label" style={{ fontSize: '0.82rem' }}>🏷️ Mã nguyên liệu (để trống để tự sinh):</label>
               <input
                 className="form-input"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
-                placeholder="NL001"
+                placeholder="VD: NL037 (hoặc để trống tự sinh)"
               />
             </div>
 
@@ -325,12 +357,35 @@ export default function Inventory() {
               />
             </div>
 
+            {/* Nút làm mới form nhanh chóng */}
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{
+                width: '100%',
+                borderColor: '#d97706',
+                color: '#fbbf24',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                padding: '7px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+              onClick={handleResetForm}
+            >
+              <span>🔄</span>
+              <span>LÀM MỚI FORM (ĐỂ THÊM NGUYÊN LIỆU MỚI)</span>
+            </button>
+
             {/* 3 Circular Action Buttons (matching image9.png: +, delete, edit) */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '4px' }}>
               <button
                 type="button"
                 className="circle-btn circle-btn-green"
-                title="Thêm mới"
+                title="Thêm nguyên liệu mới"
                 onClick={handleCreate}
               >
                 +
@@ -338,7 +393,7 @@ export default function Inventory() {
               <button
                 type="button"
                 className="circle-btn circle-btn-red"
-                title="Xóa"
+                title="Xóa nguyên liệu đang chọn"
                 onClick={handleDelete}
               >
                 🗑️
@@ -346,7 +401,7 @@ export default function Inventory() {
               <button
                 type="button"
                 className="circle-btn circle-btn-blue"
-                title="Sửa"
+                title="Lưu cập nhật nguyên liệu đang chọn"
                 onClick={handleUpdate}
               >
                 ✏️

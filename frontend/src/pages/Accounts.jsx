@@ -64,6 +64,7 @@ export default function Accounts() {
     name: '',
     birthday: '',
     tier_id: 1,
+    points_balance: 0,
   });
 
   // PROMOTIONS STATE
@@ -761,7 +762,7 @@ export default function Accounts() {
                   className="btn btn-sm btn-primary"
                   style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
                   onClick={() => {
-                    setCustomerForm({ id: null, phone: '', name: '', birthday: '', tier_id: 1 });
+                    setCustomerForm({ id: null, phone: '', name: '', birthday: '', tier_id: 1, points_balance: 0 });
                     setCustomerModal(true);
                   }}
                 >
@@ -824,6 +825,7 @@ export default function Accounts() {
                                 name: c.name || '',
                                 birthday: c.birthday ? c.birthday.split('T')[0] : '',
                                 tier_id: c.tier_id || 1,
+                                points_balance: c.points_balance || 0,
                               });
                               setCustomerModal(true);
                             }}
@@ -958,6 +960,18 @@ export default function Accounts() {
                   <option value={3}>👑 Vàng (Giảm 10%)</option>
                   <option value={4}>💎 Kim Cương (Giảm 15%)</option>
                 </select>
+              </div>
+              <div>
+                <label className="form-label">ĐIỂM TÍCH LŨY (1 điểm = 1.000 đ giảm giá):</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="form-input"
+                  value={customerForm.points_balance || 0}
+                  onChange={(e) => setCustomerForm({ ...customerForm, points_balance: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                  placeholder="0"
+                  style={{ width: '100%', padding: '8px' }}
+                />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
                 <button type="button" className="btn btn-outline" style={{ borderColor: '#4a2c18', color: '#d5bba2' }} onClick={() => setCustomerModal(false)}>

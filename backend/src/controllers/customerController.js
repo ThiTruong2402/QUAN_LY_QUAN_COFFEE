@@ -45,14 +45,22 @@ const lookupPhone = async (req, res) => {
 // POST /api/customers
 const create = async (req, res) => {
   try {
-    const { phone, name, birthday, tier_id } = req.body;
-    if (!phone) return res.status(400).json({ success: false, message: 'Số điện thoại không được trống' });
+    const { phone, name, birthday, tier_id, points_balance } = req.body;
+    if (!phone || !String(phone).trim()) {
+      return res.status(400).json({ success: false, message: 'Số điện thoại không được để trống' });
+    }
+    const cleanPhone = String(phone).trim();
+    const pts = Math.max(0, parseInt(points_balance, 10) || 0);
+
     const [result] = await db.query(
-      'INSERT INTO customers (phone, name, birthday, tier_id) VALUES (?, ?, ?, ?)',
-      [phone, name || null, birthday || null, tier_id || 1]
+      'INSERT INTO customers (phone, name, birthday, tier_id, points_balance) VALUES (?, ?, ?, ?, ?)',
+      [cleanPhone, name ? String(name).trim() : null, birthday || null, tier_id || 1, pts]
     );
     res.status(201).json({ success: true, message: 'Thêm khách hàng thành công', data: { id: result.insertId } });
   } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: `Số điện thoại ${req.body.phone} đã tồn tại trong hệ thống!` });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -61,16 +69,22 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { phone, name, birthday, tier_id } = req.body;
+    const { phone, name, birthday, tier_id, points_balance } = req.body;
     if (!phone || !String(phone).trim()) {
       return res.status(400).json({ success: false, message: 'Số điện thoại không được để trống' });
     }
+    const cleanPhone = String(phone).trim();
+    const pts = points_balance !== undefined ? Math.max(0, parseInt(points_balance, 10) || 0) : null;
+
     await db.query(
-      'UPDATE customers SET phone = ?, name = COALESCE(?, name), birthday = COALESCE(?, birthday), tier_id = COALESCE(?, tier_id) WHERE id = ?',
-      [phone.trim(), name || null, birthday || null, tier_id || null, id]
+      'UPDATE customers SET phone = ?, name = COALESCE(?, name), birthday = COALESCE(?, birthday), tier_id = COALESCE(?, tier_id), points_balance = COALESCE(?, points_balance) WHERE id = ?',
+      [cleanPhone, name ? String(name).trim() : null, birthday || null, tier_id || null, pts, id]
     );
     res.json({ success: true, message: 'Cập nhật thông tin khách hàng thành công' });
   } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: `Số điện thoại ${req.body.phone} đã thuộc về tài khoản khác!` });
+    }
     res.status(500).json({ success: false, message: 'Lỗi cập nhật khách hàng: ' + err.message });
   }
 };
