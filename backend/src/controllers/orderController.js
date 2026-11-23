@@ -2,6 +2,10 @@ const db = require('../config/db');
 const { getVietnamDateString, getVietnamDateNumber } = require('../utils/date');
 const storeService = require('../services/storeSettingsService');
 const { logAudit } = require('../services/auditLogger');
+const orderService = require('../services/orderService');
+const loyaltyService = require('../services/loyaltyService');
+const inventoryService = require('../services/inventoryService');
+const pricingService = require('../services/pricingService');
 
 // In-memory idempotency & anti-spam lock (ngăn chặn race-condition, double-click / spam request liên tục trong 3s)
 const recentOrderLocks = new Map();
@@ -447,559 +451,27 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-// POST /api/orders/direct-checkout (Xác nhận đơn hàng từ POS: Trạng thái ban đầu "Đang chờ làm" pending)
+// POST /api/orders/direct-checkout (Xác nhận đơn hàng từ POS & Khách đặt Online)
 const directCheckout = async (req, res) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    const {
-      items,
-      customer_name,
-      customer_phone,
-      order_type = 'takeaway',
-      table_id = null,
-      delivery_address = null,
-      shipping_fee = 0,
-      recipient_phone = null,
-      coupon_code = null,
-      payment_method = 'Tiền mặt',
-      note,
-      discount = 0,
-      tax = 0,
-      pickup_time = null,
-      status: initialStatus = 'pending', // Default: 'pending' (Đang chờ làm - sau khi thanh toán xong)
-    } = req.body;
 
-    if (!items || !items.length) {
-      await conn.rollback();
-      return res.status(400).json({ success: false, message: 'Đơn hàng chưa có món' });
-    }
-
-    // Check or find customer (tự động nhận diện tài khoản khách hàng nếu đang đăng nhập)
-    const effectivePhone = customer_phone || (req.user?.role === 'customer' ? (req.user.phone || req.user.username) : null);
-    const effectiveName = customer_name || (req.user?.role === 'customer' ? req.user.full_name : 'Khách');
-
-    // Chống spam / double-click tức thì (Idempotency in-memory lock chặn đứng race-condition)
-    if (effectivePhone) {
-      const lastTime = recentOrderLocks.get(effectivePhone);
-      const now = Date.now();
-      if (lastTime && now - lastTime < 3000) {
-        await conn.rollback();
-        return res.status(429).json({
-          success: false,
-          message: 'Bạn đang thao tác quá nhanh! Vui lòng chờ ít giây trước khi thực hiện đơn mới.'
-        });
-      }
-      recentOrderLocks.set(effectivePhone, now);
-      if (recentOrderLocks.size > 500) {
-        for (const [p, t] of recentOrderLocks.entries()) {
-          if (now - t > 10000) recentOrderLocks.delete(p);
-        }
-      }
-    }
-
-    let customerId = null;
-    if (effectivePhone) {
-      const [cRows] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
-      if (cRows.length) {
-        customerId = cRows[0].id;
-      } else {
-        try {
-          const [newC] = await conn.query('INSERT INTO customers (phone, name) VALUES (?, ?)', [effectivePhone, effectiveName]);
-          customerId = newC.insertId;
-        } catch (cErr) {
-          if (cErr.code === 'ER_DUP_ENTRY' || cErr.errno === 1062) {
-            const [reQuery] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
-            if (reQuery.length) customerId = reQuery[0].id;
-          } else {
-            throw cErr;
-          }
-        }
-      }
-
-      // Chống spam đặt đơn trùng lặp liên tục (Anti-spam / Idempotency protection trong vòng 3 giây)
-      const [dupRows] = await conn.query(
-        `SELECT id, code FROM orders 
-         WHERE (customer_id = ? OR recipient_phone = ?) 
-           AND opened_at >= DATE_SUB(NOW(), INTERVAL 3 SECOND)
-         LIMIT 1`,
-        [customerId, effectivePhone]
-      );
-      if (dupRows.length) {
-        await conn.rollback();
-        return res.status(429).json({
-          success: false,
-          message: 'Bạn đang thao tác quá nhanh! Vui lòng chờ ít giây trước khi thực hiện đơn mới.'
-        });
-      }
-    }
-
-    // Xử lý đổi điểm tích lũy thành tiền giảm giá (Chuẩn thống nhất toàn hệ thống: 1 điểm = 1.000đ)
-    let pointsDiscount = 0;
-    let actualPointsRedeemed = 0;
-    const requestedPts = Math.max(0, parseInt(req.body.points_to_redeem || req.body.points_redeemed, 10) || 0);
-    if (requestedPts > 0 && customerId) {
-      const [custPts] = await conn.query('SELECT points_balance FROM customers WHERE id = ? FOR UPDATE', [customerId]);
-      if (custPts.length && custPts[0].points_balance > 0) {
-        actualPointsRedeemed = Math.min(requestedPts, custPts[0].points_balance);
-        pointsDiscount = actualPointsRedeemed * 1000;
-      }
-    }
-
-    const today = getVietnamDateString();
-    const dateNum = getVietnamDateNumber();
-    await conn.query(
-      `INSERT INTO document_counters (prefix, last_date, seq) VALUES ('HD', ?, 1)
-       ON DUPLICATE KEY UPDATE seq = IF(last_date=VALUES(last_date), seq+1, 1), last_date = VALUES(last_date)`,
-      [today]
-    );
-    const [counter] = await conn.query("SELECT seq FROM document_counters WHERE prefix='HD'");
-    let invoiceNo = `HD${dateNum}-${String(counter[0].seq).padStart(4, '0')}`;
-    let orderCode = invoiceNo;
-    const [existOrder] = await conn.query('SELECT id FROM orders WHERE code = ?', [orderCode]);
-    if (existOrder.length) {
-      orderCode = `HD${dateNum}-${String(counter[0].seq).padStart(4, '0')}-${Date.now().toString().slice(-4)}`;
-      invoiceNo = orderCode;
-    }
-
-    // 1. Zero-Trust Pricing & Toppings: Server tự truy vấn giá chuẩn từ product_sizes / products / toppings trong Database
-    let subtotal = 0;
-    const validatedItems = [];
-    for (const item of items) {
-      const productSizeId = item.product_size_id || null;
-      const productId = item.product_id || null;
-      let sizeRow = null;
-
-      if (productSizeId) {
-        const [sizeRows] = await conn.query(
-          `SELECT ps.id, ps.price, ps.name AS size_name, p.id AS product_id, p.name AS product_name 
-           FROM product_sizes ps
-           JOIN products p ON p.id = ps.product_id
-           WHERE ps.id = ?`,
-          [productSizeId]
-        );
-        if (sizeRows.length) sizeRow = sizeRows[0];
-      }
-
-      if (!sizeRow && productId) {
-        const [sizeFallback] = await conn.query(
-          `SELECT ps.id, ps.price, ps.name AS size_name, p.id AS product_id, p.name AS product_name
-           FROM product_sizes ps
-           JOIN products p ON p.id = ps.product_id
-           WHERE ps.product_id = ?
-           ORDER BY ps.is_default DESC, ps.id ASC
-           LIMIT 1`,
-          [productId]
-        );
-        if (sizeFallback.length) sizeRow = sizeFallback[0];
-      }
-
-      // Zero-Trust Pricing: Chặn đứng lỗ hổng client tự truyền đơn giá tùy ý
-      if (!sizeRow) {
-        await conn.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Món đồ uống "${item.name || 'chưa rõ'}" không tồn tại hoặc kích thước không hợp lệ trong hệ thống!`
-        });
-      }
-
-      const unitPrice = Number(sizeRow.price);
-      const productName = sizeRow.product_name;
-      const sizeName = sizeRow.size_name;
-      const finalSizeId = sizeRow.id;
-
-      // Xử lý và tính giá Topping (Zero-Trust từ CSDL bảng toppings)
-      let itemToppingsTotal = 0;
-      const validatedItemToppings = [];
-      const rawToppings = Array.isArray(item.toppings) ? item.toppings : [];
-      for (const t of rawToppings) {
-        const topId = t.topping_id || t.id;
-        if (!topId) continue;
-        const [topRows] = await conn.query('SELECT id, name, price FROM toppings WHERE id = ?', [topId]);
-        if (topRows.length) {
-          const topPrice = Number(topRows[0].price);
-          const topQty = Math.max(1, parseInt(t.quantity, 10) || 1);
-          itemToppingsTotal += topPrice * topQty;
-          validatedItemToppings.push({
-            topping_id: topRows[0].id,
-            topping_name: topRows[0].name,
-            price: topPrice,
-            quantity: topQty
-          });
-        }
-      }
-
-      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-      const lineTotal = (unitPrice + itemToppingsTotal) * qty;
-      subtotal += lineTotal;
-
-      validatedItems.push({
-        product_size_id: finalSizeId,
-        product_id: sizeRow.product_id,
-        name: productName,
-        size_name: sizeName,
-        price: unitPrice,
-        quantity: qty,
-        toppings_total: itemToppingsTotal,
-        line_total: lineTotal,
-        toppings: validatedItemToppings,
-        note: item.note ? String(item.note).trim() : null
-      });
-    }
-
-    // Kiểm tra định lượng tồn kho trước khi tạo đơn (Pre-check Stock chống âm kho & bán khống)
-    const requiredIngMap = {};
-    for (const item of validatedItems) {
-      const [recipeRows] = await conn.query(
-        'SELECT r.ingredient_id, r.quantity, i.name, i.current_stock, i.unit FROM recipes r JOIN ingredients i ON i.id = r.ingredient_id WHERE r.product_size_id = ?',
-        [item.product_size_id]
-      );
-      for (const rec of recipeRows) {
-        const needed = Number(rec.quantity) * Number(item.quantity);
-        if (!requiredIngMap[rec.ingredient_id]) {
-          requiredIngMap[rec.ingredient_id] = {
-            id: rec.ingredient_id,
-            name: rec.name,
-            current_stock: Number(rec.current_stock),
-            unit: rec.unit,
-            totalNeeded: 0
-          };
-        }
-        requiredIngMap[rec.ingredient_id].totalNeeded += needed;
-      }
-    }
-
-    for (const ingId in requiredIngMap) {
-      const ing = requiredIngMap[ingId];
-      if (ing.current_stock < ing.totalNeeded) {
-        await conn.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Nguyên liệu "${ing.name}" trong kho không đủ để thực hiện món! (Hiện còn: ${ing.current_stock.toFixed(2)} ${ing.unit}, Cần dùng: ${ing.totalNeeded.toFixed(2)} ${ing.unit})`
-        });
-      }
-    }
-
-    // Mô hình phục vụ: 'dine_in' (Tại quán) hoặc 'takeaway' (Mang về)
-    const normalizedOrderType = order_type === 'dine_in' ? 'dine_in' : 'takeaway';
-    const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
-    const isOnlineCustomer = req.user?.role === 'customer' || !req.user || req.body.is_online_order;
-
-    // 2. Zero-Trust Promotions: Server tự kiểm tra và tính toán giảm giá từ bảng promotions
-    let calculatedDiscount = 0;
-    let validCouponCode = null;
-    if (coupon_code) {
-      const cleanCode = String(coupon_code).trim().toUpperCase();
-
-      // Phân quyền mã khuyến mãi: Khách hàng chỉ được sử dụng các mã khuyến mãi công khai dành cho khách
-      const CUSTOMER_ALLOWED_COUPONS = ['COFFEE10', 'GIAM20K', 'BANMOI', 'BANMOI20', 'MYCOFFEE20', 'FREESHIP'];
-      if (isOnlineCustomer && !CUSTOMER_ALLOWED_COUPONS.includes(cleanCode)) {
-        await conn.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Mã giảm giá "${cleanCode}" là mã nội bộ / sự kiện đặc biệt, không áp dụng cho khách tự đặt đơn!`
-        });
-      }
-
-      const [promoRows] = await conn.query(
-        `SELECT * FROM promotions 
-         WHERE BINARY code = ? AND is_active = 1 
-           AND (start_date IS NULL OR start_date <= CURDATE())
-           AND (end_date IS NULL OR end_date >= CURDATE())`,
-        [cleanCode]
-      );
-      if (promoRows.length) {
-        const promo = promoRows[0];
-        // 1. Chặn FREESHIP nếu đơn mang về / tại quán
-        if (cleanCode === 'FREESHIP' && (normalizedOrderType === 'takeaway' || normalizedOrderType === 'dine_in')) {
-          await conn.rollback();
-          return res.status(400).json({ success: false, message: 'Mã FREESHIP không áp dụng cho đơn tại quầy hoặc mang về' });
-        }
-        // 2. Chặn mã BANMOI nếu khách hàng đã từng phát sinh đơn hàng trước đó
-        if (['BANMOI', 'BANMOI20'].includes(cleanCode) && customerId) {
-          const [pastOrders] = await conn.query("SELECT COUNT(*) AS cnt FROM orders WHERE customer_id = ? AND status != 'cancelled'", [customerId]);
-          if (pastOrders[0]?.cnt > 0) {
-            await conn.rollback();
-            return res.status(400).json({ success: false, message: 'Mã chào bạn mới chỉ áp dụng cho đơn hàng đầu tiên của khách hàng' });
-          }
-        }
-        const minOrder = Number(promo.min_order_value || 0);
-        if (subtotal >= minOrder) {
-          const promoVal = Number(promo.value ?? promo.discount_value ?? 0);
-          const isPercentage = promo.type === 'percent_order' || promo.type === 'happy_hour' || promo.type === 'percentage' || promo.discount_type === 'percentage';
-          if (isPercentage) {
-            calculatedDiscount = Math.round((subtotal * promoVal) / 100);
-            if (promo.max_discount) {
-              calculatedDiscount = Math.min(calculatedDiscount, Number(promo.max_discount));
-            }
-          } else {
-            calculatedDiscount = Math.min(subtotal, promoVal);
-          }
-          validCouponCode = cleanCode;
-        } else {
-          await conn.rollback();
-          return res.status(400).json({ success: false, message: `Mã ${cleanCode} yêu cầu đơn tối thiểu ${minOrder.toLocaleString('vi-VN')} đ` });
-        }
-      } else {
-        await conn.rollback();
-        return res.status(400).json({ success: false, message: `Mã khuyến mãi "${cleanCode}" không tồn tại hoặc đã hết hạn áp dụng!` });
-      }
-    }
-
-    // Cộng gộp giảm giá từ điểm thưởng
-    calculatedDiscount += pointsDiscount;
-
-    const finalTax = Number(tax || 0);
-    const total = Math.max(0, subtotal - calculatedDiscount + finalTax);
-
-    // 0. Xử lý logic Giờ mở cửa & Đặt trước (SCHEDULED vs PENDING)
-    const config = await storeService.getStoreSettings();
-    const vnNow = storeService.getVietnamNow();
-    const storeIsOpen = storeService.isStoreOpen(config, vnNow);
-
-    let finalOrderStatus = 'pending';
-    let effectivePickupDate = null;
-    let pickupDisplayLabel = null;
-
-    if (!storeIsOpen) {
-      // Tình huống 2: Quán đóng cửa, khách đặt -> Bắt buộc chọn giờ nhận nằm trong giờ mở cửa. Đơn có trạng thái SCHEDULED
-      if (!pickup_time) {
-        await conn.rollback();
-        return res.status(400).json({
-          success: false,
-          isStoreClosed: true,
-          message: `Quán hiện đang đóng cửa (Giờ phục vụ: ${config.open_time} – ${config.close_time}). Quý khách vui lòng chọn giờ nhận hàng trong khung giờ mở cửa để đặt trước!`
-        });
-      }
-
-      const check = storeService.validatePickupTime(pickup_time, config, vnNow);
-      if (!check.valid) {
-        await conn.rollback();
-        return res.status(400).json({ success: false, message: check.message });
-      }
-
-      finalOrderStatus = 'scheduled';
-      effectivePickupDate = check.pickupDate;
-      pickupDisplayLabel = check.displayTime;
-    } else {
-      // Tình huống 1: Quán đang mở
-      if (pickup_time) {
-        // Khách chủ động hẹn giờ nhận trước
-        const check = storeService.validatePickupTime(pickup_time, config, vnNow);
-        if (!check.valid) {
-          await conn.rollback();
-          return res.status(400).json({ success: false, message: check.message });
-        }
-        finalOrderStatus = 'scheduled';
-        effectivePickupDate = check.pickupDate;
-        pickupDisplayLabel = check.displayTime;
-      } else {
-        // Khách đặt bình thường làm ngay -> PENDING
-        finalOrderStatus = initialStatus === 'paid' ? 'paid' : 'pending';
-        effectivePickupDate = null;
-      }
-    }
-
-    // Xử lý trạng thái thanh toán (Khách online chuyển khoản ngân hàng thì trạng thái thanh toán là unpaid chờ xác nhận)
-    const isTransfer = ['Chuyển khoản', 'QR Banking', 'Ví MoMo', 'ZaloPay', 'bank_transfer'].includes(payment_method);
-    const finalPaymentStatus = (isOnlineCustomer && isTransfer) ? 'unpaid' : 'paid';
-
-    const closedAt = finalOrderStatus === 'paid' && finalPaymentStatus === 'paid' ? 'NOW()' : 'NULL';
-
-    let orderRes;
-    try {
-      [orderRes] = await conn.query(
-        `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt}, ?)`,
-        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1, effectivePickupDate]
-      );
-    } catch (insErr) {
-      if (insErr.message?.includes('pickup_time')) {
-        // Fallback an toàn nếu database (như TiDB Cloud) chưa bổ sung cột pickup_time
-        [orderRes] = await conn.query(
-          `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, 0, NULL, ?, ?, NOW(), ${closedAt})`,
-          [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, calculatedDiscount, finalTax, total, note || null, validCouponCode, req.user?.id || 1]
-        );
-      } else {
-        throw insErr;
-      }
-    }
-    const orderId = orderRes.insertId;
-
-    // Insert items with status 'pending' (Chờ pha chế), 'scheduled' (Hẹn giờ), or 'done'
-    // Lỗi 3: Bảo toàn Topping trong order_items và order_item_toppings
-    const itemStatus = finalOrderStatus === 'paid' ? 'done' : (finalOrderStatus === 'scheduled' ? 'scheduled' : 'pending');
-    for (const item of validatedItems) {
-      const [itemRes] = await conn.query(
-        `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, toppings_total, line_total, note, status, sent_at, done_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${finalOrderStatus === 'scheduled' ? 'NULL' : 'NOW()'}, ${finalOrderStatus === 'paid' ? 'NOW()' : 'NULL'})`,
-        [orderId, item.product_size_id, item.name, item.size_name, item.price, item.quantity, item.toppings_total || 0, item.line_total, item.note, itemStatus]
-      );
-      const orderItemId = itemRes.insertId;
-
-      if (Array.isArray(item.toppings) && item.toppings.length > 0) {
-        for (const top of item.toppings) {
-          await conn.query(
-            `INSERT INTO order_item_toppings (order_item_id, topping_id, topping_name, price, quantity)
-             VALUES (?, ?, ?, ?, ?)`,
-            [orderItemId, top.topping_id, top.topping_name, top.price, top.quantity]
-          );
-        }
-      }
-    }
-
-    // Insert Invoice
-    await conn.query(
-      `INSERT INTO invoices (invoice_no, order_id, subtotal, discount, service_fee, vat, total)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`,
-      [invoiceNo, orderId, subtotal, calculatedDiscount, finalTax, total]
-    );
-
-    // Map payment method to valid MySQL constraint: cash, bank_transfer, card, points
-    const methodMap = {
-      'Tiền mặt': 'cash',
-      'cash': 'cash',
-      'Thẻ ngân hàng': 'card',
-      'card': 'card',
-      'Chuyển khoản': 'bank_transfer',
-      'QR Banking': 'bank_transfer',
-      'Ví MoMo': 'bank_transfer',
-      'ZaloPay': 'bank_transfer',
-      'bank_transfer': 'bank_transfer',
-      'points': 'points',
-    };
-    const mappedMethod = methodMap[payment_method] || 'cash';
-
-    // Insert Payment Record chỉ khi đã thực sự thanh toán thành công
-    if (total > 0 && finalPaymentStatus === 'paid') {
-      await conn.query(
-        `INSERT INTO payments (order_id, method, amount, created_by)
-         VALUES (?, ?, ?, ?)`,
-        [orderId, mappedMethod, total, req.user?.id || 1]
-      );
-    }
-
-    // Business Logic: Trừ định lượng kho khi đơn đã được thanh toán
-    if (finalPaymentStatus === 'paid') {
-      for (const item of validatedItems) {
-        const sizeId = item.product_size_id || 1;
-        const [recipeRows] = await conn.query(
-          'SELECT ingredient_id, quantity FROM recipes WHERE product_size_id = ?',
-          [sizeId]
-        );
-        for (const rec of recipeRows) {
-          const consumed = Number(rec.quantity) * Number(item.quantity);
-          const [ingRows] = await conn.query(
-            'SELECT current_stock, avg_cost FROM ingredients WHERE id = ? FOR UPDATE',
-            [rec.ingredient_id]
-          );
-          if (ingRows.length) {
-            const current = parseFloat(ingRows[0].current_stock);
-            const newBalance = Math.max(0, current - consumed);
-            await conn.query(
-              'UPDATE ingredients SET current_stock = ? WHERE id = ?',
-              [newBalance, rec.ingredient_id]
-            );
-            await conn.query(
-              `INSERT INTO stock_movements (ingredient_id, movement_type, quantity, unit_cost, balance_after, ref_type, ref_id, note, created_by)
-               VALUES (?, 'sale', ?, ?, ?, 'orders', ?, ?, ?)`,
-              [rec.ingredient_id, consumed, ingRows[0].avg_cost, newBalance, orderId, `Bán món ${item.name} (${orderCode})`, req.user?.id || 1]
-            );
-          }
-        }
-      }
-    }
-
-    // Points & Tiers: Tích điểm và tự động thăng hạng thành viên theo total_spent
-    if (customerId) {
-      if (actualPointsRedeemed > 0) {
-        await conn.query('UPDATE customers SET points_balance = GREATEST(0, points_balance - ?) WHERE id = ?', [actualPointsRedeemed, customerId]);
-        await conn.query('INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "redeem", ?)', [customerId, orderId, actualPointsRedeemed]);
-      }
-      const pts = Math.floor(total / 10000);
-      await conn.query('UPDATE customers SET points_balance = points_balance + ?, total_spent = total_spent + ? WHERE id = ?', [pts, total, customerId]);
-      if (pts > 0) {
-        await conn.query('INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "earn", ?)', [customerId, orderId, pts]);
-      }
-      // Tự động thăng hạng thành viên
-      const [custRows] = await conn.query('SELECT total_spent FROM customers WHERE id = ?', [customerId]);
-      if (custRows.length) {
-        const spent = Number(custRows[0].total_spent || 0);
-        const [tierRows] = await conn.query(
-          'SELECT id FROM membership_tiers WHERE min_spent <= ? ORDER BY min_spent DESC LIMIT 1',
-          [spent]
-        );
-        if (tierRows.length) {
-          await conn.query('UPDATE customers SET tier_id = ? WHERE id = ?', [tierRows[0].id, customerId]);
-        }
-      }
-    }
-
-    // Đánh dấu bàn thành occupied nếu có chọn bàn
-    if (effectiveTableId) {
-      await conn.query("UPDATE `tables` SET status='occupied' WHERE id=?", [effectiveTableId]);
-    }
+    const result = await orderService.createDirectOrder(conn, {
+      orderData: req.body,
+      reqUser: req.user,
+      io: req.app?.get('io')
+    });
 
     await conn.commit();
-
-    // Phát sự kiện Socket.IO thời gian thực khi có đơn mới
-    const io = req.app?.get('io');
-    if (io) {
-      io.emit('order:created', {
-        orderId,
-        orderCode,
-        invoiceNo,
-        customerName: effectiveName,
-        customerPhone: effectivePhone,
-        items: validatedItems,
-        orderType: normalizedOrderType,
-        tableId: effectiveTableId,
-        paymentMethod: mappedMethod,
-        total,
-        status: finalOrderStatus,
-        pickupTime: effectivePickupDate,
-        pickupDisplayLabel,
-      });
-
-      // Nếu đơn là PENDING (làm ngay) thì đẩy sang Barista ngay lập tức
-      // Nếu là SCHEDULED (hẹn giờ) thì hàng đợi Barista chưa hiển thị cho đến khi tự động kích hoạt trước giờ nhận 15 phút
-      if (finalOrderStatus === 'pending') {
-        io.emit('barista:new_order', {
-          orderId,
-          orderCode,
-          customerName: effectiveName,
-          tableId: effectiveTableId,
-          orderType: normalizedOrderType,
-        });
-      }
-    }
-
-    let successMsg = 'Xác nhận đơn thành công! Đơn hàng đang ở trạng thái Đang chờ làm.';
-    if (finalOrderStatus === 'scheduled') {
-      successMsg = `Đặt trước thành công! Quán đã ghi nhận lịch hẹn nhận đơn lúc ${pickupDisplayLabel || effectivePickupDate}.`;
-    } else if (finalOrderStatus === 'paid') {
-      successMsg = 'Thanh toán và hoàn thành đơn thành công!';
-    }
-
     res.json({
       success: true,
-      message: successMsg,
-      data: {
-        invoiceNo,
-        orderId,
-        orderCode,
-        subtotal,
-        discount_total: calculatedDiscount,
-        total,
-        status: finalOrderStatus,
-        pickup_time: effectivePickupDate,
-        pickup_display_label: pickupDisplayLabel,
-      }
+      message: result.message,
+      data: result
     });
   } catch (err) {
     await conn.rollback();
-    res.status(500).json({ success: false, message: err.message });
+    res.status(400).json({ success: false, message: err.message });
   } finally {
     conn.release();
   }
@@ -1277,7 +749,12 @@ const cancelOrder = async (req, res) => {
     // Hoàn trả nguyên liệu nếu đơn đã bị trừ kho (BUG-03)
     await rollbackInventoryForOrder(conn, id, req.user?.id);
 
-    // Nếu đơn đã thanh toán: Thu hồi điểm tích lũy và ghi nhận hoàn tiền / hủy hóa đơn
+    // Hoàn trả điểm đã đổi (redeem) và thu hồi điểm đã tích lũy (nếu có)
+    if (order.customer_id) {
+      await loyaltyService.refundPointsOnCancel(conn, { orderId: id, customerId: order.customer_id });
+    }
+
+    // Nếu đơn đã thanh toán: ghi nhận hoàn tiền / hủy hóa đơn
     if (order.payment_status === 'paid') {
       if (order.customer_id) {
         const pts = Math.floor(Number(order.total) / 10000);
@@ -1420,6 +897,17 @@ const confirmPayment = async (req, res) => {
       }
     }
 
+    // Tích điểm cho khách hàng khi thu ngân xác nhận đã thanh toán
+    if (order.customer_id) {
+      await loyaltyService.processEarnAndRedeem(conn, {
+        customerId: order.customer_id,
+        orderId: id,
+        pointsToRedeem: 0,
+        finalPaidAmount: Number(order.total),
+        isPaid: true
+      });
+    }
+
     await conn.commit();
 
     const io = req.app?.get('io');
@@ -1429,6 +917,14 @@ const confirmPayment = async (req, res) => {
         orderId: order.id,
         orderCode: order.code,
         paymentStatus: 'paid'
+      });
+      // Đẩy sang KDS Barista khi đơn online đã được thu ngân xác nhận tiền vào tài khoản
+      io.emit('barista:new_order', {
+        orderId: order.id,
+        orderCode: order.code,
+        customerName: order.customer_name || 'Khách Online',
+        tableId: order.table_id,
+        orderType: order.order_type,
       });
     }
 
