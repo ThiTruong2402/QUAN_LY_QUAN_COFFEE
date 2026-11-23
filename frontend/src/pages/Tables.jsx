@@ -355,10 +355,10 @@ export default function Tables() {
           transform: translateY(-2px);
           box-shadow: 0 8px 20px rgba(28, 25, 23, 0.08);
         }
-        .fp-table-card.empty { background: #FFFFFF; border: 1px solid #E7E2DA; }
-        .fp-table-card.empty:hover { border-color: #16A34A; }
-        .fp-table-card.occupied { background: #FFF8F1; border: 1.5px solid #D97706; }
-        .fp-table-card.reserved { background: #FAF5FF; border: 1.5px solid #9333EA; }
+        .fp-table-card.empty { background: #FFFFFF !important; border: 1px solid #E7DFD5 !important; border-top: 3px solid #10B981 !important; }
+        .fp-table-card.empty:hover { border-color: #10B981 !important; }
+        .fp-table-card.occupied { background: #FFF8F1 !important; border: 1px solid #FDBA74 !important; border-top: 3px solid #D97706 !important; }
+        .fp-table-card.reserved { background: #FAF5FF !important; border: 1px solid #D8B4FE !important; border-top: 3px solid #9333EA !important; }
         .fp-action-btn {
           border: none;
           border-radius: 8px;
@@ -508,8 +508,8 @@ export default function Tables() {
       </div>
  
       {/* 3. THANH LỌC KHU VỰC & TÌM KIẾM */}
-      <div className="fp-toolbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+      <div className="fp-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
           <button type="button" className={`fp-area-pill ${selectedArea === 'all' ? 'active' : ''}`} onClick={() => setSelectedArea('all')}>
             Tất cả khu vực ({tables.length})
           </button>
@@ -523,13 +523,14 @@ export default function Tables() {
           })}
         </div>
  
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
           <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#78716C', display: 'flex' }}>
             <Icon.Search />
           </span>
           <input
             type="text"
             className="fp-search-input"
+            style={{ width: '240px' }}
             placeholder="Tìm số bàn, tên khách đặt..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import socket from '../api/socket';
 import { playNotificationSound } from '../utils/sound';
 import toast from 'react-hot-toast';
 
-const SvgIcon = ({ d, size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+const SvgIcon = ({ d, size = 17 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
     {d}
   </svg>
 );
@@ -41,13 +41,44 @@ const NAV_GROUPS = [
   },
 ];
 
+const ROUTE_TITLES = {
+  '/': 'Sơ đồ bàn phục vụ',
+  '/pos': 'Bán hàng tại quầy (POS)',
+  '/orders': 'Quản lý đơn hàng',
+  '/barista': 'Màn hình pha chế (KDS)',
+  '/menu': 'Thực đơn & Định lượng công thức',
+  '/inventory': 'Quản lý kho nguyên liệu',
+  '/shifts': 'Lịch phân ca nhân sự',
+  '/reports': 'Báo cáo & Thống kê doanh thu',
+  '/accounts': 'Tài khoản & Phân quyền',
+  '/audit-logs': 'Nhật ký hoạt động hệ thống',
+  '/settings': 'Cấu hình cửa hàng',
+};
+
+const getCurrentShiftInfo = () => {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const totalM = h * 60 + m;
+  if (totalM >= 6 * 60 + 30 && totalM < 14 * 60 + 30) {
+    return { name: 'Ca Sáng', icon: '☀️', time: '06:30 - 14:30' };
+  } else if (totalM >= 14 * 60 + 30 && totalM < 22 * 60 + 30) {
+    return { name: 'Ca Chiều', icon: '🌤️', time: '14:30 - 22:30' };
+  } else {
+    return { name: 'Ca Đêm', icon: '🌙', time: '22:30 - 06:30' };
+  }
+};
+
 export default function AppLayout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [shiftInfo, setShiftInfo] = useState(getCurrentShiftInfo());
 
   const userRole = user?.role || 'admin';
+  const currentTitle = ROUTE_TITLES[location.pathname] || 'My Coffee House';
 
   const fetchPendingCount = async () => {
     try {
@@ -62,6 +93,9 @@ export default function AppLayout({ children }) {
 
   useEffect(() => {
     fetchPendingCount();
+    const interval = setInterval(() => {
+      setShiftInfo(getCurrentShiftInfo());
+    }, 60000);
 
     const handleNewOrder = (payload) => {
       playNotificationSound();
@@ -79,6 +113,7 @@ export default function AppLayout({ children }) {
     socket.on('table:status-changed', handleUpdate);
 
     return () => {
+      clearInterval(interval);
       socket.off('newOrder', handleNewOrder);
       socket.off('order:created', handleNewOrder);
       socket.off('order:status-changed', handleUpdate);
@@ -94,81 +129,98 @@ export default function AppLayout({ children }) {
         .mch-shell {
           display: flex;
           min-height: 100vh;
-          background: #F6F4F0;
-          color: #1C1917;
+          background: #F6F3EE !important;
+          color: #1F1611 !important;
           font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .mch-sidebar {
-          width: ${collapsed ? '74px' : '246px'};
+          width: ${collapsed ? '68px' : '236px'};
           flex-shrink: 0;
-          background: #FFFFFF;
-          border-right: 1px solid #E7E2DA;
+          background: linear-gradient(180deg, #24160F 0%, #170E09 100%);
+          border-right: 1px solid #352116;
           display: flex;
           flex-direction: column;
           transition: width 0.2s ease;
           position: sticky;
           top: 0;
           height: 100vh;
-          z-index: 30;
+          z-index: 40;
+          color: #EFE6DC;
         }
         .mch-brand {
-          height: 62px;
-          padding: 0 16px;
+          height: 56px;
+          padding: 0 14px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid #F0ECE5;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          flex-shrink: 0;
         }
         .mch-nav-scroll {
           flex: 1;
           overflow-y: auto;
-          padding: 14px 10px;
+          padding: 10px 8px;
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 10px;
         }
+        .mch-nav-scroll::-webkit-scrollbar { width: 4px; }
+        .mch-nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 4px; }
         .mch-group-label {
-          font-size: 0.7rem;
+          font-size: 0.66rem;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: #A8A29E;
-          padding: 0 10px 6px;
+          letter-spacing: 0.07em;
+          color: #9C8370;
+          padding: 0 10px 4px;
           display: ${collapsed ? 'none' : 'block'};
         }
         .mch-nav-link {
           display: flex;
           align-items: center;
-          gap: 11px;
-          padding: 9px 11px;
-          border-radius: 10px;
-          color: #57534E;
+          gap: 10px;
+          padding: 7px 10px;
+          border-radius: 9px;
+          color: #D6C7B8;
           text-decoration: none;
-          font-size: 0.85rem;
+          font-size: 0.82rem;
           font-weight: 500;
-          transition: background 0.15s ease, color 0.15s ease;
+          transition: all 0.15s ease;
           justify-content: ${collapsed ? 'center' : 'flex-start'};
           position: relative;
         }
         .mch-nav-link:hover {
-          background: #F5F2EC;
-          color: #1C1917;
+          background: rgba(255, 255, 255, 0.07);
+          color: #FFFFFF;
         }
         .mch-nav-link.active {
-          background: #2C1A12;
+          background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
           color: #FFFFFF;
-          font-weight: 600;
+          font-weight: 700;
+          box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
         }
         .mch-main {
           flex: 1;
           min-width: 0;
           display: flex;
           flex-direction: column;
-          background: #F6F4F0;
+        }
+        .mch-topbar {
+          height: 56px;
+          background: #FFFFFF;
+          border-bottom: 1px solid #E7DFD5;
+          padding: 0 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          box-shadow: 0 1px 3px rgba(44, 26, 18, 0.03);
         }
         .mch-content {
           flex: 1;
-          padding: 22px 28px;
+          padding: 20px 24px;
           max-width: 1560px;
           width: 100%;
           margin: 0 auto;
@@ -188,26 +240,27 @@ export default function AppLayout({ children }) {
         <div className="mch-brand">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
             <div style={{
-              width: '34px', height: '34px', borderRadius: '9px',
-              background: '#2C1A12', color: '#FAF6F0', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.9rem'
+              width: '32px', height: '32px', borderRadius: '9px',
+              background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#FFFFFF',
+              flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 800, fontSize: '0.85rem'
             }}>
               ☕
             </div>
             {!collapsed && (
               <div style={{ whiteSpace: 'nowrap' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#1C1917', lineHeight: 1.2 }}>My Coffee House</div>
-                <div style={{ fontSize: '0.7rem', color: '#78716C' }}>Hệ thống quản lý POS</div>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#FFFFFF', lineHeight: 1.15 }}>My Coffee House</div>
+                <div style={{ fontSize: '0.67rem', color: '#B09884' }}>Hệ thống quản lý POS</div>
               </div>
             )}
           </div>
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
+            style={{ background: 'transparent', border: 'none', color: '#B09884', cursor: 'pointer', padding: '4px', display: 'flex' }}
             title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
-            style={{ background: 'transparent', border: 'none', color: '#78716C', cursor: 'pointer', padding: '4px', display: 'flex' }}
           >
-            <SvgIcon size={17} d={collapsed ? <polyline points="9 18 15 12 9 6" /> : <polyline points="15 18 9 12 15 6" />} />
+            <SvgIcon size={16} d={collapsed ? <polyline points="9 18 15 12 9 6" /> : <polyline points="15 18 9 12 15 6" />} />
           </button>
         </div>
 
@@ -218,7 +271,7 @@ export default function AppLayout({ children }) {
             return (
               <div key={group.title}>
                 <div className="mch-group-label">{group.title}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {visibleItems.map((item) => (
                     <NavLink
                       key={item.to}
@@ -244,67 +297,80 @@ export default function AppLayout({ children }) {
               </div>
             );
           })}
-
-          {/* Quick link to Customer Portal */}
-          <div style={{ marginTop: 'auto', paddingTop: '10px' }}>
-            <button
-              type="button"
-              onClick={() => window.open('/customer', '_blank')}
-              title="Mở cổng khách đặt món trực tuyến"
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 10px',
-                background: '#FDF8F3',
-                border: '1px solid #F2DEC8',
-                borderRadius: '8px',
-                color: '#C86A28',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                justifyContent: collapsed ? 'center' : 'flex-start'
-              }}
-            >
-              <SvgIcon size={16} d={<><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 12 8"/></>} />
-              {!collapsed && <span>CỔNG KHÁCH HÀNG ↗</span>}
-            </button>
-          </div>
         </nav>
-
-        <div style={{ padding: '12px', borderTop: '1px solid #F0ECE5' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
-            gap: '8px', background: '#FAF8F5', padding: '8px 10px', borderRadius: '10px', border: '1px solid #EFEAE1'
-          }}>
-            {!collapsed && (
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1C1917', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user?.full_name || user?.name || 'Quản trị viên'}
-                </div>
-                <div style={{ fontSize: '0.7rem', color: '#78716C', textTransform: 'capitalize' }}>
-                  {userRole}
-                </div>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => { logout(); navigate('/login'); }}
-              title="Đăng xuất"
-              style={{
-                background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#DC2626',
-                width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-              }}
-            >
-              <SvgIcon size={15} d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>} />
-            </button>
-          </div>
-        </div>
       </aside>
 
       <div className="mch-main">
+        <header className="mch-topbar">
+          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#2C1A12', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{currentTitle}</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Widget Ca trực hiện tại */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: '#F6F3EE', border: '1px solid #E7DFD5',
+              padding: '5px 10px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600, color: '#6E5D52'
+            }} title={`Ca trực: ${shiftInfo.time}`}>
+              <span>{shiftInfo.icon}</span>
+              <span>{shiftInfo.name}</span>
+              <span style={{ color: '#A89F91' }}>•</span>
+              <span style={{ color: '#8C7A6B' }}>{shiftInfo.time}</span>
+            </div>
+
+            {/* Quick button Cổng khách hàng */}
+            <button
+              type="button"
+              onClick={() => window.open('/customer', '_blank')}
+              style={{
+                background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C',
+                padding: '6px 13px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700,
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+              title="Mở cổng khách đặt món trực tuyến trong tab mới"
+            >
+              <span>Cổng khách hàng</span>
+              <SvgIcon size={13} d={<><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></>} />
+            </button>
+
+            <div style={{ width: '1px', height: '22px', background: '#E7DFD5' }} />
+
+            {/* User Profile & Logout */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '30px', height: '30px', borderRadius: '50%',
+                background: '#2C1A12', color: '#FDE68A', fontSize: '0.78rem', fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {(user?.full_name || user?.name || user?.username || 'A').charAt(0).toUpperCase()}
+              </div>
+              <div style={{ lineHeight: 1.2 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1F1611' }}>
+                  {user?.full_name || user?.name || user?.username || 'Quản trị viên'}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#78716C', textTransform: 'capitalize' }}>
+                  {userRole}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { logout(); navigate('/login'); }}
+                title="Đăng xuất"
+                style={{
+                  marginLeft: '4px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626',
+                  width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                <SvgIcon size={14} d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>} />
+              </button>
+            </div>
+          </div>
+        </header>
+
         <main className="mch-content">
           {children || <Outlet />}
         </main>
