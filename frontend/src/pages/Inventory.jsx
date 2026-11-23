@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 export default function Inventory() {
+  const { user } = useAuth();
+  const canManageMaster = ['admin', 'manager'].includes(user?.role);
+
   const [ingredients, setIngredients] = useState([]);
   const [selectedIng, setSelectedIng] = useState(null);
   const [search, setSearch] = useState('');
@@ -10,12 +14,12 @@ export default function Inventory() {
 
   // Form
   const [form, setForm] = useState({
-    code: 'NL011',
+    code: '',
     name: '',
-    current_stock: 10,
+    current_stock: 0,
     unit: 'kg',
     min_stock: 5,
-    avg_cost: 50000,
+    avg_cost: 0,
     received_date: new Date().toISOString().split('T')[0],
     note: '',
     image_url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&auto=format&fit=crop&q=80',
@@ -69,6 +73,9 @@ export default function Inventory() {
   };
 
   const handleCreate = async () => {
+    if (!canManageMaster) {
+      return toast.error('Chỉ Quản trị viên (Admin) hoặc Quản lý (Manager) mới có quyền thêm nguyên liệu mới!');
+    }
     if (!form.name || !form.unit) return toast.error('Vui lòng nhập tên và đơn vị!');
     try {
       const payload = { ...form };
@@ -86,6 +93,9 @@ export default function Inventory() {
   };
 
   const handleUpdate = async () => {
+    if (!canManageMaster) {
+      return toast.error('Chỉ Quản trị viên (Admin) hoặc Quản lý (Manager) mới có quyền sửa thông tin nguyên liệu!');
+    }
     if (!selectedIng) return toast.error('Vui lòng chọn nguyên liệu cần sửa!');
     try {
       await api.put(`/inventory/ingredients/${selectedIng.id}`, form);
@@ -97,6 +107,9 @@ export default function Inventory() {
   };
 
   const handleDelete = async () => {
+    if (!canManageMaster) {
+      return toast.error('Chỉ Quản trị viên (Admin) hoặc Quản lý (Manager) mới có quyền xóa nguyên liệu!');
+    }
     if (!selectedIng) return toast.error('Vui lòng chọn nguyên liệu cần xóa!');
     if (!window.confirm(`Bạn có chắc muốn xóa nguyên liệu "${selectedIng.name}"?`)) return;
     try {
@@ -381,31 +394,44 @@ export default function Inventory() {
             </button>
 
             {/* 3 Circular Action Buttons (matching image9.png: +, delete, edit) */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '4px' }}>
-              <button
-                type="button"
-                className="circle-btn circle-btn-green"
-                title="Thêm nguyên liệu mới"
-                onClick={handleCreate}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                className="circle-btn circle-btn-red"
-                title="Xóa nguyên liệu đang chọn"
-                onClick={handleDelete}
-              >
-                🗑️
-              </button>
-              <button
-                type="button"
-                className="circle-btn circle-btn-blue"
-                title="Lưu cập nhật nguyên liệu đang chọn"
-                onClick={handleUpdate}
-              >
-                ✏️
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+                <button
+                  type="button"
+                  className="circle-btn circle-btn-green"
+                  title={canManageMaster ? 'Thêm nguyên liệu mới' : 'Chỉ Admin/Quản lý mới có quyền thêm nguyên liệu'}
+                  onClick={handleCreate}
+                  disabled={!canManageMaster}
+                  style={!canManageMaster ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className="circle-btn circle-btn-red"
+                  title={canManageMaster ? 'Xóa nguyên liệu đang chọn' : 'Chỉ Admin/Quản lý mới có quyền xóa nguyên liệu'}
+                  onClick={handleDelete}
+                  disabled={!canManageMaster}
+                  style={!canManageMaster ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                >
+                  🗑️
+                </button>
+                <button
+                  type="button"
+                  className="circle-btn circle-btn-blue"
+                  title={canManageMaster ? 'Lưu cập nhật nguyên liệu đang chọn' : 'Chỉ Admin/Quản lý mới có quyền sửa nguyên liệu'}
+                  onClick={handleUpdate}
+                  disabled={!canManageMaster}
+                  style={!canManageMaster ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                >
+                  ✏️
+                </button>
+              </div>
+              {!canManageMaster && (
+                <div style={{ fontSize: '0.74rem', color: '#fbbf24', fontStyle: 'italic', textAlign: 'center' }}>
+                  🔒 Quyền Thủ kho: Xem danh sách và kiểm kê sổ kho. Thêm/sửa danh mục gốc do Quản lý/Admin phụ trách.
+                </div>
+              )}
             </div>
           </div>
         </div>

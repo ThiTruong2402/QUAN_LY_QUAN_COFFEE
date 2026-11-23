@@ -81,38 +81,48 @@ class AppErrorBoundary extends Component {
   }
 }
 
-function RoleRoute({ allowedRoles, children }) {
+export const getDefaultRouteByRole = (role) => {
+  switch (role) {
+    case 'admin':
+    case 'manager':
+    case 'cashier':
+    case 'waiter':
+      return '/';              // Sơ đồ bàn phục vụ
+    case 'barista':
+      return '/barista';       // Màn hình pha chế KDS
+    case 'warehouse':
+      return '/inventory';     // Kho nguyên liệu
+    case 'customer':
+    default:
+      return '/customer';      // Cổng khách hàng đặt món
+  }
+};
+
+export function RoleRoute({ allowedRoles, allowRoles, children }) {
   const { user, loading } = useAuth();
+  const roles = allowedRoles || allowRoles;
   if (loading) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#130c08',
+        background: '#F6F3EE',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fde68a',
-        fontFamily: "'Inter', sans-serif"
+        color: '#2C1A12',
+        fontFamily: "'Be Vietnam Pro', sans-serif"
       }}>
         <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>☕</div>
-        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#d4b094' }}>
+        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#6E5D52' }}>
           Đang kết nối hệ thống My Coffee House...
         </div>
       </div>
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    const defaultRoute = {
-      admin: '/',
-      manager: '/',
-      cashier: '/',
-      barista: '/barista',
-      waiter: '/',
-      warehouse: '/inventory',
-      customer: '/customer',
-    }[user.role] || '/login';
+  if (roles && !roles.includes(user.role)) {
+    const defaultRoute = getDefaultRouteByRole(user.role);
     if (defaultRoute === window.location.pathname) {
       return <Navigate to="/login" replace />;
     }

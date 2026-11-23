@@ -543,7 +543,7 @@ export default function PosOrder() {
     <div className="animate-fade-in">
       {!showPayment ? (
         /* SCREEN 1: POS ORDER (matching image3.png with 3 Sizes S, M, L) */
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 440px', gap: '20px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 390px', gap: '18px', alignItems: 'start' }}>
           {/* LEFT: DANH SÁCH MÓN */}
           <div className="mockup-panel">
             <div className="mockup-panel-header">

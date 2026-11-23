@@ -105,10 +105,11 @@ export default function Accounts() {
   const loadCustomers = async () => {
     try {
       const res = await api.get('/customers');
-      setCustomers(res.data.data.customers || []);
-      setTiers(res.data.data.tiers || []);
-    } catch {
-      toast.error('Lỗi tải dữ liệu khách hàng');
+      const payload = res.data?.data || res.data || {};
+      setCustomers(payload.customers || (Array.isArray(payload) ? payload : []));
+      setTiers(payload.tiers || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi tải dữ liệu khách hàng');
     }
   };
 
@@ -188,6 +189,9 @@ export default function Accounts() {
     const u = targetUser || selectedUser;
     if (!u) return;
     if (u.id === user?.id) return toast.error('Không thể tự khóa tài khoản của chính bạn!');
+    if (!isAdmin && (u.role === 'admin' || u.role_name === 'admin')) {
+      return toast.error('Quản lý không có quyền khóa tài khoản Quản trị viên (Admin)!');
+    }
     const nextState = u.is_active ? 0 : 1;
     try {
       await api.put(`/staff/${u.id}`, { ...u, is_active: nextState });
@@ -485,21 +489,38 @@ export default function Accounts() {
                             </span>
                           </td>
                           <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <button
-                              type="button"
-                              title={u.is_active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                              onClick={(e) => { e.stopPropagation(); handleToggleActive(u); }}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                padding: '2px 5px',
-                                opacity: 0.85
-                              }}
-                            >
-                              {u.is_active ? '🔒' : '🔓'}
-                            </button>
+                            {(() => {
+                              const isSelf = u.id === user?.id;
+                              const isTargetAdmin = u.role === 'admin' || u.role_name === 'admin';
+                              const canLock = !isSelf && (isAdmin || !isTargetAdmin);
+                              if (!canLock) {
+                                return (
+                                  <span
+                                    title={isSelf ? 'Không thể tự khóa tài khoản của chính mình' : 'Chỉ Admin mới có quyền thao tác tài khoản Admin'}
+                                    style={{ opacity: 0.35, cursor: 'not-allowed', fontSize: '1rem', padding: '2px 5px', display: 'inline-block' }}
+                                  >
+                                    🔒
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  title={u.is_active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                                  onClick={(e) => { e.stopPropagation(); handleToggleActive(u); }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    padding: '2px 5px',
+                                    opacity: 0.85
+                                  }}
+                                >
+                                  {u.is_active ? '🔒' : '🔓'}
+                                </button>
+                              );
+                            })()}
                             {isAdmin && u.id !== user?.id && (
                               <button
                                 type="button"
@@ -663,14 +684,26 @@ export default function Accounts() {
 
                   {selectedUser ? (
                     <>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{ flex: 1, background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
-                        onClick={() => handleSaveStaff(false)}
-                      >
-                        💾 LƯU THAY ĐỔI
-                      </button>
+                      {(!isAdmin && (selectedUser.role === 'admin' || selectedUser.role_name === 'admin')) ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          disabled
+                          style={{ flex: 1, opacity: 0.5, cursor: 'not-allowed', color: '#c4a482', fontWeight: 700 }}
+                          title="Chỉ Admin mới có quyền sửa thông tin tài khoản Admin"
+                        >
+                          🔒 CHỈ ADMIN ĐƯỢC SỬA
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ flex: 1, background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
+                          onClick={() => handleSaveStaff(false)}
+                        >
+                          💾 LƯU THAY ĐỔI
+                        </button>
+                      )}
                       {isAdmin && selectedUser.id !== user?.id && (
                         <button
                           type="button"

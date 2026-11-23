@@ -755,20 +755,13 @@ const cancelOrder = async (req, res) => {
       await loyaltyService.refundPointsOnCancel(conn, { orderId: id, customerId: order.customer_id });
     }
 
-    // Nếu đơn đã thanh toán: ghi nhận hoàn tiền / hủy hóa đơn
+    // Nếu đơn đã thanh toán: hoàn tiền & điều chỉnh total_spent
     if (order.payment_status === 'paid') {
       if (order.customer_id) {
-        const pts = Math.floor(Number(order.total) / 10000);
-        if (pts > 0) {
-          await conn.query(
-            'UPDATE customers SET points_balance = GREATEST(0, points_balance - ?), total_spent = GREATEST(0, total_spent - ?) WHERE id = ?',
-            [pts, order.total, order.customer_id]
-          );
-          await conn.query(
-            'INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "revoke", ?)',
-            [order.customer_id, id, -pts]
-          );
-        }
+        await conn.query(
+          'UPDATE customers SET total_spent = GREATEST(0, total_spent - ?) WHERE id = ?',
+          [order.total, order.customer_id]
+        );
       }
       // Đánh dấu hủy hóa đơn (voided) theo chuẩn schema
       await conn.query('UPDATE invoices SET status = "voided", void_reason = ?, voided_by = ? WHERE order_id = ?', [cancel_reason || 'Đơn bị hủy', req.user?.id || 1, id]);

@@ -25,27 +25,33 @@ const createIngredient = async (req, res) => {
     }
 
     let cleanCode = (code && typeof code === 'string') ? code.trim() : '';
+    const [allExisting] = await conn.query('SELECT code FROM ingredients WHERE code IS NOT NULL');
+    const existingCodeSet = new Set(allExisting.map(r => String(r.code).trim().toUpperCase()));
+
     if (cleanCode) {
-      const [dup] = await conn.query('SELECT id, name FROM ingredients WHERE code = ?', [cleanCode]);
-      if (dup.length) {
+      if (existingCodeSet.has(cleanCode.toUpperCase())) {
         await conn.rollback();
         return res.status(400).json({
           success: false,
-          message: `Mã nguyên liệu "${cleanCode}" đã tồn tại (${dup[0].name}). Vui lòng nhập mã khác hoặc để trống để tự sinh mã!`
+          message: `Mã nguyên liệu "${cleanCode}" đã tồn tại trong hệ thống. Vui lòng nhập mã khác hoặc để trống để tự sinh mã!`
         });
       }
     } else {
       // Tự động sinh mã duy nhất dạng NL001, NL002...
-      const [allCodes] = await conn.query("SELECT code FROM ingredients WHERE code LIKE 'NL%'");
       let maxNum = 0;
-      for (const r of allCodes) {
-        const m = r.code ? r.code.match(/^NL(\d+)$/) : null;
+      for (const r of allExisting) {
+        const m = r.code ? String(r.code).match(/^(?:NL|NL_)?(\d+)$/i) : null;
         if (m) {
           const n = parseInt(m[1], 10);
           if (n > maxNum) maxNum = n;
         }
       }
-      cleanCode = `NL${String(maxNum + 1).padStart(3, '0')}`;
+      let candidate = `NL${String(maxNum + 1).padStart(3, '0')}`;
+      while (existingCodeSet.has(candidate.toUpperCase())) {
+        maxNum++;
+        candidate = `NL${String(maxNum + 1).padStart(3, '0')}`;
+      }
+      cleanCode = candidate;
     }
 
     const initialStock = parseFloat(current_stock || 0);
@@ -70,7 +76,7 @@ const createIngredient = async (req, res) => {
     res.status(201).json({ success: true, message: `Thêm nguyên liệu thành công (Mã: ${cleanCode})`, data: { id: ingredientId, code: cleanCode } });
   } catch (err) {
     await conn.rollback();
-    if (err.code === 'ER_DUP_ENTRY') {
+    if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062 || (err.message && err.message.includes('Duplicate entry'))) {
       return res.status(400).json({
         success: false,
         message: 'Mã nguyên liệu đã tồn tại trong hệ thống. Vui lòng nhập mã khác hoặc để trống để tự sinh mã!'
