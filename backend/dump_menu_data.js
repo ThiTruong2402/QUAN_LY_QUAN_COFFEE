@@ -7,7 +7,7 @@ async function dump() {
     host: 'localhost',
     port: 3306,
     user: 'root',
-    password: process.env.DB_PASSWORD || 'Truong2005@',
+    password: process.env.DB_PASSWORD || '',
     database: 'my_coffee_house',
     charset: 'utf8mb4'
   });

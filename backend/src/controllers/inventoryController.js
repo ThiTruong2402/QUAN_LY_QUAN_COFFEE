@@ -129,7 +129,14 @@ const adjustStock = async (req, res) => {
         newAvgCost = Math.round((current * oldAvgCost + qty * effectiveCost) / newBalance);
       }
     } else if (movement_type === 'waste' || movement_type === 'issue') {
-      newBalance = Math.max(0, current - qty);
+      if (current < qty) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Số lượng tồn kho không đủ để xuất/hủy (Tồn hiện tại: ${current}, cần xuất: ${qty})`
+        });
+      }
+      newBalance = current - qty;
     } else if (movement_type === 'adjustment') {
       newBalance = qty;
     }

@@ -16,24 +16,6 @@ const getAll = async (req, res) => {
       ORDER BY ws.shift_date DESC, ws.id DESC
     `);
 
-    // Tự động khởi tạo ca trực tuần hiện tại nếu hệ thống chưa có dữ liệu ca trực
-    if (rows.length === 0) {
-      await seedDefaultShifts();
-      const [reloaded] = await db.query(`
-        SELECT ws.id, ws.shift_code, ws.user_id, ws.shift_type,
-               DATE_FORMAT(ws.shift_date, '%Y-%m-%d') AS shift_date,
-               ws.status, ws.note, ws.created_at,
-               u.code AS user_code, u.full_name AS user_name,
-               u.role_id, r.name AS role_name, COALESCE(r.description, r.label, r.name) AS role_label
-        FROM work_shifts ws
-        JOIN users u ON u.id = ws.user_id
-        JOIN roles r ON r.id = u.role_id
-        WHERE r.name NOT IN ('customer')
-        ORDER BY ws.shift_date DESC, ws.id DESC
-      `);
-      rows = reloaded;
-    }
-
     res.json({ success: true, data: rows });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

@@ -146,6 +146,12 @@ const addItem = async (req, res) => {
     await conn.beginTransaction();
     const { product_size_id, quantity, note, toppings = [] } = req.body;
 
+    const validQty = parseInt(quantity, 10);
+    if (isNaN(validQty) || validQty <= 0) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: 'Số lượng món phải lớn hơn 0' });
+    }
+
     const [sizes] = await conn.query(
       `SELECT ps.*, p.name AS product_name FROM product_sizes ps
        JOIN products p ON p.id=ps.product_id WHERE ps.id=?`,
@@ -171,12 +177,12 @@ const addItem = async (req, res) => {
         });
       }
     }
-    const lineTotal = (size.price + toppingsTotal) * quantity;
+    const lineTotal = (size.price + toppingsTotal) * validQty;
 
     const [r] = await conn.query(
       `INSERT INTO order_items (order_id, product_size_id, product_name, size_name, unit_price, quantity, toppings_total, line_total, note)
        VALUES (?,?,?,?,?,?,?,?,?)`,
-      [req.params.id, product_size_id, size.product_name, size.name, size.price, quantity, toppingsTotal, lineTotal, note || null]
+      [req.params.id, product_size_id, size.product_name, size.name, size.price, validQty, toppingsTotal, lineTotal, note || null]
     );
 
     for (const t of validatedToppings) {

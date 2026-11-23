@@ -12,74 +12,18 @@ const login = async (req, res) => {
 
     const cleanInput = String(username).trim();
 
-    let [rows] = await db.query(
+    const [rows] = await db.query(
       `SELECT u.*, r.name AS role_name FROM users u
        JOIN roles r ON r.id = u.role_id
        WHERE (u.username = ? OR u.phone = ?) AND u.is_active = 1`,
       [cleanInput, cleanInput]
     );
 
-    // Tự động khởi tạo tài khoản quản lý / nhân sự nếu CSDL Cloud chưa nạp
-    if (!rows.length && password === '123456') {
-      const defaultUsers = {
-        admin: { code: 'NV001', name: 'admin', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
-        manager: { code: 'NV007', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
-        quanly: { code: 'NV008', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
-        cashier: { code: 'NV002', name: 'Trần Thu Hà', roleId: 2, phone: '0902345678', email: 'cashier@mycoffee.vn' },
-        barista: { code: 'NV003', name: 'Đặng Minh Tuấn', roleId: 4, phone: '0903456789', email: 'barista@mycoffee.vn' },
-        waiter: { code: 'NV004', name: 'Hoàng Văn Nam', roleId: 3, phone: '0904567890', email: 'waiter@mycoffee.vn' },
-        warehouse: { code: 'NV005', name: 'Bùi Quốc Hoàng', roleId: 5, phone: '0905678901', email: 'warehouse@mycoffee.vn' },
-      };
-
-      const matchedKey = Object.keys(defaultUsers).find(k => k === cleanInput.toLowerCase() || defaultUsers[k].phone === cleanInput);
-      if (matchedKey) {
-        try {
-          // Đảm bảo roles đầy đủ (Tách riêng Admin và Quản lý)
-          await db.query(`
-            INSERT INTO \`roles\` (\`id\`, \`name\`, \`label\`, \`description\`) VALUES
-              (1, 'admin', 'Quản Trị Hệ Thống', 'Quản trị phân quyền tài khoản & theo dõi hoạt động toàn hệ thống'),
-              (2, 'cashier', 'Thu ngân', 'Thao tác order, thanh toán tại quầy'),
-              (3, 'waiter', 'Phục vụ bàn', 'Tạo order, xem trạng thái bàn'),
-              (4, 'barista', 'Pha chế', 'Xem hàng đợi KDS, cập nhật món'),
-              (5, 'warehouse', 'Thủ kho', 'Quản lý kho nguyên vật liệu'),
-              (6, 'customer', 'Khách hàng', 'Tự đặt món trực tuyến & tích điểm'),
-              (7, 'manager', 'Quản Lý Quán', 'Toàn quyền CRUD thực đơn, bàn, kho, ca trực, khuyến mãi & Thống kê báo cáo')
-            ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`), \`label\` = VALUES(\`label\`), \`description\` = VALUES(\`description\`)
-          `);
-
-          const target = defaultUsers[matchedKey];
-          const hash = await bcrypt.hash('123456', 10);
-          await db.query(
-            `INSERT INTO users (code, username, password_hash, full_name, role_id, phone, email, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-             ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)`,
-            [target.code, matchedKey, hash, target.name, target.roleId, target.phone, target.email]
-          );
-
-          [rows] = await db.query(
-            `SELECT u.*, r.name AS role_name FROM users u
-             JOIN roles r ON r.id = u.role_id
-             WHERE (u.username = ? OR u.phone = ?) AND u.is_active = 1`,
-            [cleanInput, cleanInput]
-          );
-        } catch (seedErr) {
-          console.error('Error auto-seeding staff on login:', seedErr);
-        }
-      }
-    }
-
     if (!rows.length)
       return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu' });
 
     const user = rows[0];
-    let valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid && password === '123456' && ['admin', 'manager', 'quanly', 'cashier', 'barista', 'waiter', 'warehouse'].includes(user.username)) {
-      // Tự động đồng bộ lại mật khẩu chuẩn 123456 cho tài khoản quản lý & nhân viên quán
-      const newHash = await bcrypt.hash('123456', 10);
-      await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
-      valid = true;
-      user.password_hash = newHash;
-    }
+    const valid = await bcrypt.compare(password, user.password_hash);
 
     if (!valid)
       return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu' });

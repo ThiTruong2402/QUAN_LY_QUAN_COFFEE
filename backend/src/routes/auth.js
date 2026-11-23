@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const rateLimit = require('express-rate-limit');
 const { login, refresh, me, register, debugUsers } = require('../controllers/authController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 // Giới hạn tần suất đăng nhập để phòng chống tấn công dò mật khẩu (Brute-force)
 const loginLimiter = rateLimit({
@@ -32,6 +32,6 @@ router.post('/login', loginLimiter, login);
 router.post('/register', registerLimiter, register);
 router.post('/refresh', refresh);
 router.get('/me', authenticate, me);
-router.get('/debug-users', debugUsers);
+router.get('/debug-users', authenticate, authorize('admin'), debugUsers);
 
 module.exports = router;
