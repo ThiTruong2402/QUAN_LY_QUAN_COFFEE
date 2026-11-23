@@ -4,19 +4,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 const FALLBACK_DRINK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80';
-
-// Banking Config matching User's VietQR Screenshot
-const BANK_CONFIG = {
-  bankName: 'Techcombank',
-  bankFullName: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
-  accountNumber: '2402 2005 6666',
-  accountNumberRaw: '240220056666',
-  accountHolder: 'BUI VAN TRUONG',
-  bin: '970407', // Techcombank BIN
-};
 
 const getCategoryIcon = (catId) => {
   switch (Number(catId)) {
@@ -55,7 +46,7 @@ export default function PosOrder() {
   const [selectedTableCode, setSelectedTableCode] = useState(queryTableCode || 'Bàn 01');
 
   // Customer & Loyalty System (10k = 1 điểm, 1 điểm = 1k đ)
-  const [customerPhone, setCustomerPhone] = useState(queryCustomerPhone || '0901234567');
+  const [customerPhone, setCustomerPhone] = useState(queryCustomerPhone || '');
   const [customerName, setCustomerName] = useState(queryCustomerName || 'Khách');
   const [customerInfo, setCustomerInfo] = useState(null); // { id, name, phone, points_balance, total_spent, tier_name, discount_pct }
   const [usePoints, setUsePoints] = useState(false);
@@ -158,7 +149,9 @@ export default function PosOrder() {
     loadProducts();
     loadPromotions();
     loadTables();
-    lookupCustomerByPhone(queryCustomerPhone || customerPhone);
+    if (queryCustomerPhone) {
+      lookupCustomerByPhone(queryCustomerPhone);
+    }
   }, []);
 
   // Filter products
@@ -407,6 +400,13 @@ export default function PosOrder() {
       return;
     }
     if (isSubmitting) return;
+
+    // Chặn thanh toán nếu thu thiếu tiền mặt
+    if (chosenMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal) {
+      toast.error(`Tiền khách đưa (${fmt(cashGiven)}) chưa đủ thanh toán! Còn thiếu ${fmt(finalTotal - Number(cashGiven))}`);
+      return;
+    }
+
     setIsSubmitting(true);
     const chosenMethod = overrideMethod || paymentMethod || 'Tiền mặt';
 
@@ -453,7 +453,9 @@ export default function PosOrder() {
         total: finalTotal,
         subtotal: totalAmount,
         discount: totalDiscount,
+        totalDiscount,
         tierDiscount,
+        tax: Number(tax),
         pointsDiscount,
         pointsRedeemed: effectivePointsRedeemed,
         earnedPoints,
@@ -535,7 +537,7 @@ export default function PosOrder() {
   };
 
   // Dynamic VietQR Image URL
-  const vietQrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.bin}-${BANK_CONFIG.accountNumberRaw}-compact2.png?amount=${finalTotal}&addInfo=${encodeURIComponent('MYCOFFEE')}&accountName=${encodeURIComponent(BANK_CONFIG.accountHolder)}`;
+  const vietQrUrl = generateVietQRUrl({ amount: finalTotal, memo: 'CF POS DH' });
 
   return (
     <div className="animate-fade-in">
@@ -1630,20 +1632,25 @@ export default function PosOrder() {
                   <span>IN HÓA ĐƠN</span>
                 </button>
 
+                {paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal && (
+                  <div style={{ color: '#ef4444', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>
+                    ⚠️ Tiền khách đưa chưa đủ (còn thiếu {fmt(finalTotal - Number(cashGiven))})
+                  </div>
+                )}
                 <button
                   type="button"
                   className="btn btn-primary"
                   style={{
-                    background: isSubmitting ? '#4b5563' : '#15803d',
-                    borderColor: isSubmitting ? '#4b5563' : '#15803d',
+                    background: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : '#15803d',
+                    borderColor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : '#15803d',
                     color: '#ffffff',
                     fontWeight: 800,
                     fontSize: '1.05rem',
                     padding: '14px',
                     boxShadow: '0 4px 14px rgba(21, 128, 61, 0.35)',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    cursor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? 'not-allowed' : 'pointer',
                   }}
-                  disabled={isSubmitting || cart.length === 0}
+                  disabled={isSubmitting || cart.length === 0 || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)}
                   onClick={() => handleCompletePayment()}
                 >
                   <span>{isSubmitting ? '⏳' : '✅'}</span>
@@ -2291,16 +2298,16 @@ export default function PosOrder() {
           <span>Tổng tiền hàng:</span>
           <span>{fmt(completedOrder ? completedOrder.subtotal : totalAmount)}</span>
         </div>
-        {Number(discount) > 0 && (
+        {Number(completedOrder ? (completedOrder.discount ?? completedOrder.totalDiscount ?? 0) : totalDiscount) > 0 && (
           <div style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
             <span>Giảm giá:</span>
-            <span>-{fmt(discount)}</span>
+            <span>-{fmt(completedOrder ? (completedOrder.discount ?? completedOrder.totalDiscount ?? 0) : totalDiscount)}</span>
           </div>
         )}
-        {Number(tax) > 0 && (
+        {Number(completedOrder ? completedOrder.tax : tax) > 0 && (
           <div style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
             <span>Thuế:</span>
-            <span>+{fmt(tax)}</span>
+            <span>+{fmt(completedOrder ? completedOrder.tax : tax)}</span>
           </div>
         )}
         <div style={{ fontSize: '13px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', margin: '6px 0', borderTop: '1px solid #000', paddingTop: '4px' }}>

@@ -5,18 +5,9 @@ import { playNotificationSound } from '../utils/sound';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
-
-// Bank Config matching Techcombank Account
-const BANK_CONFIG = {
-  bankName: 'Techcombank',
-  bankFullName: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
-  accountNumber: '2402 2005 6666',
-  accountNumberRaw: '240220056666',
-  accountHolder: 'BUI VAN TRUONG',
-  bin: '970407',
-};
 
 // 3-step Coffee Shop Direct Sales Workflow Metadata
 // Khách thanh toán 100% tại quầy trước khi làm món -> Pha xong & Trả món là hoàn tất (Không cần thanh toán nữa)
@@ -1270,7 +1261,7 @@ export default function Orders() {
 
             <div style={{ padding: '24px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
               <img
-                src={`https://img.vietqr.io/image/${BANK_CONFIG.bin}-${BANK_CONFIG.accountNumberRaw}-compact2.png?amount=${showQrModal.total}&addInfo=${encodeURIComponent(showQrModal.code || showQrModal.invoice_no)}&accountName=${encodeURIComponent(BANK_CONFIG.accountHolder)}`}
+                src={generateVietQRUrl({ amount: showQrModal.total, memo: showQrModal.code || showQrModal.invoice_no })}
                 alt="VietQR Techcombank"
                 style={{ width: '220px', height: '220px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.35)', background: '#ffffff', padding: '4px' }}
               />

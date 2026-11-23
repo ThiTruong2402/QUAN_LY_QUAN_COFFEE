@@ -4,19 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import socket from '../api/socket';
 import toast from 'react-hot-toast';
+import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 const FALLBACK_DRINK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80';
-
-// Cấu hình ngân hàng VietQR Techcombank đồng bộ giống giao diện Admin
-const BANK_CONFIG = {
-  bankName: 'Techcombank',
-  bankFullName: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
-  accountNumber: '2402 2005 6666',
-  accountNumberRaw: '240220056666',
-  accountHolder: 'BUI VAN TRUONG',
-  bin: '970407', // Techcombank BIN
-};
 
 const getCategoryIcon = (catId) => {
   switch (Number(catId)) {
@@ -150,10 +141,19 @@ export default function CustomerPortal() {
 
   const loadOrderHistory = async () => {
     try {
-      const res = await api.get('/orders/my-history');
-      setOrderHistory(Array.isArray(res.data?.data) ? res.data.data : []);
+      if (user) {
+        const res = await api.get('/orders/my-history');
+        setOrderHistory(Array.isArray(res.data?.data) ? res.data.data : []);
+      } else {
+        const saved = localStorage.getItem('guest_orders');
+        setOrderHistory(saved ? JSON.parse(saved) : []);
+      }
     } catch (err) {
       console.warn('Could not load order history:', err);
+      const saved = localStorage.getItem('guest_orders');
+      if (saved) {
+        try { setOrderHistory(JSON.parse(saved)); } catch (_) {}
+      }
     }
   };
 
@@ -508,7 +508,6 @@ export default function CustomerPortal() {
         order_type: 'takeaway', // Mặc định làm vào cốc đóng sẵn tiện lợi
         table_id: null,
         coupon_code: appliedVoucher ? appliedVoucher.code : null,
-        payment_status: 'paid', // Đã ghi nhận thanh toán
         points_to_redeem: effectivePointsRedeemed,
         pickup_time: isScheduledOrder ? selectedSlotDatetime : null,
       };
@@ -523,6 +522,27 @@ export default function CustomerPortal() {
             ? `🗓️ Đặt trước thành công! Đơn sẽ tự động chuyển Barista trước giờ nhận 15 phút.`
             : `🎉 Đặt đơn thành công! Đơn hàng đã chuyển sang quầy Barista pha chế.`
         );
+
+        // Lưu đơn hàng khách vãng lai vào localStorage để xem lại ở tab Lịch sử
+        if (!user) {
+          try {
+            const guestOrders = JSON.parse(localStorage.getItem('guest_orders') || '[]');
+            guestOrders.unshift({
+              id: orderData?.orderId,
+              code: orderData?.orderCode || orderData?.invoiceNo,
+              total: finalTotal,
+              status: orderData?.status || 'pending',
+              payment_status: orderData?.payment_status || 'unpaid',
+              created_at: new Date().toISOString(),
+              items: [...cart],
+              order_type: orderType,
+              pickup_time: orderData?.pickup_time,
+            });
+            localStorage.setItem('guest_orders', JSON.stringify(guestOrders.slice(0, 20)));
+          } catch (e) {
+            console.warn('Could not save guest order to localStorage', e);
+          }
+        }
 
         // Hiển thị modal hoàn tất đơn hàng giữa màn hình
         setCompletedOrderModal({
@@ -582,8 +602,11 @@ export default function CustomerPortal() {
     return matchCat && matchSearch;
   });
 
-  const customerPhone = user?.phone || user?.username || guestPhone || '0901234567';
-  const vietQrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.bin}-${BANK_CONFIG.accountNumberRaw}-compact2.png?amount=${finalTotal}&addInfo=${encodeURIComponent('MYCOFFEE ' + customerPhone)}&accountName=${encodeURIComponent(BANK_CONFIG.accountHolder)}`;
+  const customerPhone = user?.phone || user?.username || guestPhone || '';
+  const vietQrUrl = generateVietQRUrl({
+    amount: finalTotal,
+    memo: `CF ${customerPhone || 'KHACH'} DH`
+  });
 
   return (
     <div className="animate-fade-in" style={{ minHeight: '100vh', background: '#130c08', color: '#f5efe6', paddingBottom: '60px' }}>
