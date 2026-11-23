@@ -471,7 +471,8 @@ const directCheckout = async (req, res) => {
     });
   } catch (err) {
     await conn.rollback();
-    res.status(400).json({ success: false, message: err.message });
+    const statusCode = err.status || 400;
+    res.status(statusCode).json({ success: false, message: err.message });
   } finally {
     conn.release();
   }

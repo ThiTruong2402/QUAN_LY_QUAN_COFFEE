@@ -9,6 +9,9 @@ const inventoryService = require('./inventoryService');
 const storeService = require('./storeSettingsService');
 const { getVietnamDateString, getVietnamDateNumber } = require('../utils/date');
 
+// In-memory idempotency & anti-spam lock (ngăn chặn race-condition, double-click / spam request liên tục trong 3s)
+const recentOrderLocks = new Map();
+
 // Map phương thức thanh toán sang enum chuẩn database
 const PAYMENT_METHOD_MAP = {
   'Tiền mặt': 'cash',
@@ -59,6 +62,23 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
   const effectivePhone = customer_phone || (reqUser?.role === 'customer' ? (reqUser.phone || reqUser.username) : null);
   const effectiveName = customer_name || (reqUser?.role === 'customer' ? reqUser.full_name : 'Khách');
 
+  // Chống spam / double-click tức thì (Idempotency in-memory lock chặn đứng race-condition)
+  if (effectivePhone) {
+    const lastTime = recentOrderLocks.get(effectivePhone);
+    const now = Date.now();
+    if (lastTime && now - lastTime < 3000) {
+      const spamErr = new Error('Bạn đang thao tác quá nhanh! Vui lòng chờ ít giây trước khi thực hiện đơn mới.');
+      spamErr.status = 429;
+      throw spamErr;
+    }
+    recentOrderLocks.set(effectivePhone, now);
+    if (recentOrderLocks.size > 500) {
+      for (const [p, t] of recentOrderLocks.entries()) {
+        if (now - t > 10000) recentOrderLocks.delete(p);
+      }
+    }
+  }
+
   let customerId = null;
   if (effectivePhone) {
     const [cRows] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
@@ -103,7 +123,7 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     promoDiscount,
     pointsDiscount,
     tax,
-    shippingFee
+    shippingFee: shipping_fee
   });
   const { total, tax: finalTax, totalDiscount } = pricingResult;
 
@@ -138,14 +158,9 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     }
   }
 
-  // 8. Trạng thái thanh toán (Quy tắc bảo mật: Khách online không thể tự set paid)
+  // 8. Trạng thái thanh toán (Khách online chuyển khoản thì trạng thái thanh toán là unpaid chờ thu ngân xác nhận)
   const isTransfer = ['Chuyển khoản', 'QR Banking', 'Ví MoMo', 'ZaloPay', 'bank_transfer'].includes(payment_method);
-  let finalPaymentStatus = 'paid';
-  if (isOnlineCustomer) {
-    finalPaymentStatus = 'unpaid';
-  } else if (!isStaff && requestedStatus !== 'paid') {
-    finalPaymentStatus = 'unpaid';
-  }
+  const finalPaymentStatus = (isOnlineCustomer && isTransfer) ? 'unpaid' : 'paid';
 
   // 9. Sinh số hóa đơn và mã đơn hàng tuần tự
   const today = getVietnamDateString();
