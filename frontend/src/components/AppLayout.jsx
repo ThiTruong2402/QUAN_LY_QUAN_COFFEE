@@ -199,16 +199,24 @@ export default function AppLayout({ children }) {
           font-weight: 700;
           box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
         }
+        .mch-shell {
+          display: flex;
+          min-height: 100vh;
+          width: 100%;
+          overflow-x: hidden;
+          background: #F7F5F0;
+        }
         .mch-main {
           flex: 1;
           min-width: 0;
           display: flex;
           flex-direction: column;
+          overflow-x: hidden;
         }
         .mch-topbar {
-          height: 56px;
+          height: 58px;
           background: #FFFFFF;
-          border-bottom: 1px solid #E7DFD5;
+          border-bottom: 1px solid #EAE3DA;
           padding: 0 24px;
           display: flex;
           align-items: center;
@@ -223,6 +231,7 @@ export default function AppLayout({ children }) {
           padding: 20px 24px;
           max-width: 1560px;
           width: 100%;
+          min-width: 0;
           margin: 0 auto;
         }
         .mch-badge {

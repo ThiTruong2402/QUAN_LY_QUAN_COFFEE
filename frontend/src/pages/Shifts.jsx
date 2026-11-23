@@ -193,12 +193,12 @@ export default function Shifts() {
     setPage(Math.max(1, Math.min(totalPages, p)));
   };
 
-  // Helper badge style
+  // Helper badge style (Chuẩn hóa màu Pastel SaaS F&B)
   const getShiftBadge = (type) => {
-    if (!type) return { bg: '#f1f5f9', color: '#64748b', label: 'Nghỉ', icon: '🛌' };
-    if (type.includes('Sáng')) return { bg: 'rgba(254, 243, 199, 0.95)', color: '#92400e', border: '#fde68a', label: 'Ca Sáng', icon: '🌅', time: '06:30 - 14:30' };
-    if (type.includes('Chiều') || type.includes('Tối')) return { bg: 'rgba(255, 237, 213, 0.95)', color: '#9a3412', border: '#fed7aa', label: 'Ca Tối', icon: '🌙', time: '14:30 - 22:30' };
-    return { bg: 'rgba(220, 252, 231, 0.95)', color: '#166534', border: '#bbf7d0', label: 'Hành Chính', icon: '💼', time: '08:00 - 17:00' };
+    if (!type) return { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'Nghỉ', icon: '' };
+    if (type.includes('Sáng')) return { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A', label: 'Ca Sáng', icon: '', time: '06:30 - 14:30' };
+    if (type.includes('Chiều') || type.includes('Tối')) return { bg: '#EEF2FF', color: '#4338CA', border: '#C7D2FE', label: 'Ca Chiều/Tối', icon: '', time: '14:30 - 22:30' };
+    return { bg: '#ECFDF5', color: '#15803D', border: '#BBF7D0', label: 'Hành Chính', icon: '', time: '08:00 - 17:00' };
   };
 
   const getStatusColor = (status) => {
@@ -431,15 +431,15 @@ export default function Shifts() {
             <div
               style={{
                 fontWeight: 800,
-                fontSize: '1.15rem',
-                color: '#fef3c7',
-                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '1.2rem',
+                color: '#1E1815',
+                fontFamily: "'Be Vietnam Pro', sans-serif",
               }}
             >
-              QUẢN LÝ LỊCH TRỰC & PHÂN CÔNG NHÂN VIÊN
+              Lịch phân ca &amp; điều phối nhân sự
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#c4a482' }}>
-              Quản lý có thể xếp ca, đổi nhân viên trực hoặc hoán đổi ca giữa các nhân viên linh hoạt
+            <div style={{ fontSize: '0.8rem', color: '#73675E', marginTop: '2px' }}>
+              Xếp ca làm việc, điều chuyển và hoán đổi ca giữa các nhân viên linh hoạt
             </div>
           </div>
         </div>
@@ -448,40 +448,46 @@ export default function Shifts() {
         <div
           style={{
             display: 'flex',
-            gap: '8px',
-            background: 'rgba(255, 255, 255, 0.05)',
+            gap: '6px',
+            background: '#F1ECE4',
             padding: '4px',
-            borderRadius: '8px',
-            border: '1px solid rgba(245, 158, 11, 0.2)',
+            borderRadius: '10px',
+            border: '1px solid #EAE3DA',
           }}
         >
           <button
             type="button"
-            className="btn btn-sm"
+            className="ui-btn"
             style={{
-              background: viewMode === 'weekly' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'transparent',
-              color: viewMode === 'weekly' ? '#ffffff' : '#d5bba2',
+              background: viewMode === 'weekly' ? '#FFFFFF' : 'transparent',
+              color: viewMode === 'weekly' ? '#1E1815' : '#73675E',
               fontWeight: 700,
-              padding: '8px 14px',
-              borderRadius: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: viewMode === 'weekly' ? '1px solid #EAE3DA' : 'none',
+              boxShadow: viewMode === 'weekly' ? '0 1px 3px rgba(28, 20, 14, 0.05)' : 'none',
+              fontSize: '0.82rem'
             }}
             onClick={() => setViewMode('weekly')}
           >
-            🗓️ THỜI KHÓA BIỂU CẢ TUẦN
+            Thời khóa biểu tuần
           </button>
           <button
             type="button"
-            className="btn btn-sm"
+            className="ui-btn"
             style={{
-              background: viewMode === 'list' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'transparent',
-              color: viewMode === 'list' ? '#ffffff' : '#d5bba2',
+              background: viewMode === 'list' ? '#FFFFFF' : 'transparent',
+              color: viewMode === 'list' ? '#1E1815' : '#73675E',
               fontWeight: 700,
-              padding: '8px 14px',
-              borderRadius: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: viewMode === 'list' ? '1px solid #EAE3DA' : 'none',
+              boxShadow: viewMode === 'list' ? '0 1px 3px rgba(28, 20, 14, 0.05)' : 'none',
+              fontSize: '0.82rem'
             }}
             onClick={() => setViewMode('list')}
           >
-            📋 BẢNG PHÂN CA & CHỈNH SỬA
+            Danh sách phân ca &amp; Chỉnh sửa
           </button>
         </div>
       </div>

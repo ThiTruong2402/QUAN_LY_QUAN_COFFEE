@@ -1,0 +1,318 @@
+/* ==========================================================================
+   MY COFFEE HOUSE — UNIFIED PRODUCTION DESIGN SYSTEM (REAL F&B SAAS STYLE)
+   Import tệp này tại dòng cuối của frontend/src/main.jsx
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+ 
+:root {
+  --ui-bg: #F7F5F0;            /* Nền giấy kem ấm dịu mắt */
+  --ui-surface: #FFFFFF;       /* Nền thẻ nội dung & bảng */
+  --ui-surface-2: #FAF8F4;     /* Nền tiêu đề bảng / ô phụ */
+  --ui-sidebar: #1C130E;       /* Nâu Espresso trầm sang trọng */
+  --ui-border: #EAE3DA;        /* Viền ấm siêu mảnh */
+  --ui-border-strong: #DDD3C6;
+  --ui-text: #1E1815;          /* Chữ chính sắc nét */
+  --ui-text-secondary: #5E534B;
+  --ui-muted: #8C7E74;
+  --ui-brand: #C25E1A;         /* Cam đất Caramel đặc trưng cà phê */
+  --ui-brand-hover: #A64D12;
+  --ui-brand-soft: #FDF2E9;
+  --ui-espresso: #2B1A12;
+ 
+  /* Màu ngữ nghĩa dịu mắt (Soft Semantic Tints — Không neon) */
+  --ui-green: #15803D;   --ui-green-bg: #ECFDF5;   --ui-green-bd: #BBF7D0;
+  --ui-amber: #B45309;   --ui-amber-bg: #FFFBEB;   --ui-amber-bd: #FDE68A;
+  --ui-red: #B91C1C;     --ui-red-bg: #FEF2F2;     --ui-red-bd: #FECACA;
+  --ui-blue: #0369A1;    --ui-blue-bg: #F0F9FF;    --ui-blue-bd: #BAE6FD;
+  --ui-purple: #6D28D9;  --ui-purple-bg: #F5F3FF;  --ui-purple-bd: #DDD6FE;
+ 
+  --ui-r-sm: 8px;
+  --ui-r-md: 12px;
+  --ui-r-lg: 16px;
+  --ui-r-xl: 20px;
+  --ui-shadow-xs: 0 1px 2px rgba(28, 20, 14, 0.04);
+  --ui-shadow-sm: 0 2px 10px rgba(28, 20, 14, 0.045);
+  --ui-shadow-md: 0 10px 28px rgba(28, 20, 14, 0.08);
+}
+ 
+*, *::before, *::after { box-sizing: border-box; }
+ 
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;          /* Vá dứt điểm lỗi tràn ngang cắt chữ bên phải */
+  background: var(--ui-bg) !important;
+  color: var(--ui-text) !important;
+  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+}
+ 
+/* Chống tràn ngang trên vùng chính của Layout */
+.mch-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
+.mch-main  { flex: 1; min-width: 0 !important; max-width: 100%; overflow-x: hidden; }
+.mch-content { width: 100%; max-width: 100%; padding: 20px 24px !important; }
+ 
+/* 1. THẺ NỘI DUNG MỀM MẠI (KHÔNG VUÔNG CỨNG, KHÔNG VIỀN NEON) */
+.ui-card, .mockup-panel {
+  background: var(--ui-surface) !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: var(--ui-r-lg) !important;
+  box-shadow: var(--ui-shadow-sm) !important;
+  overflow: hidden;
+  color: var(--ui-text) !important;
+}
+ 
+.ui-card-header, .mockup-panel-header {
+  padding: 15px 20px !important;
+  background: var(--ui-surface) !important;
+  border-bottom: 1px solid #F1ECE4 !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+ 
+.ui-card-title, .mockup-panel-title {
+  margin: 0;
+  font-size: 0.96rem !important;
+  font-weight: 700 !important;
+  color: var(--ui-espresso) !important;
+  letter-spacing: -0.01em;
+  text-transform: none !important;   /* Xóa kiểu IN HOA cứng nhắc */
+  font-family: 'Be Vietnam Pro', sans-serif !important;
+}
+ 
+/* 2. LƯỚI KPI ĐỒNG NHẤT (KHÔNG VIỀN 5 MÀU PHÁT SÁNG) */
+.ui-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+ 
+.ui-kpi-card {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-lg);
+  padding: 16px 18px;
+  box-shadow: var(--ui-shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.ui-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ui-shadow-md);
+  border-color: var(--ui-border-strong);
+}
+ 
+.ui-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ui-kpi-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ui-muted);
+}
+.ui-kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ui-surface-2);
+  color: var(--ui-brand);
+}
+.ui-kpi-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ui-text);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.ui-kpi-sub {
+  font-size: 0.76rem;
+  color: var(--ui-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+ 
+/* 3. THANH TAB GẠCH CHÂN THANH LỊCH (THAY CHO HỘP CAM KHỔNG LỒ) */
+.ui-underline-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--ui-border);
+  padding: 0 4px;
+  overflow-x: auto;
+}
+ 
+.ui-underline-tab {
+  position: relative;
+  border: none;
+  background: transparent;
+  padding: 11px 16px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ui-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s ease;
+}
+.ui-underline-tab:hover { color: var(--ui-text); }
+.ui-underline-tab.active {
+  color: var(--ui-brand);
+  font-weight: 700;
+}
+.ui-underline-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2.5px;
+  border-radius: 99px 99px 0 0;
+  background: var(--ui-brand);
+}
+ 
+/* 4. SEGMENTED PILL FILTER (BỘ LỌC MỀM MẠI) */
+.ui-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #F1ECE4;
+  padding: 4px;
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+.ui-pill {
+  border: none;
+  background: transparent;
+  padding: 6px 13px;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.ui-pill:hover { color: var(--ui-text); }
+.ui-pill.active {
+  background: #FFFFFF;
+  color: var(--ui-espresso);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(28, 20, 14, 0.1);
+}
+ 
+/* 5. BẢNG DỮ LIỆU CHUYÊN NGHIỆP (KHÔNG VỠ DÒNG, KHÔNG TÔ NÂU BỆT) */
+.ui-table-wrap { width: 100%; overflow-x: auto; }
+.ui-table, .mockup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.ui-table th, .mockup-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ui-muted) !important;
+  background: var(--ui-surface-2) !important;
+  border-bottom: 1px solid var(--ui-border) !important;
+  white-space: nowrap;
+}
+.ui-table td, .mockup-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid #F3EEE7 !important;
+  color: var(--ui-text) !important;
+  background: transparent !important;
+  vertical-align: middle;
+}
+.ui-table tbody tr:hover, .mockup-table tbody tr:hover {
+  background: #FAF6F0 !important;
+}
+.ui-nowrap { white-space: nowrap !important; }
+ 
+/* 6. INPUT, SELECT & BUTTON BO TRÒN MỀM */
+.ui-input, .ui-select, .form-input, .form-select {
+  height: 38px;
+  background: var(--ui-surface-2) !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: 10px !important;
+  padding: 0 12px;
+  font-size: 0.84rem;
+  color: var(--ui-text) !important;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.ui-input:focus, .ui-select:focus, .form-input:focus, .form-select:focus {
+  background: #FFFFFF !important;
+  border-color: var(--ui-brand) !important;
+  box-shadow: 0 0 0 3px rgba(194, 94, 26, 0.12);
+}
+ 
+.ui-btn {
+  height: 38px;
+  padding: 0 15px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.ui-btn-primary { background: var(--ui-espresso); color: #FFFFFF; }
+.ui-btn-primary:hover { background: #140B07; }
+.ui-btn-brand   { background: var(--ui-brand); color: #FFFFFF; }
+.ui-btn-brand:hover { background: var(--ui-brand-hover); }
+.ui-btn-outline { background: #FFFFFF; border-color: var(--ui-border); color: var(--ui-text); }
+.ui-btn-outline:hover { background: var(--ui-surface-2); border-color: var(--ui-border-strong); }
+.ui-btn-danger  { background: var(--ui-red-bg); border-color: var(--ui-red-bd); color: var(--ui-red); }
+.ui-btn-icon {
+  width: 34px; height: 34px; padding: 0; border-radius: 9px;
+  background: #FFFFFF; border: 1px solid var(--ui-border); color: var(--ui-text-secondary);
+}
+.ui-btn-icon:hover { background: var(--ui-surface-2); color: var(--ui-text); }
+ 
+/* 7. SOFT-PILL BADGES (THAY CHO NHÃN MÀU GẮT) */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.ui-badge-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ui-badge-green  { background: var(--ui-green-bg);  color: var(--ui-green);  border-color: var(--ui-green-bd); }
+.ui-badge-amber  { background: var(--ui-amber-bg);  color: var(--ui-amber);  border-color: var(--ui-amber-bd); }
+.ui-badge-red    { background: var(--ui-red-bg);    color: var(--ui-red);    border-color: var(--ui-red-bd); }
+.ui-badge-blue   { background: var(--ui-blue-bg);   color: var(--ui-blue);   border-color: var(--ui-blue-bd); }
+.ui-badge-purple { background: var(--ui-purple-bg); color: var(--ui-purple); border-color: var(--ui-purple-bd); }
+.ui-badge-gray   { background: #F3EFEA; color: #5E534B; border-color: #E5DDD3; }

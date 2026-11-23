@@ -9,21 +9,21 @@ const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 const getRoleBadge = (roleName) => {
   switch (roleName) {
     case 'admin':
-      return { label: '🛡️ Admin', bg: 'rgba(220, 38, 38, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)' };
+      return { label: 'Quản trị viên', cls: 'ui-badge-red' };
     case 'manager':
-      return { label: '👔 Quản lý', bg: 'rgba(217, 119, 6, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)' };
+      return { label: 'Quản lý', cls: 'ui-badge-purple' };
     case 'cashier':
-      return { label: '💵 Thu ngân', bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)' };
+      return { label: 'Thu ngân', cls: 'ui-badge-green' };
     case 'barista':
-      return { label: '☕ Pha chế', bg: 'rgba(2, 132, 199, 0.2)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)' };
+      return { label: 'Pha chế', cls: 'ui-badge-blue' };
     case 'waiter':
-      return { label: '🛵 Phục vụ', bg: 'rgba(124, 58, 237, 0.2)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.35)' };
+      return { label: 'Phục vụ', cls: 'ui-badge-purple' };
     case 'warehouse':
-      return { label: '📦 Thủ kho', bg: 'rgba(234, 88, 12, 0.2)', color: '#fb923c', border: '1px solid rgba(251, 146, 60, 0.35)' };
+      return { label: 'Thủ kho', cls: 'ui-badge-amber' };
     case 'customer':
-      return { label: '🌟 Khách hàng (Đăng ký)', bg: 'rgba(13, 148, 136, 0.25)', color: '#2dd4bf', border: '1px solid rgba(45, 212, 191, 0.35)' };
+      return { label: 'Khách hàng', cls: 'ui-badge-green' };
     default:
-      return { label: roleName || 'Khác', bg: 'rgba(255, 255, 255, 0.1)', color: '#fef3c7', border: '1px solid rgba(255, 255, 255, 0.2)' };
+      return { label: roleName || 'Khác', cls: 'ui-badge-gray' };
   }
 };
 
@@ -250,90 +250,70 @@ export default function Accounts() {
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* 1. TOP TABS CONTROLLER */}
+      {/* 1. TOP TABS CONTROLLER (Underline Tabs chuẩn SaaS F&B) */}
       <div
-        className="mockup-panel"
         style={{
-          padding: '6px',
+          background: '#FFFFFF',
+          border: '1px solid #EAE3DA',
+          borderRadius: '14px',
+          padding: '6px 18px',
           display: 'flex',
-          gap: '8px',
-          borderRadius: '12px',
-          background: 'rgba(28, 17, 10, 0.95)',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
         }}
       >
-        {canManageStaff && (
+        <div className="ui-underline-tabs" style={{ marginBottom: 0 }}>
+          {canManageStaff && (
+            <button
+              type="button"
+              className={`ui-underline-tab ${activeTab === 'staff' ? 'active' : ''}`}
+              onClick={() => setActiveTab('staff')}
+            >
+              Tài khoản &amp; Phân quyền
+            </button>
+          )}
+
           <button
             type="button"
-            className="btn"
-            style={{
-              flex: 1,
-              background: activeTab === 'staff' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'transparent',
-              color: activeTab === 'staff' ? '#ffffff' : '#c4a482',
-              fontWeight: 800,
-              fontSize: '0.86rem',
-              padding: '10px 14px',
-              border: activeTab === 'staff' ? '1.5px solid #fbbf24' : 'none',
-              boxShadow: activeTab === 'staff' ? '0 4px 12px rgba(217, 119, 6, 0.35)' : 'none',
-            }}
-            onClick={() => setActiveTab('staff')}
+            className={`ui-underline-tab ${activeTab === 'customers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('customers')}
           >
-            👥 QUẢN LÝ TÀI KHOẢN &amp; PHÂN QUYỀN
+            Hội viên &amp; Tích điểm
           </button>
-        )}
 
-        <button
-          type="button"
-          className="btn"
-          style={{
-            flex: 1,
-            background: activeTab === 'customers' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'transparent',
-            color: activeTab === 'customers' ? '#ffffff' : '#c4a482',
-            fontWeight: 800,
-            fontSize: '0.86rem',
-            padding: '10px 14px',
-            border: activeTab === 'customers' ? '1.5px solid #fbbf24' : 'none',
-            boxShadow: activeTab === 'customers' ? '0 4px 12px rgba(217, 119, 6, 0.35)' : 'none',
-          }}
-          onClick={() => setActiveTab('customers')}
-        >
-          👤 HỘI VIÊN &amp; TÍCH ĐIỂM
-        </button>
-
-        <button
-          type="button"
-          className="btn"
-          style={{
-            flex: 1,
-            background: activeTab === 'promotions' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'transparent',
-            color: activeTab === 'promotions' ? '#ffffff' : '#c4a482',
-            fontWeight: 800,
-            fontSize: '0.86rem',
-            padding: '10px 14px',
-            border: activeTab === 'promotions' ? '1.5px solid #fbbf24' : 'none',
-            boxShadow: activeTab === 'promotions' ? '0 4px 12px rgba(217, 119, 6, 0.35)' : 'none',
-          }}
-          onClick={() => setActiveTab('promotions')}
-        >
-          🎁 VOUCHER &amp; KHUYẾN MÃI
-        </button>
-
-        {isAdmin && (
           <button
             type="button"
-            className="btn"
-            style={{
-              flex: 1,
-              background: 'rgba(2, 132, 199, 0.15)',
-              color: '#38bdf8',
-              fontWeight: 800,
-              fontSize: '0.86rem',
-              padding: '10px 14px',
-              border: '1.5px solid #0284c7',
-              cursor: 'pointer'
-            }}
-            onClick={() => navigate('/audit-logs')}
+            className={`ui-underline-tab ${activeTab === 'promotions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('promotions')}
           >
-            🛡️ XEM NHẬT KÝ HOẠT ĐỘNG →
+            Voucher &amp; Khuyến mãi
+          </button>
+        </div>
+
+        {canManageStaff && activeTab === 'staff' && (
+          <button
+            type="button"
+            className="ui-btn ui-btn-brand"
+            style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+            onClick={() => {
+              setSelectedUser(null);
+              setStaffForm({
+                code: '',
+                username: '',
+                password: '',
+                full_name: '',
+                birthday: '1995-01-01',
+                gender: 'Nam',
+                phone: '',
+                email: '',
+                role_id: 2,
+                is_active: 1,
+              });
+            }}
+          >
+            + Tạo tài khoản
           </button>
         )}
       </div>
@@ -466,17 +446,7 @@ export default function Accounts() {
                           <td style={{ fontWeight: 600, color: '#fef3c7' }}>{u.full_name}</td>
                           <td style={{ color: '#d5bba2' }}>{u.username}</td>
                           <td>
-                            <span style={{
-                              background: badge.bg,
-                              color: badge.color,
-                              border: badge.border,
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.74rem',
-                              fontWeight: 700,
-                              display: 'inline-block',
-                              whiteSpace: 'nowrap'
-                            }}>
+                            <span className={`ui-badge ${badge.cls}`}>
                               {badge.label}
                             </span>
                           </td>

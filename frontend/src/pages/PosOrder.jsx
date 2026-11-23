@@ -134,7 +134,7 @@ export default function PosOrder() {
       const r = await api.get('/promotions/active');
       const list = r.data.data || [];
       if (list.length > 0) {
-        setAvailableCoupons(list.filter(p => p.code).map(p => ({
+        setAvailableCoupons(list.filter(p => p.code && p.code !== 'FREESHIP').map(p => ({
           code: p.code,
           name: p.name,
           desc: p.description || p.name
@@ -1273,10 +1273,10 @@ export default function PosOrder() {
                     disabled={cart.length === 0 || isSubmitting}
                   >
                     {isSubmitting
-                      ? '⏳ ĐANG XỬ LÝ...'
+                      ? 'Đang xử lý...'
                       : paymentMethod === 'QR Banking'
-                      ? '⚡ THANH TOÁN VIETQR (F9)'
-                      : '⚡ THANH TOÁN TIỀN MẶT (F9)'}
+                      ? 'Thanh toán QR (F9)'
+                      : 'Thu tiền mặt (F9)'}
                   </button>
                 </div>
 
