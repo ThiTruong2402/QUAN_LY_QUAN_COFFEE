@@ -93,7 +93,7 @@ const seatedMins = (openedAt) => {
 // SUB-COMPONENTS
 // ==========================================
 
-// 1. KPI Card theo chuẩn trang Thống kê
+// 1. KPI Card theo chuẩn trang Thống kê (Cắt góc bo mượt mà, không bao giờ bị thừa góc)
 function KpiCard({ icon: Icon, iconColor, iconBg, label, value, unit, subtitle, active, onClick, borderStrip }) {
   return (
     <div
@@ -108,15 +108,30 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, unit, subtitle, 
         gap: '14px',
         cursor: onClick ? 'pointer' : 'default',
         borderRadius: '12px',
-        border: active ? '1.5px solid #d97706' : '1px solid rgba(245, 158, 11, 0.15)',
-        borderLeft: borderStrip ? `4px solid ${borderStrip}` : undefined,
-        background: active ? 'rgba(217, 119, 6, 0.12)' : 'rgba(26, 15, 8, 0.85)',
+        position: 'relative',
+        overflow: 'hidden',
+        border: active ? '1.5px solid #d97706' : '1px solid #3d2618',
+        background: active ? 'rgba(217, 119, 6, 0.14)' : '#1c120b',
         boxShadow: active ? '0 0 16px rgba(217, 119, 6, 0.2)' : '0 4px 16px rgba(0, 0, 0, 0.35)',
         transition: 'all 0.2s ease',
         userSelect: 'none',
       }}
       onKeyDown={(e) => e.key === 'Enter' && onClick && onClick()}
     >
+      {/* Vạch màu chỉ trạng thái cắt sạch sẽ bằng overflow hidden */}
+      {borderStrip && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '4px',
+            backgroundColor: borderStrip,
+          }}
+        />
+      )}
+
       <div
         style={{
           width: '44px',
@@ -340,7 +355,7 @@ function BtnOutlineHover({
   );
 }
 
-// 6. Thẻ Bàn (Table Card) - Chuẩn hóa khung chung 4 hàng
+// 6. Thẻ Bàn (Table Card) - Chuẩn hóa khung chung 4 hàng, bo góc mượt mà chuyên nghiệp như POS
 function TableCard({
   table,
   onOpenToPos,
@@ -356,8 +371,7 @@ function TableCard({
   const cdText = isReserved ? countdown(table.reservation_time) : null;
   const sitText = isOccupied ? seatedMins(table.current_order_time) : null;
 
-  // LƯU Ý SỬA LỖI BÀN 10:
-  // Không bao giờ fallback sai thành 1 món hay 55.000 đ nếu không có dữ liệu thật!
+  // SỬA LỖI BÀN 10: Đọc chính xác dữ liệu từ server, không fallback sai
   const itemCount = Number(table.current_item_count ?? 0);
   const orderTotal = Number(table.current_order_total ?? 0);
 
@@ -367,17 +381,18 @@ function TableCard({
       style={{
         padding: '16px',
         borderRadius: '12px',
+        position: 'relative',
+        overflow: 'hidden',
         border: isOccupied
-          ? '1.5px solid rgba(239, 68, 68, 0.45)'
+          ? '1.5px solid rgba(239, 68, 68, 0.55)'
           : isReserved
-          ? '1.5px solid rgba(245, 158, 11, 0.45)'
-          : '1px solid rgba(245, 158, 11, 0.12)',
-        borderLeft: `4px solid ${cfg.strip}`,
+          ? '1.5px solid rgba(245, 158, 11, 0.55)'
+          : '1px solid #3d2618',
         background: isOccupied
           ? 'linear-gradient(145deg, rgba(38, 16, 12, 0.95), rgba(24, 12, 8, 0.95))'
           : isReserved
           ? 'linear-gradient(145deg, rgba(38, 26, 10, 0.95), rgba(24, 15, 6, 0.95))'
-          : 'rgba(26, 15, 8, 0.85)',
+          : '#1c120b',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -387,26 +402,41 @@ function TableCard({
           ? '0 6px 20px rgba(239, 68, 68, 0.15)'
           : isReserved
           ? '0 6px 20px rgba(245, 158, 11, 0.15)'
-          : '0 4px 14px rgba(0, 0, 0, 0.3)',
+          : '0 4px 16px rgba(0, 0, 0, 0.35)',
         transition: 'all 0.2s ease',
       }}
     >
-      {/* HÀNG 1: Tên bàn + Badge trạng thái */}
+      {/* Vạch màu chỉ trạng thái bên trái được clip hoàn hảo trong bo góc 12px, KHÔNG BAO GIỜ bị thừa góc */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: '4px',
+          backgroundColor: cfg.strip,
+        }}
+      />
+
+      {/* HÀNG 1: Tên bàn kiểu badge POS + Badge trạng thái */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <h3
+          <span
             style={{
-              margin: 0,
-              fontSize: '1.25rem',
+              fontSize: '0.92rem',
               fontWeight: 900,
-              color: '#fef3c7',
+              color: '#fbbf24',
+              background: 'rgba(251, 191, 36, 0.12)',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(251, 191, 36, 0.25)',
+              letterSpacing: '0.5px',
               fontFamily: "'Playfair Display', Georgia, serif",
-              letterSpacing: '0.02em',
               ...NL,
             }}
           >
             {table.code}
-          </h3>
+          </span>
           <StatusBadge status={table.status} />
         </div>
 
@@ -430,7 +460,7 @@ function TableCard({
               {shortArea(table.area_name)}
             </span>
           </span>
-          <span style={{ color: '#6b472e' }}>•</span>
+          <span style={{ color: '#5a341e' }}>•</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', ...NL }}>
             <Armchair size={13} color="#a88265" />
             <span>{table.seats} ghế</span>
@@ -451,7 +481,7 @@ function TableCard({
           justifyContent: 'center',
         }}
       >
-        {/* TRẠNG THÁI: TRỐNG (Tối giản, không gây nhiễu thị giác) */}
+        {/* TRẠNG THÁI: TRỐNG (Tối giản, chuyên nghiệp) */}
         {isEmpty && (
           <div
             style={{
@@ -576,40 +606,54 @@ function TableCard({
         )}
       </div>
 
-      {/* HÀNG 4 (CHÂN): Nút hành động luôn bám đáy */}
+      {/* HÀNG 4 (CHÂN): Nút hành động chuẩn POS */}
       <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
         {isEmpty && (
-          <BtnOutlineHover
+          <button
+            type="button"
+            className="btn btn-sm"
+            style={{
+              flex: 1,
+              background: '#15803d',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              padding: '7px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+              cursor: 'pointer',
+            }}
             onClick={() => onOpenToPos(table)}
-            borderColor="#10b981"
-            color="#34d399"
-            hoverBg="linear-gradient(135deg, #15803d, #166534)"
-            hoverColor="#ffffff"
-            style={{ flex: 1 }}
           >
             <Coffee size={14} />
             <span>Mở bàn / Gọi món</span>
-          </BtnOutlineHover>
+          </button>
         )}
 
         {isOccupied && (
           <>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-sm"
               style={{
                 flex: 1,
-                background: 'linear-gradient(135deg, #d97706, #b45309)',
-                borderColor: '#d97706',
+                background: '#d97706',
                 color: '#ffffff',
-                fontWeight: 800,
+                fontWeight: 700,
                 fontSize: '0.8rem',
-                padding: '8px',
-                borderRadius: '8px',
-                display: 'inline-flex',
+                padding: '7px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '5px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                 cursor: 'pointer',
               }}
               onClick={() => onOpenToPos(table)}
@@ -618,18 +662,28 @@ function TableCard({
               <Plus size={14} />
               <span>Thêm món</span>
             </button>
-            <BtnOutlineHover
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
               onClick={() => onFreeTable(table.id, table.code)}
-              borderColor="rgba(239, 68, 68, 0.5)"
-              color="#f87171"
-              hoverBg="#dc2626"
-              hoverColor="#ffffff"
-              style={{ flex: '0 0 auto', padding: '8px 12px' }}
+              style={{
+                background: '#24160e',
+                borderColor: 'rgba(239, 68, 68, 0.45)',
+                color: '#f87171',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                padding: '7px 12px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+              }}
               title="Dọn dẹp và trả bàn về trạng thái trống"
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
               <span>Trả bàn</span>
-            </BtnOutlineHover>
+            </button>
           </>
         )}
 
@@ -637,20 +691,21 @@ function TableCard({
           <>
             <button
               type="button"
-              className="btn"
+              className="btn btn-sm"
               style={{
                 flex: 1,
-                background: 'linear-gradient(135deg, #15803d, #166534)',
-                borderColor: '#15803d',
+                background: '#15803d',
                 color: '#ffffff',
-                fontWeight: 800,
+                fontWeight: 700,
                 fontSize: '0.8rem',
-                padding: '8px',
-                borderRadius: '8px',
-                display: 'inline-flex',
+                padding: '7px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '5px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                 cursor: 'pointer',
               }}
               onClick={() => onCheckIn(table)}
@@ -658,18 +713,28 @@ function TableCard({
               <CheckCircle2 size={14} />
               <span>Khách đã đến</span>
             </button>
-            <BtnOutlineHover
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
               onClick={() => onCancelReserve(table.id, table.code)}
-              borderColor="rgba(239, 68, 68, 0.45)"
-              color="#f87171"
-              hoverBg="#dc2626"
-              hoverColor="#ffffff"
-              style={{ flex: '0 0 auto', padding: '8px 12px' }}
+              style={{
+                background: '#24160e',
+                borderColor: 'rgba(239, 68, 68, 0.45)',
+                color: '#f87171',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                padding: '7px 12px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+              }}
               title="Hủy đặt bàn"
             >
-              <X size={14} />
+              <X size={13} />
               <span>Hủy</span>
-            </BtnOutlineHover>
+            </button>
           </>
         )}
       </div>
