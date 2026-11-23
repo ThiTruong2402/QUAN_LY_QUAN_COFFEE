@@ -921,7 +921,7 @@ export default function CustomerPortal() {
                             onClick={() => handleOpenSizeModal(p)}
                           >
                             {/* Ảnh món */}
-                            <div style={{ position: 'relative', overflow: 'hidden', height: '155px', background: '#150d08', borderTopLeftRadius: '11px', borderTopRightRadius: '11px' }}>
+                            <div style={{ position: 'relative', overflow: 'hidden', height: '168px', background: '#150d08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <img
                                 src={p.image_url || FALLBACK_DRINK_IMG}
                                 alt={p.name}

@@ -93,7 +93,7 @@ const seatedMins = (openedAt) => {
 // SUB-COMPONENTS
 // ==========================================
 
-// 1. KPI Card theo chuẩn trang Thống kê (Cắt góc bo mượt mà, không bao giờ bị thừa góc)
+// 1. KPI Card theo chuẩn trang Đơn hàng & Thống kê (Thiết kế liền mạch, KHÔNG DÙNG vạch cắt gây thừa góc)
 function KpiCard({ icon: Icon, iconColor, iconBg, label, value, unit, subtitle, active, onClick, borderStrip }) {
   return (
     <div
@@ -110,34 +110,30 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, unit, subtitle, 
         borderRadius: '12px',
         position: 'relative',
         overflow: 'hidden',
-        border: active ? '1.5px solid #d97706' : '1px solid #3d2618',
-        background: active ? 'rgba(217, 119, 6, 0.14)' : '#1c120b',
-        boxShadow: active ? '0 0 16px rgba(217, 119, 6, 0.2)' : '0 4px 16px rgba(0, 0, 0, 0.35)',
+        border: active
+          ? '1.5px solid #fbbf24'
+          : borderStrip
+          ? `1px solid ${borderStrip}44`
+          : '1px solid rgba(245, 158, 11, 0.18)',
+        borderTop: borderStrip ? `3px solid ${borderStrip}` : active ? '3px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.18)',
+        background: active
+          ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.22), rgba(180, 83, 9, 0.12))'
+          : 'rgba(26, 16, 10, 0.92)',
+        boxShadow: active
+          ? '0 4px 18px rgba(217, 119, 6, 0.25)'
+          : '0 4px 16px rgba(0, 0, 0, 0.35)',
         transition: 'all 0.2s ease',
         userSelect: 'none',
       }}
       onKeyDown={(e) => e.key === 'Enter' && onClick && onClick()}
     >
-      {/* Vạch màu chỉ trạng thái cắt sạch sẽ bằng overflow hidden */}
-      {borderStrip && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: '4px',
-            backgroundColor: borderStrip,
-          }}
-        />
-      )}
-
       <div
         style={{
           width: '44px',
           height: '44px',
           borderRadius: '10px',
           background: iconBg || 'rgba(245, 158, 11, 0.12)',
+          border: `1px solid ${iconColor ? iconColor + '33' : 'rgba(245, 158, 11, 0.2)'}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -195,26 +191,25 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, unit, subtitle, 
   );
 }
 
-// 2. Chip Lọc theo chuẩn POS
+// 2. Chip Lọc theo chuẩn Pill Button của trang Đơn hàng
 function FilterChip({ active, label, count, onClick, dotColor }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="btn btn-sm"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',
         padding: '6px 14px',
-        borderRadius: '8px',
+        borderRadius: '20px',
         fontWeight: 700,
         fontSize: '0.8rem',
         cursor: 'pointer',
         transition: 'all 0.15s ease',
-        background: active ? 'linear-gradient(135deg, #d97706, #b45309)' : '#24160e',
+        background: active ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255, 255, 255, 0.04)',
         color: active ? '#ffffff' : '#d5bba2',
-        border: active ? '1.5px solid #fbbf24' : '1px solid #4a2c18',
+        border: active ? '1.5px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.2)',
         boxShadow: active ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
       }}
     >
@@ -235,9 +230,10 @@ function FilterChip({ active, label, count, onClick, dotColor }) {
         <span
           style={{
             fontSize: '0.72rem',
-            padding: '1px 6px',
+            fontWeight: 800,
+            padding: '1px 7px',
             borderRadius: '10px',
-            background: active ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+            background: active ? 'rgba(0, 0, 0, 0.28)' : 'rgba(255, 255, 255, 0.08)',
             color: active ? '#fff' : '#c4a482',
             ...NL,
           }}
@@ -384,40 +380,28 @@ function TableCard({
         position: 'relative',
         overflow: 'hidden',
         border: isOccupied
-          ? '1.5px solid rgba(239, 68, 68, 0.55)'
+          ? '1.5px solid rgba(239, 68, 68, 0.6)'
           : isReserved
-          ? '1.5px solid rgba(245, 158, 11, 0.55)'
-          : '1px solid #3d2618',
+          ? '1.5px solid rgba(245, 158, 11, 0.6)'
+          : '1px solid rgba(52, 211, 153, 0.35)',
         background: isOccupied
-          ? 'linear-gradient(145deg, rgba(38, 16, 12, 0.95), rgba(24, 12, 8, 0.95))'
+          ? 'linear-gradient(145deg, rgba(42, 18, 14, 0.95), rgba(26, 13, 9, 0.95))'
           : isReserved
-          ? 'linear-gradient(145deg, rgba(38, 26, 10, 0.95), rgba(24, 15, 6, 0.95))'
-          : '#1c120b',
+          ? 'linear-gradient(145deg, rgba(42, 28, 12, 0.95), rgba(26, 16, 7, 0.95))'
+          : 'rgba(26, 16, 10, 0.95)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         minHeight: '220px',
         gap: '10px',
         boxShadow: isOccupied
-          ? '0 6px 20px rgba(239, 68, 68, 0.15)'
+          ? '0 6px 20px rgba(239, 68, 68, 0.18)'
           : isReserved
-          ? '0 6px 20px rgba(245, 158, 11, 0.15)'
+          ? '0 6px 20px rgba(245, 158, 11, 0.18)'
           : '0 4px 16px rgba(0, 0, 0, 0.35)',
         transition: 'all 0.2s ease',
       }}
     >
-      {/* Vạch màu chỉ trạng thái bên trái được clip hoàn hảo trong bo góc 12px, KHÔNG BAO GIỜ bị thừa góc */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: '4px',
-          backgroundColor: cfg.strip,
-        }}
-      />
-
       {/* HÀNG 1: Tên bàn kiểu badge POS + Badge trạng thái */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>

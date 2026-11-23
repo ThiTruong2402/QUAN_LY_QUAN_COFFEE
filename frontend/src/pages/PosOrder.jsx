@@ -610,11 +610,12 @@ export default function PosOrder() {
                       <div
                         style={{
                           position: 'relative',
-                          height: '155px',
+                          height: '168px',
                           overflow: 'hidden',
                           background: '#150d08',
-                          borderTopLeftRadius: '11px',
-                          borderTopRightRadius: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
                       >
                         <img

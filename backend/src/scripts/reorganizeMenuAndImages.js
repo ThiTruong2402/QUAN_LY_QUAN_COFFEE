@@ -29,18 +29,18 @@ async function reorganizeMenu() {
   // 3. Cập nhật mã món (Code), mô tả và hình ảnh chuẩn xác cho từng món
   const productUpdates = [
     // Category 1: Cà phê (CF01 - CF12)
-    { id: 1, code: 'CF01', name: 'Cà phê đen đá', image_url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80' },
+    { id: 1, code: 'CF01', name: 'Cà phê đen đá', image_url: '/images/drinks/ca_phe_den_da.jpg' },
     { id: 2, code: 'CF02', name: 'Cà phê sữa đá', image_url: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=500&auto=format&fit=crop&q=80' },
     { id: 3, code: 'CF03', name: 'Bạc xỉu ba tầng', image_url: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=500&auto=format&fit=crop&q=80' },
     { id: 4, code: 'CF04', name: 'Cà phê muối xứ Huế', image_url: 'https://images.unsplash.com/photo-1509785307050-d4066910ec1e?w=500&auto=format&fit=crop&q=80' },
-    { id: 5, code: 'CF05', name: 'Cà phê trứng Hà Nội', image_url: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=500&auto=format&fit=crop&q=80' },
+    { id: 5, code: 'CF05', name: 'Cà phê trứng Hà Nội', image_url: '/images/drinks/ca_phe_trung.jpg' },
     { id: 6, code: 'CF06', name: 'Americano đá', image_url: 'https://images.unsplash.com/photo-1551030173-122aabc4489c?w=500&auto=format&fit=crop&q=80' },
     { id: 7, code: 'CF07', name: 'Cappuccino bọt sữa', image_url: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=500&auto=format&fit=crop&q=80' },
     { id: 8, code: 'CF08', name: 'Latte vani hạnh nhân', image_url: 'https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=500&auto=format&fit=crop&q=80' },
     { id: 46, code: 'CF09', name: 'Cà phê kem béo hạt dẻ', image_url: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=80' },
-    { id: 47, code: 'CF10', name: 'Cold Brew cam vàng mật ong', image_url: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&auto=format&fit=crop&q=80' },
+    { id: 47, code: 'CF10', name: 'Cold Brew cam vàng mật ong', image_url: '/images/drinks/cold_brew_cam.jpg' },
     { id: 48, code: 'CF11', name: 'Caramel Macchiato béo ngọt', image_url: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?w=500&auto=format&fit=crop&q=80' },
-    { id: 49, code: 'CF12', name: 'Affogato kem vani sốt espresso', image_url: 'https://images.unsplash.com/photo-1595928642581-f50f4f3453a5?w=500&auto=format&fit=crop&q=80' },
+    { id: 49, code: 'CF12', name: 'Affogato kem vani sốt espresso', image_url: '/images/drinks/affogato.jpg' },
 
     // Category 2: Trà & Trà sữa (TR01 - TR11)
     { id: 9, code: 'TR01', name: 'Trà đào cam sả', image_url: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=500&auto=format&fit=crop&q=80' },
@@ -68,10 +68,10 @@ async function reorganizeMenu() {
 
     // Category 4: Bánh & Điểm tâm (BM01 - BM08)
     { id: 22, code: 'BM01', name: 'Bánh Croissant bơ Pháp', image_url: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=80' },
-    { id: 57, code: 'BM02', name: 'Bánh Croissant bơ tỏi phô mai', image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=80' },
+    { id: 57, code: 'BM02', name: 'Bánh Croissant bơ tỏi phô mai', image_url: '/images/cakes/croissant_pho_mai.jpg' },
     { id: 23, code: 'BM03', name: 'Tiramisu ca cao Ý', image_url: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&auto=format&fit=crop&q=80' },
     { id: 24, code: 'BM04', name: 'Bánh phô mai nướng Burnt', image_url: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=500&auto=format&fit=crop&q=80' },
-    { id: 25, code: 'BM05', name: 'Bánh mousse chanh dây', image_url: 'https://images.unsplash.com/photo-1579372786545-d24232daf58c?w=500&auto=format&fit=crop&q=80' },
+    { id: 25, code: 'BM05', name: 'Bánh mousse chanh dây', image_url: '/images/cakes/mousse_chanh_day.jpg' },
     { id: 58, code: 'BM06', name: 'Bánh Red Velvet kem phô mai', image_url: 'https://images.unsplash.com/photo-1586788680434-30d324b2d46f?w=500&auto=format&fit=crop&q=80' },
     { id: 59, code: 'BM07', name: 'Bánh Muffin việt quất nướng', image_url: 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=500&auto=format&fit=crop&q=80' },
     { id: 26, code: 'BM08', name: 'Bánh mì que pate bơ cay', image_url: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&auto=format&fit=crop&q=80' },
@@ -79,7 +79,7 @@ async function reorganizeMenu() {
     // Category 5: Nước ép & Soda (NE01 - NE03, SD01 - SD03)
     { id: 27, code: 'NE01', name: 'Nước cam tươi nguyên chất', image_url: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=500&auto=format&fit=crop&q=80' },
     { id: 28, code: 'NE02', name: 'Nước ép dưa hấu mát lạnh', image_url: 'https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=500&auto=format&fit=crop&q=80' },
-    { id: 60, code: 'NE03', name: 'Nước ép táo ổi hồng nguyên chất', image_url: 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=500&auto=format&fit=crop&q=80' },
+    { id: 60, code: 'NE03', name: 'Nước ép táo ổi hồng nguyên chất', image_url: '/images/drinks/nuoc_ep_oi_hong.jpg' },
     { id: 29, code: 'SD01', name: 'Soda việt quất bạc hà', image_url: 'https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?w=500&auto=format&fit=crop&q=80' },
     { id: 30, code: 'SD02', name: 'Soda chanh leo thảo mộc', image_url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80' },
     { id: 61, code: 'SD03', name: 'Soda dâu tây bạc hà sủi bọt', image_url: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=500&auto=format&fit=crop&q=80' },
@@ -93,7 +93,7 @@ async function reorganizeMenu() {
     { id: 65, code: 'AV06', name: 'Rong biển kẹp hạt dinh dưỡng sấy giòn', image_url: 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=500&auto=format&fit=crop&q=80' },
     { id: 41, code: 'AV07', name: 'Khô gà lá chanh xé cay hảo hạng', image_url: '/images/snacks/kho_ga_la_chanh.jpg' },
     { id: 42, code: 'AV08', name: 'Khô bò miếng mềm sốt cay Tây Bắc', image_url: '/images/snacks/kho_bo_mieng_cay.jpg' },
-    { id: 64, code: 'AV09', name: 'Bắp bò sấy giòn cay ngũ vị', image_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=80' },
+    { id: 64, code: 'AV09', name: 'Bắp bò sấy giòn cay ngũ vị', image_url: '/images/snacks/bap_bo_say_gion.jpg' },
     { id: 43, code: 'AV10', name: 'Đậu phộng tỏi ớt giòn rụm', image_url: '/images/snacks/dau_phong_toi_ot.jpg' },
     { id: 44, code: 'AV11', name: 'Bánh tráng nướng phô mai giòn tan', image_url: '/images/snacks/banh_trang_nuong.jpg' },
   ];
