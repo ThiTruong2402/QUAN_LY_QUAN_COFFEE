@@ -324,7 +324,7 @@ export default function Accounts() {
       {activeTab === 'staff' && canManageStaff && (() => {
         const customerUsers = users.filter((u) => u.role_name === 'customer' || (u.code && u.code.startsWith('KH')));
         const staffUsers = users.filter((u) => u.role_name !== 'customer' && (!u.code || !u.code.startsWith('KH')));
-        
+
         const filteredUsers = users.filter((u) => {
           if (accountRoleFilter === 'customer') {
             if (u.role_name !== 'customer' && (!u.code || !u.code.startsWith('KH'))) return false;
@@ -533,8 +533,8 @@ export default function Accounts() {
                   <span>
                     {selectedUser
                       ? (selectedUser.role_name === 'customer'
-                          ? `QUẢN LÝ TÀI KHOẢN KHÁCH: ${selectedUser.full_name}`
-                          : `QUẢN LÝ NHÂN SỰ: ${selectedUser.full_name}`)
+                        ? `QUẢN LÝ TÀI KHOẢN KHÁCH: ${selectedUser.full_name}`
+                        : `QUẢN LÝ NHÂN SỰ: ${selectedUser.full_name}`)
                       : 'THÊM TÀI KHOẢN MỚI'}
                   </span>
                 </div>

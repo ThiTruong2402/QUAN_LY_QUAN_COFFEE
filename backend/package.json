@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node src/scripts/verifyOverhaul.js",
+    "test": "node test_17_scenarios.js",
+    "test:customer": "node src/scripts/testCustomerScenarios.js",
+    "test:workflow": "node src/scripts/testWorkflow.js",
+    "test:audit": "node src/scripts/verifyAuditPatches.js",
     "migrate": "node src/scripts/migrateSchemaFixes.js"
   },
   "keywords": [],

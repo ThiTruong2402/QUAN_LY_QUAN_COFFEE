@@ -39,13 +39,6 @@ export default function CustomerPortal() {
   const [vouchers, setVouchers] = useState([]);
   const [orderHistory, setOrderHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // --- STATE GIỎ HÀNG (PANEL THANH TOÁN BÊN PHẢI GIỐNG ADMIN POS) ---
   const [cart, setCart] = useState(() => {
@@ -120,33 +113,6 @@ export default function CustomerPortal() {
     }
   }, [cart]);
 
-  // Lấy dữ liệu thực đơn, voucher, lịch sử
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  // Lắng nghe Socket.IO thời gian thực để đồng bộ trạng thái đơn hàng của khách
-  useEffect(() => {
-    const handleOrderSync = () => {
-      loadOrderHistory();
-      refreshUser();
-    };
-
-    socket.on('order:created', handleOrderSync);
-    socket.on('order:status_updated', handleOrderSync);
-    socket.on('barista:item_updated', handleOrderSync);
-    socket.on('order:cancelled', handleOrderSync);
-
-    const interval = setInterval(loadOrderHistory, 15000);
-    return () => {
-      clearInterval(interval);
-      socket.off('order:created', handleOrderSync);
-      socket.off('order:status_updated', handleOrderSync);
-      socket.off('barista:item_updated', handleOrderSync);
-      socket.off('order:cancelled', handleOrderSync);
-    };
-  }, []);
-
   const loadOrderHistory = async () => {
     try {
       if (user) {
@@ -217,6 +183,33 @@ export default function CustomerPortal() {
       setLoading(false);
     }
   };
+
+  // Lấy dữ liệu thực đơn, voucher, lịch sử
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  // Lắng nghe Socket.IO thời gian thực để đồng bộ trạng thái đơn hàng của khách
+  useEffect(() => {
+    const handleOrderSync = () => {
+      loadOrderHistory();
+      refreshUser();
+    };
+
+    socket.on('order:created', handleOrderSync);
+    socket.on('order:status_updated', handleOrderSync);
+    socket.on('barista:item_updated', handleOrderSync);
+    socket.on('order:cancelled', handleOrderSync);
+
+    const interval = setInterval(loadOrderHistory, 15000);
+    return () => {
+      clearInterval(interval);
+      socket.off('order:created', handleOrderSync);
+      socket.off('order:status_updated', handleOrderSync);
+      socket.off('barista:item_updated', handleOrderSync);
+      socket.off('order:cancelled', handleOrderSync);
+    };
+  }, []);
 
   const handleCancelCustomerOrder = async (orderId) => {
     if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return;
