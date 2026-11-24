@@ -171,7 +171,14 @@ export default function Login() {
         navigate(getHomeRouteByRole(loggedUser.role), { replace: true });
       }
     } catch (err) {
-      const msg = err.response?.data?.message || 'Sai tài khoản hoặc mật khẩu';
+      let msg = 'Sai tài khoản hoặc mật khẩu';
+      if (!err.response) {
+        msg = 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra đường truyền mạng hoặc khởi động backend!';
+      } else if (err.response.status >= 500) {
+        msg = err.response.data?.message || 'Máy chủ đang bảo trì hoặc gặp sự cố (HTTP 500). Vui lòng thử lại sau!';
+      } else {
+        msg = err.response.data?.message || 'Sai tài khoản hoặc mật khẩu';
+      }
       setErrors({ login: msg });
       toast.error(msg);
     } finally {

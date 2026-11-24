@@ -7,25 +7,39 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:4173',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:4173',
+  'https://quan-ly-quan-coffee.vercel.app',
+  'https://my-coffee-house.vercel.app',
+  process.env.CLIENT_URL,
+];
+
+const envOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-  : [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      process.env.CLIENT_URL,
-    ].filter(Boolean);
+  : [];
+
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    // SEC-07: Loại bỏ hoàn toàn wildcard *.vercel.app và *.onrender.com
-    const isAllowed =
-      allowedOrigins.includes(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+    // SEC-07: Cho phép localhost/LAN, domain Vercel chính thức của dự án và các origin cấu hình tường minh
+    // Chặn triệt để origin lạ hoặc wildcard không mong muốn (không crash server với Error)
+    const isLocalNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
+    const isOfficialVercel = /^https:\/\/(quan-ly-quan-coffee|my-coffee-house)(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
+    const isAllowed = allowedOrigins.includes(origin) || isLocalNetwork || isOfficialVercel;
+
     if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS blocked: Origin ${origin} is not allowed`));
+      console.warn(`[CORS] Denied origin: ${origin}`);
+      callback(null, false);
     }
   },
   credentials: true,
