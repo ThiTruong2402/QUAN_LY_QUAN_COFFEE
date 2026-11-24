@@ -862,7 +862,7 @@ export default function MenuManage() {
                         <button
                           type="submit"
                           className="btn btn-sm"
-                          style={{ background: 'linear-gradient(135deg, #15803d, #166534)', color: '#ffffff', fontWeight: 800, padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                          style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', color: '#ffffff', fontWeight: 800, padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(217, 119, 6, 0.3)' }}
                         >
                           + LƯU VÀO SIZE {activeSize?.name || 'M'}
                         </button>

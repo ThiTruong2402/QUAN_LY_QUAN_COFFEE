@@ -38,7 +38,7 @@ export default function Shifts() {
 
   // Quick Schedule Form
   const [quickForm, setQuickForm] = useState({
-    shift_type: '☀️ Ca Sáng (06:30 - 14:30)',
+    shift_type: 'Ca Sáng (06:30 - 14:30)',
     note: '',
     status: 'Chưa bắt đầu',
   });
@@ -47,7 +47,7 @@ export default function Shifts() {
   const [form, setForm] = useState({
     shift_code: '',
     user_id: '',
-    shift_type: '☀️ Ca Sáng (06:30 - 14:30)',
+    shift_type: 'Ca Sáng (06:30 - 14:30)',
     shift_date: new Date().toISOString().split('T')[0],
     status: 'Chưa bắt đầu',
     note: '',
@@ -262,7 +262,7 @@ export default function Shifts() {
       displayDate: d.displayDate,
     });
     setQuickForm({
-      shift_type: '☀️ Ca Sáng (06:30 - 14:30)',
+      shift_type: 'Ca Sáng (06:30 - 14:30)',
       note: (u.role_name === 'barista' || u.role === 'barista') ? 'Pha chế quầy Bar' : 'Thu ngân / Phục vụ',
       status: d.isToday ? 'Đang làm việc' : 'Chưa bắt đầu',
     });
@@ -1081,9 +1081,9 @@ export default function Shifts() {
                   value={form.shift_type}
                   onChange={(e) => setForm({ ...form, shift_type: e.target.value })}
                 >
-                  <option value="☀️ Ca Sáng (06:30 - 14:30)">☀️ Ca Sáng (06:30 - 14:30)</option>
-                  <option value="🌙 Ca Chiều / Tối (14:30 - 22:30)">🌙 Ca Chiều / Tối (14:30 - 22:30)</option>
-                  <option value="💼 Ca Hành Chính (08:00 - 17:00)">💼 Ca Hành Chính (08:00 - 17:00)</option>
+                  <option value="Ca Sáng (06:30 - 14:30)">☀️ Ca Sáng (06:30 - 14:30)</option>
+                  <option value="Ca Tối (14:30 - 22:30)">🌙 Ca Tối (14:30 - 22:30)</option>
+                  <option value="Ca Hành Chính (08:00 - 17:00)">💼 Ca Hành Chính (08:00 - 17:00)</option>
                 </select>
               </div>
 
@@ -1241,9 +1241,9 @@ export default function Shifts() {
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                     {[
-                      { id: '☀️ Ca Sáng (06:30 - 14:30)', label: '☀️ Ca Sáng', time: '06:30 - 14:30' },
-                      { id: '🌙 Ca Chiều / Tối (14:30 - 22:30)', label: '🌙 Ca Tối', time: '14:30 - 22:30' },
-                      { id: '💼 Ca Hành Chính (08:00 - 17:00)', label: '💼 Ca Hành Chính', time: '08:00 - 17:00' },
+                      { id: 'Ca Sáng (06:30 - 14:30)', label: '☀️ Ca Sáng', time: '06:30 - 14:30' },
+                      { id: 'Ca Tối (14:30 - 22:30)', label: '🌙 Ca Tối', time: '14:30 - 22:30' },
+                      { id: 'Ca Hành Chính (08:00 - 17:00)', label: '💼 Ca Hành Chính', time: '08:00 - 17:00' },
                     ].map((c) => (
                       <div
                         key={c.id}

@@ -689,7 +689,7 @@ export default function Accounts() {
                     <button
                       type="button"
                       className="btn btn-primary"
-                      style={{ flex: 1, background: 'linear-gradient(135deg, #15803d, #166534)', borderColor: '#15803d', fontWeight: 800 }}
+                      style={{ flex: 1, background: 'linear-gradient(135deg, #D97706, #B45309)', borderColor: '#D97706', fontWeight: 800, boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)' }}
                       onClick={() => handleSaveStaff(true)}
                     >
                       + THÊM TÀI KHOẢN

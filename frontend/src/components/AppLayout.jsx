@@ -218,14 +218,14 @@ export default function AppLayout({ children }) {
         .mch-topbar {
           height: 58px;
           flex-shrink: 0;
-          background: #FFFFFF;
-          border-bottom: 1px solid #EAE3DA;
+          background: #18181B;
+          border-bottom: 1px solid #27272B;
           padding: 0 24px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           z-index: 30;
-          box-shadow: 0 1px 3px rgba(44, 26, 18, 0.03);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
         }
         .mch-content {
           flex: 1;
@@ -315,7 +315,7 @@ export default function AppLayout({ children }) {
 
       <div className="mch-main">
         <header className="mch-topbar">
-          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#2C1A12', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>{currentTitle}</span>
           </div>
 
@@ -323,13 +323,13 @@ export default function AppLayout({ children }) {
             {/* Widget Ca trực hiện tại */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: '#F6F3EE', border: '1px solid #E7DFD5',
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600, color: '#6E5D52'
+              background: '#202024', border: '1px solid #2E2E35',
+              padding: '5px 10px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600, color: '#D4D4D8'
             }} title={`Ca trực: ${shiftInfo.time}`}>
               <span>{shiftInfo.icon}</span>
               <span>{shiftInfo.name}</span>
-              <span style={{ color: '#A89F91' }}>•</span>
-              <span style={{ color: '#8C7A6B' }}>{shiftInfo.time}</span>
+              <span style={{ color: '#52525B' }}>•</span>
+              <span style={{ color: '#A1A1AA' }}>{shiftInfo.time}</span>
             </div>
 
             {/* Quick button Cổng khách hàng */}
@@ -337,7 +337,7 @@ export default function AppLayout({ children }) {
               type="button"
               onClick={() => window.open('/customer', '_blank')}
               style={{
-                background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C',
+                background: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgba(217, 119, 6, 0.35)', color: '#FBBF24',
                 padding: '6px 13px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700,
                 cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
                 transition: 'all 0.15s ease'
@@ -348,22 +348,22 @@ export default function AppLayout({ children }) {
               <SvgIcon size={13} d={<><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></>} />
             </button>
 
-            <div style={{ width: '1px', height: '22px', background: '#E7DFD5' }} />
+            <div style={{ width: '1px', height: '22px', background: '#2E2E35' }} />
 
             {/* User Profile & Logout */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{
                 width: '30px', height: '30px', borderRadius: '50%',
-                background: '#2C1A12', color: '#FDE68A', fontSize: '0.78rem', fontWeight: 800,
+                background: '#27272B', border: '1px solid #3F3F46', color: '#F59E0B', fontSize: '0.78rem', fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
                 {(user?.full_name || user?.name || user?.username || 'A').charAt(0).toUpperCase()}
               </div>
               <div style={{ lineHeight: 1.2 }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1F1611' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC' }}>
                   {user?.full_name || user?.name || user?.username || 'Quản trị viên'}
                 </div>
-                <div style={{ fontSize: '0.68rem', color: '#78716C', textTransform: 'capitalize' }}>
+                <div style={{ fontSize: '0.68rem', color: '#A1A1AA', textTransform: 'capitalize' }}>
                   {userRole}
                 </div>
               </div>
@@ -372,7 +372,7 @@ export default function AppLayout({ children }) {
                 onClick={() => { logout(); navigate('/login'); }}
                 title="Đăng xuất"
                 style={{
-                  marginLeft: '4px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626',
+                  marginLeft: '4px', background: 'rgba(220, 38, 38, 0.15)', border: '1px solid rgba(220, 38, 38, 0.3)', color: '#F87171',
                   width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background 0.15s ease'

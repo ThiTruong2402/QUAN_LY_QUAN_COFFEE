@@ -92,7 +92,7 @@ export default function Barista() {
   const columns = [
     { id: 'pending',   title: 'Chờ pha chế',       accent: '#D97706', bg: '#FFFBEB', btnLabel: 'Nhận pha ngay',   nextStatus: 'preparing', btnBg: '#D97706' },
     { id: 'preparing', title: 'Đang pha chế',      accent: '#0284C7', bg: '#F0F9FF', btnLabel: 'Báo pha xong',    nextStatus: 'done',      btnBg: '#0284C7' },
-    { id: 'done',      title: 'Sẵn sàng trả món',  accent: '#15803D', bg: '#ECFDF5', btnLabel: 'Xác nhận trả món', nextStatus: 'served',    btnBg: '#15803D' },
+    { id: 'done',      title: 'Sẵn sàng trả món',  accent: '#10B981', bg: '#ECFDF5', btnLabel: 'Xác nhận trả món', nextStatus: 'served',    btnBg: '#10B981' },
   ];
 
   return (

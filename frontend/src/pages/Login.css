@@ -178,7 +178,7 @@
   flex-shrink: 0;
 }
  
-/* THẺ KÍNH ĐẶT MÓN NHANH CHO KHÁCH VÃNG LAI */
+/* THẺ KÍNH ĐẶT MÓN NHANH CHO KHÁCH HÀNG */
 .mch-guest-banner {
   background: rgba(255, 255, 255, 0.11);
   backdrop-filter: blur(12px);

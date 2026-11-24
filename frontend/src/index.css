@@ -199,19 +199,63 @@ html, body, #root {
 .mch-badge-blue  { background: var(--mch-blue-bg); color: var(--mch-blue); }
 .mch-badge-purple{ background: var(--mch-purple-bg); color: var(--mch-purple); }
 
-/* In hóa đơn nhiệt K80 */
+/* In ấn chuẩn: Hóa đơn nhiệt K80 và Báo cáo quản trị */
 .pos-thermal-receipt { display: none; }
+
 @media print {
-  body * { visibility: hidden; }
-  .pos-thermal-receipt, .pos-thermal-receipt * { visibility: visible; }
-  .pos-thermal-receipt {
-    display: block;
-    position: fixed;
+  /* 1. Mặc định ẩn thanh công cụ điều hướng, Sidebar, TopBar và nút bấm */
+  .mch-sidebar,
+  .mch-topbar,
+  .ui-btn,
+  .btn,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  html, body, #root, .mch-shell, .mch-main {
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .mch-content {
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    background: #FFFFFF !important;
+  }
+
+  /* 2. Nếu trang có chứa .pos-thermal-receipt (Màn hình POS bán hàng) */
+  body:has(.pos-thermal-receipt) * {
+    visibility: hidden;
+  }
+  body:has(.pos-thermal-receipt) .pos-thermal-receipt,
+  body:has(.pos-thermal-receipt) .pos-thermal-receipt * {
+    visibility: visible;
+  }
+  body:has(.pos-thermal-receipt) .pos-thermal-receipt {
+    display: block !important;
+    position: absolute;
     left: 0;
     top: 0;
     width: 80mm;
     background: #FFFFFF;
     color: #000000;
     padding: 4mm;
+  }
+
+  /* 3. Đối với trang Báo cáo / Thống kê khi in */
+  .ui-card, .ui-kpi-card {
+    border: 1px solid #CCCCCC !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    background: #FFFFFF !important;
+    color: #000000 !important;
   }
 }

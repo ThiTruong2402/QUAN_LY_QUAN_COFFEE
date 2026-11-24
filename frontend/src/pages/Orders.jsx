@@ -461,7 +461,7 @@ export default function Orders() {
             }}>
               {detail.payment_status !== 'paid' && detail.status !== 'cancelled' && (
                 <button type="button" onClick={() => handleConfirmPayment(detail.id)}
-                  style={{ flex: 1, background: '#15803D', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}>
+                  style={{ flex: 1, background: 'linear-gradient(135deg, #D97706, #B45309)', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}>
                   Xác nhận đã nhận tiền
                 </button>
               )}
@@ -479,7 +479,7 @@ export default function Orders() {
               )}
               {detail.status === 'done' && (
                 <button type="button" onClick={() => handleUpdateStatus(detail.id, 'served')}
-                  style={{ flex: 1, background: '#15803D', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}>
+                  style={{ flex: 1, background: '#10B981', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
                   Xác nhận đã trả món
                 </button>
               )}

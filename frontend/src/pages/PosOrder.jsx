@@ -1591,13 +1591,13 @@ export default function PosOrder() {
                   type="button"
                   className="btn btn-primary"
                   style={{
-                    background: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : '#15803d',
-                    borderColor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : '#15803d',
+                    background: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : 'linear-gradient(135deg, #D97706, #B45309)',
+                    borderColor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : '#D97706',
                     color: '#ffffff',
                     fontWeight: 800,
                     fontSize: '1.05rem',
                     padding: '14px',
-                    boxShadow: '0 4px 14px rgba(21, 128, 61, 0.35)',
+                    boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)',
                     cursor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? 'not-allowed' : 'pointer',
                   }}
                   disabled={isSubmitting || cart.length === 0 || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)}
@@ -1634,16 +1634,16 @@ export default function PosOrder() {
           <div
             className="animate-fade-in"
             style={{
-              background: '#1c120b',
-              borderRadius: '16px',
+              background: '#18181B',
+              borderRadius: '18px',
               maxWidth: '720px',
               width: '100%',
               maxHeight: 'min(90vh, 580px)',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 25px 65px rgba(0,0,0,0.85), 0 0 0 1px rgba(245, 158, 11, 0.25)',
-              border: '2px solid rgba(245, 158, 11, 0.45)',
-              color: '#fdf8f0',
+              boxShadow: '0 25px 65px rgba(0,0,0,0.65)',
+              border: '1px solid #2A2A30',
+              color: '#F4F1EC',
               overflow: 'hidden',
               margin: 'auto',
               flexShrink: 0,
@@ -1653,22 +1653,22 @@ export default function PosOrder() {
             {/* Header: HÓA ĐƠN & QUÉT QR */}
             <div
               style={{
-                background: 'linear-gradient(135deg, #2a180e, #1c1008)',
+                background: '#202024',
                 padding: '14px 20px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
+                borderBottom: '1px solid #2A2A30',
                 flexShrink: 0,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '1.5rem' }}>🧾</span>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fef3c7' }}>
-                    HÓA ĐƠN &amp; QUÉT MÃ QR THANH TOÁN
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#F4F1EC' }}>
+                    Hóa đơn &amp; Quét mã QR thanh toán
                   </h3>
-                  <div style={{ fontSize: '0.74rem', color: '#fbbf24', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#F59E0B', marginTop: '2px' }}>
                     Techcombank VietQR Napas247 • Chuyển khoản tức thì
                   </div>
                 </div>
@@ -1679,7 +1679,7 @@ export default function PosOrder() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#c4a482',
+                  color: '#A1A1AA',
                   fontSize: '1.25rem',
                   cursor: 'pointer',
                   padding: '4px 8px',
@@ -1705,19 +1705,19 @@ export default function PosOrder() {
               {/* Left Column: QR Code & Bank Info */}
               <div
                 style={{
-                  background: '#24160e',
+                  background: '#202024',
                   borderRadius: '12px',
-                  border: '1.5px solid rgba(225, 29, 72, 0.45)',
+                  border: '1px solid #2A2A30',
                   padding: '10px',
                   textAlign: 'center',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: '8px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
                 }}
               >
-                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#fb7185', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <span>💠</span>
                   <span>TECHCOMBANK VIETQR</span>
                 </div>
@@ -1742,17 +1742,17 @@ export default function PosOrder() {
                   />
                 </div>
 
-                <div style={{ fontSize: '0.76rem', color: '#c4a482', width: '100%', textAlign: 'left', lineHeight: 1.35 }}>
-                  <div>Chủ TK: <strong style={{ color: '#fef3c7' }}>{BANK_CONFIG.accountHolder}</strong></div>
+                <div style={{ fontSize: '0.76rem', color: '#A1A1AA', width: '100%', textAlign: 'left', lineHeight: 1.35 }}>
+                  <div>Chủ TK: <strong style={{ color: '#F4F1EC' }}>{BANK_CONFIG.accountHolder}</strong></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                    <span>Số TK: <strong style={{ color: '#fb7185' }}>{BANK_CONFIG.accountNumber}</strong></span>
+                    <span>Số TK: <strong style={{ color: '#F59E0B' }}>{BANK_CONFIG.accountNumber}</strong></span>
                     <button
                       type="button"
                       onClick={copyAccountNumber}
                       style={{
-                        background: '#3b2314',
-                        border: '1px solid #4a2c18',
-                        color: '#fbbf24',
+                        background: '#2A2A30',
+                        border: '1px solid #3F3F46',
+                        color: '#F59E0B',
                         padding: '1px 6px',
                         borderRadius: '4px',
                         fontSize: '0.7rem',
@@ -1764,7 +1764,7 @@ export default function PosOrder() {
                     </button>
                   </div>
                   <div style={{ marginTop: '2px' }}>
-                    Ngân hàng: <strong style={{ color: '#fef3c7' }}>{BANK_CONFIG.bankName}</strong>
+                    Ngân hàng: <strong style={{ color: '#F4F1EC' }}>{BANK_CONFIG.bankName}</strong>
                   </div>
                 </div>
               </div>
@@ -1773,16 +1773,16 @@ export default function PosOrder() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {/* Items Summary */}
                 <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fbbf24', marginBottom: '6px' }}>
-                    ☕ CHI TIẾT MÓN ({cart.length} món):
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#F59E0B', marginBottom: '6px' }}>
+                    ☕ Chi tiết món ({cart.length} món):
                   </div>
                   <div
                     style={{
                       maxHeight: '120px',
                       overflowY: 'auto',
-                      border: '1px solid rgba(245, 158, 11, 0.2)',
+                      border: '1px solid #2A2A30',
                       borderRadius: '8px',
-                      background: '#24160e',
+                      background: '#202024',
                     }}
                   >
                     <table className="mockup-table">
@@ -1861,8 +1861,8 @@ export default function PosOrder() {
             {/* Footer Actions */}
             <div
               style={{
-                background: '#24160e',
-                borderTop: '1px solid rgba(245, 158, 11, 0.2)',
+                background: '#1F1F23',
+                borderTop: '1px solid #27272B',
                 padding: '12px 20px',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -1873,7 +1873,7 @@ export default function PosOrder() {
               <button
                 type="button"
                 className="btn btn-outline"
-                style={{ borderColor: '#4a2c18', color: '#f3e8d8', fontWeight: 600, padding: '8px 14px', fontSize: '0.85rem' }}
+                style={{ borderColor: '#3F3F46', color: '#D4D4D8', fontWeight: 600, padding: '8px 14px', fontSize: '0.85rem' }}
                 onClick={() => setShowQrModal(false)}
                 disabled={isSubmitting}
               >
@@ -1883,7 +1883,7 @@ export default function PosOrder() {
               <button
                 type="button"
                 className="btn btn-outline"
-                style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fbbf24', fontWeight: 700, padding: '8px 14px', fontSize: '0.85rem', background: 'rgba(245, 158, 11, 0.08)' }}
+                style={{ borderColor: 'rgba(217, 119, 6, 0.4)', color: '#FBBF24', fontWeight: 700, padding: '8px 14px', fontSize: '0.85rem', background: 'rgba(217, 119, 6, 0.1)' }}
                 onClick={() => window.print()}
                 title="In hóa đơn tạm tính cho khách"
               >
@@ -1894,13 +1894,13 @@ export default function PosOrder() {
                 type="button"
                 className="btn btn-primary"
                 style={{
-                  background: isSubmitting ? '#4b5563' : 'linear-gradient(135deg, #15803d, #166534)',
-                  borderColor: '#15803d',
+                  background: isSubmitting ? '#4B5563' : 'linear-gradient(135deg, #D97706, #B45309)',
+                  borderColor: '#D97706',
                   color: '#ffffff',
                   fontWeight: 800,
                   fontSize: '0.92rem',
                   padding: '9px 20px',
-                  boxShadow: '0 4px 14px rgba(21, 128, 61, 0.4)',
+                  boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   flex: 1,
                   display: 'flex',
@@ -1942,7 +1942,7 @@ export default function PosOrder() {
           <div
             className="animate-fade-in"
             style={{
-              background: '#1c120b',
+              background: '#18181B',
               borderRadius: '16px',
               maxWidth: '740px',
               width: '100%',
@@ -1951,14 +1951,14 @@ export default function PosOrder() {
               flexDirection: 'column',
               overflow: 'hidden',
               boxShadow: '0 25px 65px rgba(0,0,0,0.85), 0 0 0 1px rgba(245, 158, 11, 0.25)',
-              border: '2px solid rgba(245, 158, 11, 0.35)',
+              border: '1px solid #2A2A30',
               color: '#fdf8f0',
               margin: 'auto',
               flexShrink: 0,
             }}
           >
             {/* Header: HÓA ĐƠN BÁN HÀNG & THANH TOÁN */}
-            <div style={{ background: 'linear-gradient(135deg, #2a180e, #1c1008)', color: '#ffffff', padding: '16px 20px', textAlign: 'center', borderBottom: '2px solid rgba(245, 158, 11, 0.25)', position: 'relative', flexShrink: 0 }}>
+            <div style={{ background: '#1F1F23', color: '#ffffff', padding: '16px 20px', textAlign: 'center', borderBottom: '1px solid #27272B', position: 'relative', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '2px' }}>
                 <span style={{ fontSize: '1.5rem' }}>☕</span>
                 <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24', fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: '1px' }}>
@@ -2076,7 +2076,7 @@ export default function PosOrder() {
               </div>
 
               {/* Totals & Payments Summary */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', background: 'rgba(32, 20, 13, 0.85)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)', color: '#fef3c7' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', background: '#202024', padding: '12px 16px', borderRadius: '12px', border: '1px solid #2A2A30', color: '#fef3c7' }}>
                 <div style={{ fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div>Vị trí phục vụ: <strong style={{ color: '#fbbf24' }}>🪑 {completedOrder.tableCode || 'Tại bàn'}</strong></div>
                   <div>Khách hàng: <strong>{completedOrder.customerName}</strong> ({completedOrder.customerTier || 'Đồng'})</div>
@@ -2098,7 +2098,7 @@ export default function PosOrder() {
                     <div>Giảm giá ({completedOrder.couponCode || 'Voucher'}): <span style={{ color: '#ef4444' }}>-{fmt(completedOrder.discount)}</span></div>
                   )}
                   {Number(completedOrder.tax) > 0 && <div>Thuế: +{fmt(completedOrder.tax)}</div>}
-                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#34d399', borderTop: '1px solid rgba(245, 158, 11, 0.2)', paddingTop: '4px' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#34d399', borderTop: '1px solid #2A2A30', paddingTop: '4px' }}>
                     Thành tiền: {fmt(completedOrder.total)}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#c4a482' }}>
@@ -2111,11 +2111,11 @@ export default function PosOrder() {
               </div>
 
               {/* Techcombank QR Confirmation Box */}
-              <div style={{ border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', padding: '10px 14px', background: 'rgba(32, 20, 13, 0.85)', display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ border: '1px solid #2A2A30', borderRadius: '10px', padding: '10px 14px', background: '#202024', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <img
                   src={`https://img.vietqr.io/image/${BANK_CONFIG.bin}-${BANK_CONFIG.accountNumberRaw}-compact2.png?amount=${completedOrder.total}&addInfo=${encodeURIComponent(completedOrder.invoiceNo)}&accountName=${encodeURIComponent(BANK_CONFIG.accountHolder)}`}
                   alt="VietQR Techcombank"
-                  style={{ width: '70px', height: '70px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.35)', background: '#ffffff', padding: '2px' }}
+                  style={{ width: '70px', height: '70px', borderRadius: '8px', border: '1px solid #3F3F46', background: '#ffffff', padding: '2px' }}
                 />
                 <div style={{ fontSize: '0.8rem', color: '#fef3c7' }}>
                   <div style={{ fontWeight: 800, fontSize: '0.86rem', color: '#fbbf24', marginBottom: '2px' }}>Mã QR Techcombank đối soát:</div>
@@ -2127,11 +2127,11 @@ export default function PosOrder() {
             </div>
 
             {/* Footer Action Buttons */}
-            <div style={{ background: 'rgba(28, 18, 11, 0.95)', padding: '12px 18px', borderTop: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
+            <div style={{ background: '#1F1F23', padding: '12px 18px', borderTop: '1px solid #27272B', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
               <button
                 type="button"
                 className="btn btn-outline"
-                style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fef3c7', fontWeight: 700, padding: '7px 12px', fontSize: '0.82rem' }}
+                style={{ borderColor: '#3F3F46', color: '#fef3c7', fontWeight: 700, padding: '7px 12px', fontSize: '0.82rem' }}
                 onClick={() => {
                   setAutoRedirectEnabled(false);
                   setCompletedOrder(null);
@@ -2182,13 +2182,13 @@ export default function PosOrder() {
                   type="button"
                   className="btn btn-primary"
                   style={{
-                    background: 'linear-gradient(135deg, #15803d, #166534)',
+                    background: 'linear-gradient(135deg, #D97706, #B45309)',
                     border: 'none',
                     color: '#ffffff',
                     fontWeight: 800,
                     padding: '7px 16px',
                     fontSize: '0.85rem',
-                    boxShadow: '0 4px 12px rgba(21, 128, 61, 0.4)',
+                    boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)',
                   }}
                   onClick={() => {
                     setAutoRedirectEnabled(false);

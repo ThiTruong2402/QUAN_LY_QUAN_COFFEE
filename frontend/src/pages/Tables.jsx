@@ -722,7 +722,7 @@ export default function Tables() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
               <button type="button" onClick={() => setReserveModal((p) => ({ ...p, open: false }))} style={{ background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#57534E', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Đóng</button>
-              <button type="submit" style={{ background: '#2C1A12', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer' }}>Xác nhận đặt bàn</button>
+              <button type="submit" style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}>Xác nhận đặt bàn</button>
             </div>
           </form>
         </div>
@@ -744,7 +744,7 @@ export default function Tables() {
             </select>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
               <button type="button" onClick={() => setTransferModal({ open: false, fromTable: null, toTableId: '' })} style={{ background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#57534E', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Hủy</button>
-              <button type="submit" style={{ background: '#2C1A12', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer' }}>Chuyển bàn ngay</button>
+              <button type="submit" style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}>Chuyển bàn ngay</button>
             </div>
           </form>
         </div>

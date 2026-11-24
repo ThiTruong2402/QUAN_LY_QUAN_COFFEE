@@ -61,7 +61,7 @@ class AppErrorBoundary extends Component {
               window.location.reload();
             }}
             style={{
-              background: '#15803d',
+              background: 'linear-gradient(135deg, #D97706, #B45309)',
               color: '#fff',
               border: 'none',
               padding: '10px 24px',
@@ -69,7 +69,7 @@ class AppErrorBoundary extends Component {
               fontWeight: 700,
               fontSize: '0.95rem',
               cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+              boxShadow: '0 4px 14px rgba(217, 119, 6, 0.4)'
             }}
           >
             🔄 Tải Lại Trang
