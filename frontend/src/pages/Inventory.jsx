@@ -198,10 +198,7 @@ export default function Inventory() {
         {/* LEFT: DANH SÁCH NGUYÊN LIỆU */}
         <div className="mockup-panel">
           <div className="mockup-panel-header">
-            <div className="mockup-panel-title">
-              <span>🌾</span>
-              <span>DANH SÁCH NGUYÊN LIỆU</span>
-            </div>
+            <div className="mockup-panel-title"><span>Danh sách nguyên liệu ({filteredIngredients.length})</span></div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"

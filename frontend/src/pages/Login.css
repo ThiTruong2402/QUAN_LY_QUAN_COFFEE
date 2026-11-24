@@ -51,15 +51,16 @@
   z-index: 2;
   width: 100%;
   max-width: 980px;
-  min-height: 610px;
+  min-height: 540px;
   display: grid;
   grid-template-columns: 45% 55%;
-  border-radius: 26px;
+  border-radius: 22px;
   overflow: hidden;
-  background: var(--auth-cream);
+  background: #18181B;
+  border: 1px solid #2A2A30;
   box-shadow:
     0 32px 72px rgba(0, 0, 0, 0.52),
-    0 0 0 1px rgba(255, 245, 232, 0.14);
+    0 0 0 1px rgba(255, 255, 255, 0.06);
   animation: authCardIn 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
  
@@ -214,16 +215,17 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: var(--auth-cream);
+  background: #18181B;
+  color: #F4F1EC;
 }
  
 .mch-mode-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--auth-oat);
+  background: #121214;
   padding: 4px;
   border-radius: 13px;
-  border: 1px solid var(--auth-border);
+  border: 1px solid #2A2A30;
   margin-bottom: 24px;
 }
  
@@ -235,22 +237,22 @@
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--auth-muted);
+  color: #A1A1AA;
   cursor: pointer;
   transition: all 0.18s ease;
 }
  
 .mch-mode-tab.active {
-  background: var(--auth-espresso);
-  color: #FFFFFF;
-  box-shadow: 0 4px 12px rgba(35, 21, 14, 0.22);
+  background: #27272B;
+  color: #F4F1EC;
+  box-shadow: inset 0 0 0 1px #D97706;
 }
  
 .mch-form-heading {
   margin: 0 0 6px;
   font-size: 1.45rem;
   font-weight: 800;
-  color: var(--auth-text);
+  color: #F4F1EC;
   letter-spacing: -0.02em;
 }
  
@@ -277,7 +279,7 @@
   display: block;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #463226;
+  color: #D4D4D8;
   margin-bottom: 5px;
 }
  
@@ -298,13 +300,13 @@
 .mch-field {
   width: 100%;
   height: 43px;
-  background: #FFFFFF;
-  border: 1.5px solid var(--auth-border);
+  background: #121214;
+  border: 1px solid #2E2E35;
   border-radius: 11px;
   padding: 0 14px 0 40px;
   font-family: inherit;
   font-size: 0.87rem;
-  color: var(--auth-text);
+  color: #F4F1EC;
   outline: none;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -313,8 +315,8 @@
 .mch-field.has-eye { padding-right: 42px; }
  
 .mch-field:focus {
-  border-color: var(--auth-caramel);
-  box-shadow: 0 0 0 3.5px rgba(194, 92, 32, 0.14);
+  border-color: #D97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
 }
  
 .mch-field.is-error {
@@ -363,7 +365,7 @@
   height: 46px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #2C1A12 0%, #442617 100%);
+  background: #D97706;
   color: #FFFFFF;
   font-family: inherit;
   font-size: 0.92rem;
@@ -373,12 +375,12 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 8px 20px rgba(44, 26, 18, 0.24);
-  transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.25);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease, background 0.14s ease;
 }
 .mch-submit-btn:hover:not(:disabled) {
+  background: #B45309;
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(44, 26, 18, 0.3);
 }
 .mch-submit-btn:disabled {
   opacity: 0.55;

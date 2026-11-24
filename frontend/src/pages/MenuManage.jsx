@@ -1,491 +1,402 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import {
+  Search, Plus, Pencil, Trash2, Beaker, Coffee, X, Check, Layers,
+} from 'lucide-react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-
-const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
-
-// Chuyển đổi định lượng tồn kho thành định lượng Barista và quy tắc trừ kho thực tế
-const formatBaristaRecipe = (ingName, qty, unit) => {
-  const q = Number(qty || 0);
-  const name = ingName || '';
-
-  // Sữa tươi (hộp 1L -> trừ theo hộp)
-  if (name.includes('Sữa tươi') || (unit === 'hộp' && name.includes('Sữa tươi'))) {
-    const ml = Math.round(q * 1000);
-    const cupsPerUnit = q > 0 ? (1 / q).toFixed(1).replace('.0', '') : '12.5';
-    return {
-      icon: '🥛',
-      baristaAmount: `${ml} ml sữa tươi`,
-      rawAmount: `${q.toFixed(3)} hộp`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} hộp ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 hộp (1L)`,
-      badgeColor: '#e0f2fe'
-    };
-  }
-
-  // Sữa đặc (hộp 380g -> trừ theo hộp)
-  if (name.includes('Sữa đặc')) {
-    const ml = Math.round(q * 300);
-    const cupsPerUnit = q > 0 ? Math.round(1 / q) : 25;
-    return {
-      icon: '🥛',
-      baristaAmount: `${ml} ml sữa đặc`,
-      rawAmount: `${q.toFixed(3)} hộp`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} hộp ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 hộp (380g)`,
-      badgeColor: '#fed7aa'
-    };
-  }
-
-  // Cà phê hạt/bột (kg -> trừ theo cân)
-  if (name.includes('Cà phê') || name.includes('Robusta') || name.includes('Arabica')) {
-    const grams = Math.round(q * 1000);
-    const mlCote = Math.round(grams * 1.8);
-    const cupsPerUnit = q > 0 ? Math.round(1 / q) : 40;
-    return {
-      icon: '☕',
-      baristaAmount: `${grams} g cà phê (~${mlCote}ml cốt)`,
-      rawAmount: `${q.toFixed(3)} cân (kg)`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} kg ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 cân cà phê`,
-      badgeColor: '#fbbf24'
-    };
-  }
-
-  // Đá viên (kg -> trừ theo cân)
-  if (name.includes('Đá viên') || name.toLowerCase().includes('đá')) {
-    const grams = Math.round(q * 1000);
-    const cupsPerUnit = q > 0 ? (1 / q).toFixed(1).replace('.0', '') : '6.7';
-    return {
-      icon: '🧊',
-      baristaAmount: `${grams} g đá viên`,
-      rawAmount: `${q.toFixed(3)} cân (kg)`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} kg ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 cân đá`,
-      badgeColor: '#38bdf8'
-    };
-  }
-
-  // Đường cát (kg -> trừ theo cân)
-  if (name.includes('Đường')) {
-    const grams = Math.round(q * 1000);
-    const spoons = (grams / 10).toFixed(1).replace('.0', '');
-    const cupsPerUnit = q > 0 ? Math.round(1 / q) : 66;
-    return {
-      icon: '🍬',
-      baristaAmount: `${grams} g (${spoons} muỗng)`,
-      rawAmount: `${q.toFixed(3)} cân (kg)`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} kg ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 cân đường`,
-      badgeColor: '#fef08a'
-    };
-  }
-
-  // Nước sôi / Nước lọc (L -> trừ theo Lít)
-  if (name.includes('Nước lọc') || name.includes('Nước sôi') || unit === 'L') {
-    const ml = Math.round(q * 1000);
-    const cupsPerUnit = q > 0 ? Math.round(1 / q) : 20;
-    return {
-      icon: '💧',
-      baristaAmount: `${ml} ml nước sôi 95°C`,
-      rawAmount: `${q.toFixed(3)} L`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} L ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 Lít nước`,
-      badgeColor: '#60a5fa'
-    };
-  }
-
-  // Kem béo Rich (hộp -> trừ theo hộp)
-  if (name.includes('Rich') || name.includes('Kem béo')) {
-    const ml = Math.round(q * 454);
-    const cupsPerUnit = q > 0 ? Math.round(1 / q) : 15;
-    return {
-      icon: '🧁',
-      baristaAmount: `${ml} ml kem béo Rich`,
-      rawAmount: `${q.toFixed(3)} hộp`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} hộp ➔ ${cupsPerUnit} ly cộng dồn hết tròn 1 hộp kem`,
-      badgeColor: '#fbcfe8'
-    };
-  }
-
-  // Trứng gà (quả -> trừ theo quả)
-  if (name.includes('Trứng') || unit === 'quả') {
-    const eggs = Math.round(q);
-    return {
-      icon: '🥚',
-      baristaAmount: `${eggs} lòng đỏ trứng tươi`,
-      rawAmount: `${eggs} quả`,
-      action: `Mỗi ly trừ ${eggs} quả ➔ Trừ trực tiếp theo quả thực tế`,
-      badgeColor: '#fef08a'
-    };
-  }
-
-  // Muối (g hoặc kg)
-  if (name.includes('Muối')) {
-    const grams = unit === 'kg' ? Math.round(q * 1000) : Math.round(q);
-    return {
-      icon: '🧂',
-      baristaAmount: `${grams} g muối hồng`,
-      rawAmount: `${q} ${unit}`,
-      action: `Mỗi ly dùng ${grams}g tạo vị kem mặn béo`,
-      badgeColor: '#fda4af'
-    };
-  }
-
-  // Đào ngâm / Vải ngâm (hộp -> lát/trái)
-  if (name.includes('Đào') || name.includes('Vải')) {
-    const pieces = Math.max(2, Math.round(q * 40));
-    return {
-      icon: '🍑',
-      baristaAmount: `${pieces} miếng/trái ngâm giòn`,
-      rawAmount: `${q.toFixed(3)} hộp`,
-      action: `Mỗi ly dùng ${pieces} miếng ➔ ~13 ly hết 1 hộp ngâm`,
-      badgeColor: '#fed7aa'
-    };
-  }
-
-  // Trà (kg -> g)
-  if (name.includes('Trà') && unit === 'kg') {
-    const grams = Math.round(q * 1000);
-    const cupsPerUnit = q > 0 ? Math.round(1 / q) : 100;
-    return {
-      icon: '🍃',
-      baristaAmount: `${grams} g lá trà hảo hạng`,
-      rawAmount: `${q.toFixed(3)} cân (kg)`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} kg ➔ ${cupsPerUnit} ly hết 1 cân trà`,
-      badgeColor: '#bbf7d0'
-    };
-  }
-
-  // Bột Matcha / Cacao (g hoặc kg)
-  if (name.includes('Matcha') || name.includes('Cacao')) {
-    const grams = unit === 'kg' ? Math.round(q * 1000) : Math.round(q);
-    return {
-      icon: '🍵',
-      baristaAmount: `${grams} g bột nguyên chất`,
-      rawAmount: `${q} ${unit}`,
-      action: `Cân đúng ${grams}g cho mỗi ly`,
-      badgeColor: '#a7f3d0'
-    };
-  }
-
-  // Bơ sáp (kg -> g)
-  if (name.includes('Bơ') && unit === 'kg') {
-    const grams = Math.round(q * 1000);
-    const cupsPerUnit = q > 0 ? (1 / q).toFixed(1) : '6.7';
-    return {
-      icon: '🥑',
-      baristaAmount: `${grams} g bơ sáp tươi`,
-      rawAmount: `${q.toFixed(3)} cân (kg)`,
-      action: `Mỗi ly trừ ${q.toFixed(3)} kg ➔ ${cupsPerUnit} ly hết 1 cân bơ`,
-      badgeColor: '#bef264'
-    };
-  }
-
-  // Sả cây
-  if (name.includes('Sả')) {
-    return {
-      icon: '🌿',
-      baristaAmount: `1 nhánh sả tươi (~15g)`,
-      rawAmount: `${q} ${unit}`,
-      action: '1 nhánh sả thơm đập dập / ly',
-      badgeColor: '#86efac'
-    };
-  }
-
-  // Default fallback
-  if (unit === 'kg') {
-    return {
-      icon: '🥄',
-      baristaAmount: `${Math.round(q * 1000)} g`,
-      rawAmount: `${q} cân (kg)`,
-      action: `Trừ ${q} kg kho / ly`,
-      badgeColor: '#d5bba2'
-    };
-  }
-
-  return {
-    icon: '🥄',
-    baristaAmount: `${q} ${unit}`,
-    rawAmount: `${q} ${unit}`,
-    action: `Trừ ${q} ${unit} kho / ly`,
-    badgeColor: '#d5bba2'
-  };
+ 
+const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80';
+const cleanLabel = (str) => String(str || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+ 
+// Quy đổi định lượng sang đơn vị thực tế pha chế (g / ml)
+const formatRecipeQty = (qty, unit) => {
+  const n = Number(qty || 0);
+  const u = String(unit || '').trim();
+  if (u.toLowerCase() === 'kg' && n < 1) return `${Math.round(n * 1000)}g`;
+  if ((u.toLowerCase() === 'l' || u.toLowerCase() === 'lít') && n < 1) return `${Math.round(n * 1000)}ml`;
+  return `${Number(n.toFixed(3))} ${u}`;
 };
-
+ 
 export default function MenuManage() {
   const { user } = useAuth();
   const canEdit = ['admin', 'manager'].includes(user?.role);
-  const isStaff = ['admin', 'manager', 'barista', 'cashier', 'waiter', 'warehouse'].includes(user?.role);
-
+ 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState('all');
-
-  // Recipes state
-  const [allRecipes, setAllRecipes] = useState([]);
+  const [recipes, setRecipes] = useState([]);
   const [ingredients, setIngredients] = useState([]);
-  const [activeRightTab, setActiveRightTab] = useState('product'); // 'product' | 'recipe'
-  const [selectedSizeId, setSelectedSizeId] = useState(null);
-
-  // Recipe edit form (for admin)
-  const [recipeForm, setRecipeForm] = useState({
-    ingredient_id: '',
-    quantity: 0.02,
-    unit: 'kg',
-  });
-
-  const FALLBACK_DRINK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80';
-
-  // Product Form
+  const [loading, setLoading] = useState(true);
+ 
+  // Bộ lọc
+  const [search, setSearch] = useState('');
+  const [selectedCat, setSelectedCat] = useState('all');
+ 
+  // Món đang chọn & Size đang xem công thức
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [activeSizeId, setActiveSizeId] = useState(null);
+ 
+  // Form thêm nguyên liệu vào công thức
+  const [addingRecipe, setAddingRecipe] = useState(false);
+  const [newRecipeIngId, setNewRecipeIngId] = useState('');
+  const [newRecipeQty, setNewRecipeQty] = useState('');
+ 
+  // Modal Thêm / Sửa món
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState({
-    code: 'M001',
+    code: '',
     name: '',
-    category_id: 1,
-    price: 30000,
+    category_id: '',
     description: '',
-    image_url: FALLBACK_DRINK_IMG,
+    image_url: '',
+    is_available: 1,
+    sizes: [{ name: 'M', price: 35000, is_default: 1 }],
   });
-
-  const loadData = async (keepId) => {
+ 
+  const loadAll = async () => {
     try {
-      const [prodRes, recipeRes] = await Promise.all([
+      setLoading(true);
+      const [prodRes, rcpRes, invRes] = await Promise.all([
         api.get('/products'),
-        isStaff ? api.get('/recipes').catch(() => ({ data: { data: {} } })) : Promise.resolve({ data: { data: {} } }),
+        api.get('/recipes').catch(() => ({ data: { data: { recipes: [], ingredients: [] } } })),
+        api.get('/inventory/ingredients').catch(() => ({ data: { data: [] } })),
       ]);
-
-      const prods = prodRes.data.data.products || [];
-      const cats = prodRes.data.data.categories || [];
+ 
+      const prodData = prodRes.data?.data || {};
+      const prods = Array.isArray(prodData.products) ? prodData.products : [];
+      const cats = Array.isArray(prodData.categories) ? prodData.categories : [];
+      const rcps = Array.isArray(rcpRes.data?.data?.recipes) ? rcpRes.data.data.recipes : [];
+ 
+      // Ưu tiên danh sách nguyên liệu từ inventory (có sẵn avg_cost để tính giá vốn)
+      const invIngs = Array.isArray(invRes.data?.data) ? invRes.data.data : [];
+      const rcpIngs = Array.isArray(rcpRes.data?.data?.ingredients) ? rcpRes.data.data.ingredients : [];
+      const mergedIngs = invIngs.length > 0 ? invIngs : rcpIngs;
+ 
       setProducts(prods);
       setCategories(cats);
-
-      if (isStaff && recipeRes.data?.data) {
-        setAllRecipes(recipeRes.data.data.recipes || []);
-        const ings = recipeRes.data.data.ingredients || [];
-        setIngredients(ings);
-        if (ings.length > 0 && !recipeForm.ingredient_id) {
-          setRecipeForm((prev) => ({
-            ...prev,
-            ingredient_id: ings[0].id,
-            unit: ings[0].unit,
-          }));
-        }
+      setRecipes(rcps);
+      setIngredients(mergedIngs);
+ 
+      if (prods.length > 0) {
+        const keepId = selectedProductId && prods.some((p) => p.id === selectedProductId)
+          ? selectedProductId
+          : prods[0].id;
+        setSelectedProductId(keepId);
       }
-
-      const targetId = keepId !== undefined ? keepId : selectedProduct?.id;
-      if (targetId) {
-        const found = prods.find((p) => p.id === targetId);
-        if (found) selectRow(found);
-      } else if (prods.length > 0) {
-        selectRow(prods[0]);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Lỗi tải thực đơn & công thức');
+    } catch {
+      toast.error('Không thể tải dữ liệu thực đơn');
+    } finally {
+      setLoading(false);
     }
   };
-
+ 
+  useEffect(() => { loadAll(); }, []);
+ 
+  // Món đang được chọn
+  const selectedProduct = useMemo(
+    () => products.find((p) => p.id === selectedProductId) || null,
+    [products, selectedProductId]
+  );
+ 
+  // Đồng bộ activeSizeId mỗi khi đổi món
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const selectRow = (p) => {
-    setSelectedProduct(p);
-    const defaultSize = p.sizes?.find((s) => s.is_default) || p.sizes?.[0];
-    setSelectedSizeId(defaultSize?.id || null);
-    const defaultPrice = defaultSize?.price || 30000;
-    setForm({
-      code: p.code || `M00${p.id}`,
-      name: p.name,
-      category_id: p.category_id,
-      price: defaultPrice,
-      description: p.description || '',
-      image_url: p.image_url || FALLBACK_DRINK_IMG,
+    if (!selectedProduct) {
+      setActiveSizeId(null);
+      return;
+    }
+    const sizes = selectedProduct.sizes || [];
+    const defSize = sizes.find((s) => s.is_default) || sizes[0];
+    setActiveSizeId(defSize?.id || null);
+    setAddingRecipe(false);
+  }, [selectedProduct?.id]);
+ 
+  // Bản đồ tra cứu nhanh giá vốn từng nguyên liệu
+  const ingredientMap = useMemo(() => {
+    const map = new Map();
+    ingredients.forEach((ing) => map.set(Number(ing.id), ing));
+    return map;
+  }, [ingredients]);
+ 
+  // Đếm tổng số dòng công thức cho mỗi sản phẩm
+  const recipeCountByProduct = useMemo(() => {
+    const counts = {};
+    recipes.forEach((r) => {
+      counts[r.product_id] = (counts[r.product_id] || 0) + 1;
     });
-  };
-
-  // Kích thước (Size) đang được chọn
-  const activeSize = selectedProduct?.sizes?.find((s) => s.id === selectedSizeId) || selectedProduct?.sizes?.[0];
-
-  // Lọc công thức: Ưu tiên lọc chính xác theo Size đang chọn để Barista xem rõ ràng
-  const currentProductRecipes = allRecipes.filter((r) => {
-    if (!selectedProduct) return false;
-    if (activeSize) {
-      return r.product_size_id === activeSize.id;
-    }
-    return r.product_id === selectedProduct.id;
-  });
-
-  const handleCreateProduct = async () => {
-    if (!canEdit) return toast.error('Chỉ Admin hoặc Quản lý mới có quyền thêm món mới!');
-    if (!form.name) return toast.error('Vui lòng nhập tên món!');
-    try {
-      const res = await api.post('/products', {
-        ...form,
-        sizes: [{ name: 'M', price: form.price, is_default: true }],
+    return counts;
+  }, [recipes]);
+ 
+  // Công thức của Size đang chọn trên món đang chọn
+  const currentSizeRecipes = useMemo(() => {
+    if (!activeSizeId) return [];
+    return recipes
+      .filter((r) => Number(r.product_size_id) === Number(activeSizeId))
+      .map((r) => {
+        const ing = ingredientMap.get(Number(r.ingredient_id));
+        const avgCost = Number(ing?.avg_cost || 0);
+        const lineCost = Math.round(Number(r.quantity || 0) * avgCost);
+        return { ...r, avgCost, lineCost };
       });
-      toast.success('Thêm món mới thành công! ☕');
-      loadData(res.data?.data?.id);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
-    }
-  };
-
-  const handleUpdateProduct = async () => {
-    if (!canEdit) return toast.error('Chỉ Admin hoặc Quản lý mới có quyền chỉnh sửa món!');
-    if (!selectedProduct) return toast.error('Vui lòng chọn món cần sửa!');
-    try {
-      await api.put(`/products/${selectedProduct.id}`, {
-        ...form,
-        is_available: selectedProduct.is_available ?? 1,
-        is_active: 1,
-      });
-      toast.success('Cập nhật món và giá tiền thành công!');
-      loadData(selectedProduct.id);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Lỗi cập nhật');
-    }
-  };
-
-  const handleDeleteProduct = async () => {
-    if (!canEdit) return toast.error('Chỉ Admin hoặc Quản lý mới có quyền xóa món!');
-    if (!selectedProduct) return toast.error('Vui lòng chọn món cần xóa!');
-    if (!window.confirm(`Bạn có chắc muốn xóa món "${selectedProduct.name}"?`)) return;
-    try {
-      await api.delete(`/products/${selectedProduct.id}`);
-      toast.success('Đã xóa món!');
-      setSelectedProduct(null);
-      loadData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Lỗi xóa món');
-    }
-  };
-
-  // Thêm nguyên liệu vào đúng Size đang chọn (Admin & Manager)
-  const handleAddRecipeIngredient = async (e) => {
+  }, [recipes, activeSizeId, ingredientMap]);
+ 
+  const activeSizeObj = useMemo(() => {
+    if (!selectedProduct) return null;
+    return (selectedProduct.sizes || []).find((s) => Number(s.id) === Number(activeSizeId)) || selectedProduct.sizes?.[0] || null;
+  }, [selectedProduct, activeSizeId]);
+ 
+  const estimatedCogs = currentSizeRecipes.reduce((s, r) => s + r.lineCost, 0);
+  const activeSellPrice = Number(activeSizeObj?.price || 0);
+  const grossMarginPct = activeSellPrice > 0 && estimatedCogs > 0
+    ? Math.round(((activeSellPrice - estimatedCogs) / activeSellPrice) * 100)
+    : null;
+ 
+  // Lọc danh sách món
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products.filter((p) => {
+      const matchCat = selectedCat === 'all' || String(p.category_id) === String(selectedCat);
+      const matchSearch =
+        !q ||
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.code || '').toLowerCase().includes(q);
+      return matchCat && matchSearch;
+    });
+  }, [products, selectedCat, search]);
+ 
+  // --- HÀNH ĐỘNG CÔNG THỨC ---
+  const handleAddRecipeItem = async (e) => {
     e.preventDefault();
-    if (!canEdit) return toast.error('Chỉ Admin hoặc Quản lý mới có quyền sửa công thức!');
-    if (!selectedProduct) return toast.error('Chưa chọn món đồ uống');
-
-    const targetSizeId = activeSize?.id || selectedProduct.sizes?.[0]?.id;
-    if (!targetSizeId) return toast.error('Món này chưa có kích thước hợp lệ');
-
+    if (!activeSizeId || !newRecipeIngId || Number(newRecipeQty) <= 0) {
+      return toast.error('Vui lòng chọn nguyên liệu và nhập định lượng lớn hơn 0');
+    }
     try {
       await api.post('/recipes', {
-        product_size_id: targetSizeId,
-        ingredient_id: recipeForm.ingredient_id,
-        quantity: recipeForm.quantity,
+        product_size_id: activeSizeId,
+        ingredient_id: Number(newRecipeIngId),
+        quantity: Number(newRecipeQty),
       });
-      toast.success(`Đã thêm nguyên liệu vào Size ${activeSize?.name || 'M'} thành công!`);
-      loadData(selectedProduct.id);
+      toast.success('Đã lưu định lượng công thức');
+      setNewRecipeIngId('');
+      setNewRecipeQty('');
+      setAddingRecipe(false);
+      loadAll();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi lưu công thức');
     }
   };
-
-  // Delete Recipe Ingredient (Admin & Manager)
-  const handleDeleteRecipeIngredient = async (recipeId) => {
-    if (!canEdit) return toast.error('Chỉ Admin hoặc Quản lý mới có quyền xóa nguyên liệu khỏi công thức!');
-    if (!window.confirm('Xác nhận xóa nguyên liệu này khỏi công thức?')) return;
+ 
+  const handleDeleteRecipeItem = async (recipeId) => {
     try {
       await api.delete(`/recipes/${recipeId}`);
-      toast.success('Đã xóa nguyên liệu khỏi công thức!');
-      loadData(selectedProduct?.id);
-    } catch (err) {
-      toast.error('Lỗi khi xóa công thức');
+      toast.success('Đã xóa nguyên liệu khỏi công thức');
+      loadAll();
+    } catch {
+      toast.error('Lỗi xóa nguyên liệu');
     }
   };
-
-  const filteredProducts = products.filter((p) => {
-    if (catFilter !== 'all' && String(p.category_id) !== catFilter) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return p.name.toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q);
-  });
-
+ 
+  // --- HÀNH ĐỘNG THÊM / SỬA / XÓA MÓN ---
+  const openCreateModal = () => {
+    setEditingProduct(null);
+    setForm({
+      code: '',
+      name: '',
+      category_id: categories[0]?.id || 1,
+      description: '',
+      image_url: '',
+      is_available: 1,
+      sizes: [
+        { name: 'S', price: 29000, is_default: 0 },
+        { name: 'M', price: 35000, is_default: 1 },
+        { name: 'L', price: 42000, is_default: 0 },
+      ],
+    });
+    setEditModalOpen(true);
+  };
+ 
+  const openEditModal = (prod) => {
+    setEditingProduct(prod);
+    setForm({
+      code: prod.code || '',
+      name: prod.name || '',
+      category_id: prod.category_id || categories[0]?.id || 1,
+      description: prod.description || '',
+      image_url: prod.image_url || '',
+      is_available: prod.is_available ?? 1,
+      sizes: (prod.sizes || []).length > 0
+        ? prod.sizes.map((s) => ({ id: s.id, name: s.name, price: Number(s.price), is_default: s.is_default ? 1 : 0 }))
+        : [{ name: 'M', price: 35000, is_default: 1 }],
+    });
+    setEditModalOpen(true);
+  };
+ 
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return toast.error('Tên món không được để trống');
+    try {
+      if (editingProduct) {
+        await api.put(`/products/${editingProduct.id}`, form);
+        toast.success('Đã cập nhật thông tin món');
+      } else {
+        await api.post('/products', form);
+        toast.success('Đã thêm món mới vào thực đơn');
+      }
+      setEditModalOpen(false);
+      loadAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi lưu thông tin món');
+    }
+  };
+ 
+  const handleDeleteProduct = async (prod) => {
+    if (!window.confirm(`Ngừng kinh doanh món "${prod.name}"?`)) return;
+    try {
+      await api.delete(`/products/${prod.id}`);
+      toast.success('Đã ẩn món khỏi thực đơn');
+      loadAll();
+    } catch {
+      toast.error('Lỗi xóa món');
+    }
+  };
+ 
   return (
-    <div className="animate-fade-in mockup-split-grid">
-      {/* LEFT: DANH SÁCH MÓN */}
-      <div className="mockup-panel">
-        <div className="mockup-panel-header">
-          <div className="mockup-panel-title">
-            <span>☕</span>
-            <span>DANH SÁCH THỰC ĐƠN ({filteredProducts.length} MÓN)</span>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1.25fr) minmax(380px, 1fr)',
+      gap: '18px',
+      height: 'calc(100vh - 98px)',
+      minHeight: '540px',
+      overflow: 'hidden',
+      width: '100%',
+    }}>
+      {/* ====================================================================
+          CỘT TRÁI (56%): DANH SÁCH THỰC ĐƠN ĐỒNG BỘ MATTE DARK
+          ==================================================================== */}
+      <section style={{
+        background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px',
+        display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden',
+      }}>
+        {/* Header tìm kiếm + nút Thêm món */}
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #26262B', display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#71717A' }} />
+              <input
+                type="text"
+                className="ui-input"
+                style={{ width: '100%', paddingLeft: '36px' }}
+                placeholder="Tìm tên món hoặc mã (CF01, TR02)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            {canEdit && (
+              <button type="button" className="ui-btn ui-btn-brand" onClick={openCreateModal}>
+                <Plus size={15} /> Thêm món
+              </button>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="🔍 Tìm kiếm món..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: '160px', padding: '6px 10px', fontSize: '0.85rem' }}
-            />
-            <select
-              className="form-select"
-              value={catFilter}
-              onChange={(e) => setCatFilter(e.target.value)}
-              style={{ width: '130px', padding: '6px 8px', fontSize: '0.85rem' }}
+ 
+          {/* Dải chip danh mục không emoji */}
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedCat('all')}
+              style={{
+                padding: '5px 12px', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600,
+                cursor: 'pointer', whiteSpace: 'nowrap', border: '1px solid',
+                background: selectedCat === 'all' ? '#D97706' : '#202024',
+                borderColor: selectedCat === 'all' ? '#D97706' : '#2E2E35',
+                color: selectedCat === 'all' ? '#FFFFFF' : '#A1A1AA',
+              }}
             >
-              <option value="all">Tất cả loại</option>
-              {categories.map((c) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
-              ))}
-            </select>
+              Tất cả ({products.length})
+            </button>
+            {categories.map((c) => {
+              const active = String(selectedCat) === String(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCat(String(c.id))}
+                  style={{
+                    padding: '5px 12px', borderRadius: '999px', fontSize: '0.76rem', fontWeight: 600,
+                    cursor: 'pointer', whiteSpace: 'nowrap', border: '1px solid',
+                    background: active ? '#D97706' : '#202024',
+                    borderColor: active ? '#D97706' : '#2E2E35',
+                    color: active ? '#FFFFFF' : '#A1A1AA',
+                  }}
+                >
+                  {cleanLabel(c.name)}
+                </button>
+              );
+            })}
           </div>
         </div>
-
-        <div style={{ overflowX: 'auto', maxHeight: '600px' }}>
-          <table className="mockup-table">
+ 
+        {/* Bảng món cuộn độc lập — Giá tiền KHÔNG gãy dòng, không tô nâu bệt */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <table className="ui-table">
             <thead>
               <tr>
-                <th style={{ width: '55px' }}>Ảnh</th>
-                <th style={{ width: '85px' }}>Mã Món</th>
-                <th>Tên Món</th>
-                <th style={{ width: '100px' }}>Loại</th>
-                <th style={{ width: '95px', textAlign: 'right' }}>Giá bán</th>
+                <th>Món</th>
+                <th>Nhóm</th>
+                <th>Công thức</th>
+                <th style={{ textAlign: 'right' }}>Giá bán</th>
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => {
-                const isSelected = selectedProduct?.id === p.id;
-                const price = p.sizes?.find((s) => s.is_default)?.price || p.sizes?.[0]?.price || 30000;
+              {loading ? (
+                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: '#71717A' }}>Đang tải thực đơn...</td></tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: '#71717A' }}>Không tìm thấy món phù hợp</td></tr>
+              ) : filteredProducts.map((p) => {
+                const isSelected = p.id === selectedProductId;
+                const sizes = p.sizes || [];
+                const defSize = sizes.find((s) => s.is_default) || sizes[0];
+                const rCount = recipeCountByProduct[p.id] || 0;
+ 
                 return (
                   <tr
                     key={p.id}
-                    onClick={() => selectRow(p)}
+                    onClick={() => setSelectedProductId(p.id)}
                     style={{
                       cursor: 'pointer',
-                      background: isSelected ? 'rgba(217, 119, 6, 0.22)' : undefined,
-                      borderLeft: isSelected ? '3px solid #fbbf24' : '3px solid transparent',
+                      background: isSelected ? 'rgba(217, 119, 6, 0.1)' : undefined,
+                      boxShadow: isSelected ? 'inset 3px 0 0 #D97706' : 'none',
                     }}
                   >
                     <td>
-                      <img
-                        src={p.image_url || FALLBACK_DRINK_IMG}
-                        alt={p.name}
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          objectFit: 'cover',
-                          border: '1px solid rgba(245, 158, 11, 0.25)',
-                        }}
-                      />
-                    </td>
-                    <td style={{ fontWeight: 700, color: '#fbbf24', fontSize: '0.82rem' }}>
-                      {p.code || `M00${p.id}`}
-                    </td>
-                    <td style={{ fontWeight: 600, color: '#fef3c7' }}>
-                      <div>{p.name}</div>
-                      {p.sizes && p.sizes.length > 1 && (
-                        <div style={{ fontSize: '0.72rem', color: '#c4a482' }}>
-                          Sizes: {p.sizes.map((s) => s.name).join(', ')}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                        <img
+                          src={p.image_url || FALLBACK_IMG}
+                          alt={p.name}
+                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
+                          style={{ width: '42px', height: '42px', borderRadius: '9px', objectFit: 'cover', flexShrink: 0 }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.86rem', color: '#F4F1EC', lineHeight: 1.3 }}>
+                            {p.name}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#71717A', marginTop: '2px' }}>
+                            {p.code || `#${p.id}`}
+                            {sizes.length > 1 && ` · ${sizes.map((s) => s.name).join(' / ')}`}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </td>
-                    <td style={{ fontSize: '0.8rem', color: '#d5bba2' }}>
-                      {p.category_name || categories.find((c) => c.id === p.category_id)?.name || 'Đồ uống'}
+                    <td className="ui-nowrap" style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>
+                      {cleanLabel(p.category_name)}
                     </td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: '#fbbf24', fontSize: '0.85rem' }}>
-                      {fmt(price)}
+                    <td className="ui-nowrap">
+                      <span className={`ui-badge ${rCount > 0 ? 'ui-badge-green' : 'ui-badge-gray'}`}>
+                        {rCount > 0 ? `${rCount} định lượng` : 'Chưa thiết lập'}
+                      </span>
+                    </td>
+                    <td className="ui-nowrap ui-money" style={{ textAlign: 'right', fontWeight: 700, color: '#F59E0B', fontSize: '0.86rem' }}>
+                      {fmt(defSize?.price || 0)}
                     </td>
                   </tr>
                 );
@@ -493,388 +404,264 @@ export default function MenuManage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* RIGHT: GỘP THÔNG TIN MÓN & CÔNG THỨC PHA CHẾ */}
-      <div className="mockup-panel">
-        {/* Sub-Tabs Header */}
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(245, 158, 11, 0.2)', background: 'rgba(32, 20, 13, 0.85)' }}>
-          <button
-            type="button"
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              background: activeRightTab === 'product' ? 'rgba(245, 158, 11, 0.18)' : 'transparent',
-              color: activeRightTab === 'product' ? '#fbbf24' : '#c4a482',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-              border: 'none',
-              borderBottom: activeRightTab === 'product' ? '3px solid #d97706' : '3px solid transparent',
-              cursor: 'pointer',
-            }}
-            onClick={() => setActiveRightTab('product')}
-          >
-            📋 THÔNG TIN MÓN &amp; GIÁ BÁN
-          </button>
-
-          <button
-            type="button"
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              background: activeRightTab === 'recipe' ? 'rgba(245, 158, 11, 0.18)' : 'transparent',
-              color: activeRightTab === 'recipe' ? '#fbbf24' : '#c4a482',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-              border: 'none',
-              borderBottom: activeRightTab === 'recipe' ? '3px solid #d97706' : '3px solid transparent',
-              cursor: 'pointer',
-            }}
-            onClick={() => setActiveRightTab('recipe')}
-          >
-            🧪 CÔNG THỨC PHA CHẾ ({currentProductRecipes.length} NGUYÊN LIỆU)
-          </button>
-        </div>
-
-        <div className="mockup-panel-body" style={{ padding: '20px' }}>
-          {/* TAB 1: THÔNG TIN MÓN & GIÁ BÁN */}
-          {activeRightTab === 'product' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <img
-                  src={form.image_url || FALLBACK_DRINK_IMG}
-                  alt={form.name}
-                  style={{ width: '85px', height: '85px', borderRadius: '12px', objectFit: 'cover', border: '1.5px solid rgba(245, 158, 11, 0.35)' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fef3c7' }}>
-                    {form.name || 'Tên món'}
+      </section>
+ 
+      {/* ====================================================================
+          CỘT PHẢI (44%): CHI TIẾT MÓN & CÔNG THỨC HIỂN THỊ CÙNG LÚC
+          ==================================================================== */}
+      <aside style={{
+        background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px',
+        display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden',
+      }}>
+        {!selectedProduct ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#71717A', gap: '8px' }}>
+            <Coffee size={32} opacity={0.4} />
+            <span style={{ fontSize: '0.86rem' }}>Chọn một món để xem chi tiết và công thức</span>
+          </div>
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {/* PHẦN 1: THÔNG TIN MÓN TRỰC QUAN */}
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              <img
+                src={selectedProduct.image_url || FALLBACK_IMG}
+                alt={selectedProduct.name}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
+                style={{ width: '88px', height: '88px', borderRadius: '14px', objectFit: 'cover', flexShrink: 0, border: '1px solid #2E2E35' }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#F59E0B', background: 'rgba(217,119,6,0.14)', padding: '2px 7px', borderRadius: '6px' }}>
+                        {selectedProduct.code}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>
+                        {cleanLabel(selectedProduct.category_name)}
+                      </span>
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700, color: '#F4F1EC', lineHeight: 1.25 }}>
+                      {selectedProduct.name}
+                    </h3>
                   </div>
-                  <div style={{ fontSize: '0.82rem', color: '#fbbf24', marginTop: '2px' }}>
-                    Mã món: <strong>{form.code}</strong> • Giá chuẩn: <strong>{fmt(form.price)}</strong>
-                  </div>
-                  {!canEdit && (
-                    <div style={{ fontSize: '0.74rem', color: '#34d399', marginTop: '4px' }}>
-                      🔒 Chế độ xem thực đơn cho nhân viên (Read-only)
+ 
+                  {canEdit && (
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <button type="button" className="ui-btn-icon" title="Chỉnh sửa món" onClick={() => openEditModal(selectedProduct)}>
+                        <Pencil size={14} />
+                      </button>
+                      <button type="button" className="ui-btn-icon" title="Ẩn món" style={{ color: '#F87171' }} onClick={() => handleDeleteProduct(selectedProduct)}>
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   )}
                 </div>
+ 
+                {selectedProduct.description && (
+                  <p style={{ margin: '6px 0 0', fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.45 }}>
+                    {selectedProduct.description}
+                  </p>
+                )}
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="form-label">MÃ MÓN:</label>
+            </div>
+ 
+            {/* Bảng giá theo từng kích cỡ (Bấm vào để chuyển nhanh định lượng công thức) */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '8px' }}>
+                <Layers size={14} color="#F59E0B" /> <span>Kích cỡ &amp; Giá niêm yết</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(3, Math.max(1, (selectedProduct.sizes || []).length))}, 1fr)`, gap: '8px' }}>
+                {(selectedProduct.sizes || []).map((s) => {
+                  const isActive = Number(s.id) === Number(activeSizeId);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setActiveSizeId(s.id)}
+                      style={{
+                        padding: '10px 12px', borderRadius: '11px', textAlign: 'left', cursor: 'pointer',
+                        background: isActive ? 'rgba(217, 119, 6, 0.14)' : '#202024',
+                        border: isActive ? '1.5px solid #D97706' : '1px solid #2A2A30',
+                        transition: 'all 0.14s ease',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.73rem', fontWeight: 600, color: isActive ? '#FBBF24' : '#A1A1AA' }}>
+                        {s.name === 'Tiêu chuẩn' ? 'Tiêu chuẩn' : `Size ${s.name}`}
+                      </div>
+                      <div className="ui-money" style={{ fontSize: '0.96rem', fontWeight: 700, color: '#F4F1EC', marginTop: '2px' }}>
+                        {fmt(s.price)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+ 
+            {/* PHẦN 2: CÔNG THỨC PHA CHẾ & ĐỊNH LƯỢNG HIỂN THỊ NGAY BÊN DƯỚI */}
+            <div style={{
+              background: '#141417', border: '1px solid #26262B', borderRadius: '14px',
+              padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: '12px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <Beaker size={16} color="#F59E0B" />
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#F4F1EC' }}>
+                    Công thức định lượng {activeSizeObj ? `(${activeSizeObj.name})` : ''}
+                  </span>
+                </div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setAddingRecipe((v) => !v)}
+                    style={{
+                      background: addingRecipe ? '#26262B' : 'rgba(217, 119, 6, 0.16)',
+                      border: '1px solid rgba(217, 119, 6, 0.4)', color: '#FBBF24',
+                      padding: '4px 10px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600,
+                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    }}
+                  >
+                    {addingRecipe ? <><X size={13} /> Đóng</> : <><Plus size={13} /> Nguyên liệu</>}
+                  </button>
+                )}
+              </div>
+ 
+              {/* Form thêm nguyên liệu gọn ngay trong khung công thức */}
+              {addingRecipe && canEdit && (
+                <form onSubmit={handleAddRecipeItem} style={{ display: 'grid', gridTemplateColumns: '1fr 96px auto', gap: '8px', alignItems: 'center' }}>
+                  <select className="ui-select" value={newRecipeIngId} onChange={(e) => setNewRecipeIngId(e.target.value)} required>
+                    <option value="">Chọn nguyên liệu...</option>
+                    {ingredients.map((ing) => (
+                      <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                    ))}
+                  </select>
                   <input
-                    type="text"
-                    className="form-input"
-                    value={form.code}
-                    onChange={(e) => setForm({ ...form, code: e.target.value })}
-                    disabled={!canEdit}
-                    style={{ width: '100%', padding: '8px' }}
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    className="ui-input"
+                    placeholder="Số lượng"
+                    value={newRecipeQty}
+                    onChange={(e) => setNewRecipeQty(e.target.value)}
+                    required
                   />
+                  <button type="submit" className="ui-btn ui-btn-brand" style={{ padding: '0 12px' }}>
+                    <Check size={15} />
+                  </button>
+                </form>
+              )}
+ 
+              {/* Danh sách nguyên liệu định lượng rõ ràng */}
+              {currentSizeRecipes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '22px 10px', color: '#71717A', fontSize: '0.8rem', border: '1px dashed #2A2A30', borderRadius: '10px' }}>
+                  Chưa có định lượng nguyên liệu cho kích cỡ này.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {currentSizeRecipes.map((r) => (
+                    <div key={r.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                      padding: '10px 12px', borderRadius: '10px', background: '#1C1C20', border: '1px solid #27272C',
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#F4F1EC' }}>{r.ingredient_name}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#71717A' }}>
+                          {r.ingredient_code}{r.lineCost > 0 ? ` · Giá vốn ~${fmt(r.lineCost)}` : ''}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span className="ui-money" style={{
+                          background: 'rgba(217, 119, 6, 0.14)', color: '#FBBF24',
+                          padding: '3px 9px', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 700,
+                        }}>
+                          {formatRecipeQty(r.quantity, r.ingredient_unit)}
+                        </span>
+                        {canEdit && (
+                          <button type="button" onClick={() => handleDeleteRecipeItem(r.id)} style={{ background: 'none', border: 'none', color: '#71717A', cursor: 'pointer', padding: '3px' }}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+ 
+              {/* Thống kê nhanh Giá vốn & Biên lợi nhuận của ly nước */}
+              {estimatedCogs > 0 && (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  paddingTop: '10px', borderTop: '1px solid #26262B', fontSize: '0.78rem',
+                }}>
+                  <span style={{ color: '#A1A1AA' }}>
+                    Giá vốn ước tính: <strong className="ui-money" style={{ color: '#F4F1EC' }}>{fmt(estimatedCogs)}</strong>
+                  </span>
+                  {grossMarginPct !== null && (
+                    <span className="ui-money" style={{ color: '#34D399', fontWeight: 600 }}>
+                      Biên lợi nhuận: {grossMarginPct}%
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </aside>
+ 
+      {/* MODAL THÊM / CHỈNH SỬA MÓN */}
+      {editModalOpen && (
+        <div className="ui-modal-backdrop" onClick={() => setEditModalOpen(false)}>
+          <form className="ui-modal-box" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()} onSubmit={handleSaveProduct}>
+            <div className="ui-modal-header">
+              <h3 className="ui-modal-title">{editingProduct ? 'Chỉnh sửa món' : 'Thêm món mới'}</h3>
+              <button type="button" className="ui-btn-icon" onClick={() => setEditModalOpen(false)}><X size={15} /></button>
+            </div>
+            <div className="ui-modal-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '12px' }}>
+                <div>
+                  <label className="ui-modal-label">Mã món</label>
+                  <input className="ui-input" placeholder="CF09" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
                 </div>
                 <div>
-                  <label className="form-label">DANH MỤC:</label>
-                  <select
-                    className="form-select"
-                    value={form.category_id}
-                    onChange={(e) => setForm({ ...form, category_id: parseInt(e.target.value) })}
-                    disabled={!canEdit}
-                    style={{ width: '100%', padding: '8px' }}
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
+                  <label className="ui-modal-label">Danh mục</label>
+                  <select className="ui-select" style={{ width: '100%' }} value={form.category_id} onChange={(e) => setForm({ ...form, category_id: Number(e.target.value) })}>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{cleanLabel(c.name)}</option>)}
                   </select>
                 </div>
               </div>
-
               <div>
-                <label className="form-label">TÊN MÓN ĐỒ UỐNG:</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  disabled={!canEdit}
-                  style={{ width: '100%', padding: '8px' }}
-                  placeholder="Ví dụ: Cà phê Muối Cốm"
-                />
+                <label className="ui-modal-label">Tên món *</label>
+                <input className="ui-input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-
               <div>
-                <label className="form-label">GIÁ BÁN TIÊU CHUẨN (VNĐ):</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                  disabled={!canEdit}
-                  style={{ width: '100%', padding: '8px', color: '#fbbf24', fontWeight: 800 }}
-                />
+                <label className="ui-modal-label">Đường dẫn ảnh</label>
+                <input className="ui-input" placeholder="/images/..." value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
               </div>
-
               <div>
-                <label className="form-label">MÔ TẢ MÓN:</label>
-                <textarea
-                  className="form-input"
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  disabled={!canEdit}
-                  style={{ width: '100%', padding: '8px' }}
-                  placeholder="Hương vị thơm béo, đậm đà..."
-                />
+                <label className="ui-modal-label">Mô tả ngắn</label>
+                <input className="ui-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
-
               <div>
-                <label className="form-label">LINK ẢNH MÓN (URL):</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.image_url}
-                  onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-                  disabled={!canEdit}
-                  style={{ width: '100%', padding: '8px', fontSize: '0.8rem' }}
-                />
-              </div>
-
-              {/* Action Buttons: Admin & Manager can edit */}
-              {canEdit && (
-                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{ borderColor: '#ef4444', color: '#f87171' }}
-                    onClick={handleDeleteProduct}
-                  >
-                    🗑️ XÓA MÓN
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
-                    onClick={handleCreateProduct}
-                  >
-                    ➕ THÊM MÓN MỚI
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ flex: 1, background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
-                    onClick={handleUpdateProduct}
-                  >
-                    💾 LƯU THAY ĐỔI
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 2: CÔNG THỨC PHA CHẾ */}
-          {activeRightTab === 'recipe' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {!isStaff ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#fbbf24' }}>
-                  🔒 Công thức pha chế là tài sản độc quyền của quán. Khách hàng không có quyền truy cập.
-                </div>
-              ) : (
-                <>
-                  {/* Top Header & Size Selector */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(38, 22, 14, 0.85)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <div>
-                        <div style={{ fontWeight: 800, color: '#fef3c7', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>☕</span>
-                          <span>Công thức: {selectedProduct?.name || 'Chưa chọn món'}</span>
-                          {activeSize && (
-                            <span style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 800 }}>
-                              Size {activeSize.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 700 }}>
-                        {currentProductRecipes.length} thành phần
-                      </div>
+                <label className="ui-modal-label">Giá bán theo kích cỡ (VNĐ)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {form.sizes.map((s, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '8px' }}>
+                      <input className="ui-input" value={s.name} onChange={(e) => {
+                        const next = [...form.sizes]; next[idx].name = e.target.value; setForm({ ...form, sizes: next });
+                      }} />
+                      <input type="number" min="0" className="ui-input ui-money" value={s.price} onChange={(e) => {
+                        const next = [...form.sizes]; next[idx].price = Number(e.target.value); setForm({ ...form, sizes: next });
+                      }} />
                     </div>
-
-                    {/* Bộ nút chọn kích cỡ (Size S, M, L) */}
-                    {selectedProduct?.sizes && selectedProduct.sizes.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '6px', borderTop: '1px solid rgba(245, 158, 11, 0.15)' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#d5bba2' }}>
-                          Kích cỡ (Size):
-                        </span>
-                        {selectedProduct.sizes.map((sz) => {
-                          const isCurrent = (selectedSizeId || selectedProduct.sizes[0]?.id) === sz.id;
-                          return (
-                            <button
-                              key={sz.id}
-                              type="button"
-                              onClick={() => setSelectedSizeId(sz.id)}
-                              style={{
-                                padding: '4px 12px',
-                                borderRadius: '16px',
-                                fontWeight: 800,
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
-                                border: isCurrent ? '1.5px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.25)',
-                                background: isCurrent ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255, 255, 255, 0.05)',
-                                color: isCurrent ? '#ffffff' : '#d5bba2',
-                                boxShadow: isCurrent ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              Size {sz.name} ({fmt(sz.price)})
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bảng định lượng nguyên liệu Barista chuẩn */}
-                  <div style={{ maxHeight: '320px', overflowY: 'auto', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', background: 'rgba(24, 14, 9, 0.6)' }}>
-                    <table className="mockup-table">
-                      <thead>
-                        <tr>
-                          <th>Nguyên liệu</th>
-                          <th style={{ textAlign: 'left' }}>Định lượng / Ly</th>
-                          <th style={{ textAlign: 'center', width: '110px' }}>Trừ kho / Ly</th>
-                          <th>Quy đổi trừ kho</th>
-                          {canEdit && <th style={{ width: '40px', textAlign: 'center' }}>Xóa</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentProductRecipes.length === 0 ? (
-                          <tr>
-                            <td colSpan={canEdit ? 5 : 4} style={{ textAlign: 'center', padding: '30px 20px', color: '#c4a482' }}>
-                              Chưa có định lượng công thức cho Size {activeSize?.name || 'này'}. Quản lý có thể thêm bên dưới!
-                            </td>
-                          </tr>
-                        ) : (
-                          currentProductRecipes.map((r) => {
-                            const ing = ingredients.find((i) => i.id === r.ingredient_id);
-                            const ingName = r.ingredient_name || ing?.name || 'Nguyên liệu';
-                            const ingUnit = r.ingredient_unit || ing?.unit || 'g';
-                            const bData = formatBaristaRecipe(ingName, r.quantity, ingUnit);
-
-                            return (
-                              <tr key={r.id}>
-                                <td style={{ fontWeight: 700, color: '#fef3c7' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span style={{ fontSize: '1.1rem' }}>{bData.icon}</span>
-                                    <span>{ingName}</span>
-                                  </div>
-                                </td>
-                                <td>
-                                  <span style={{ fontWeight: 900, color: '#fbbf24', fontSize: '0.88rem', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                                    {bData.baristaAmount}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.12)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-                                    {bData.rawAmount}
-                                  </span>
-                                </td>
-                                <td style={{ fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 600 }}>
-                                  {bData.action}
-                                </td>
-                                {canEdit && (
-                                  <td style={{ textAlign: 'center' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteRecipeIngredient(r.id)}
-                                      style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 800 }}
-                                      title="Xóa nguyên liệu này khỏi công thức"
-                                    >
-                                      ✕
-                                    </button>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Form Thêm nguyên liệu: Admin & Manager (Gắn đúng theo Size đang chọn) */}
-                  {canEdit ? (
-                    <form onSubmit={handleAddRecipeIngredient} style={{ background: 'rgba(28, 17, 10, 0.95)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '14px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>
-                          ➕ THÊM NGUYÊN LIỆU VÀO SIZE {activeSize?.name || 'M'}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
-                        <div>
-                          <label className="form-label" style={{ fontSize: '0.74rem' }}>Chọn nguyên liệu:</label>
-                          <select
-                            className="form-select"
-                            value={recipeForm.ingredient_id}
-                            onChange={(e) => {
-                              const ing = ingredients.find((i) => String(i.id) === e.target.value);
-                              setRecipeForm({
-                                ...recipeForm,
-                                ingredient_id: e.target.value,
-                                unit: ing?.unit || 'kg',
-                              });
-                            }}
-                            style={{ width: '100%', padding: '6px' }}
-                            required
-                          >
-                            {ingredients.map((i) => (
-                              <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="form-label" style={{ fontSize: '0.74rem' }}>Định lượng kho:</label>
-                          <input
-                            type="number"
-                            step="0.001"
-                            className="form-input"
-                            value={recipeForm.quantity}
-                            onChange={(e) => setRecipeForm({ ...recipeForm, quantity: Number(e.target.value) })}
-                            style={{ width: '100%', padding: '6px', fontWeight: 700 }}
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="form-label" style={{ fontSize: '0.74rem' }}>Đơn vị:</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={recipeForm.unit}
-                            disabled
-                            style={{ width: '100%', padding: '6px', opacity: 0.8 }}
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        <button
-                          type="submit"
-                          className="btn btn-sm"
-                          style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', color: '#ffffff', fontWeight: 800, padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(217, 119, 6, 0.3)' }}
-                        >
-                          + LƯU VÀO SIZE {activeSize?.name || 'M'}
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
-                </>
-              )}
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
+            <div className="ui-modal-footer">
+              <button type="button" className="ui-btn ui-btn-outline" onClick={() => setEditModalOpen(false)}>Hủy</button>
+              <button type="submit" className="ui-btn ui-btn-brand">Lưu thay đổi</button>
+            </div>
+          </form>
         </div>
-      </div>
+      )}
     </div>
   );
 }

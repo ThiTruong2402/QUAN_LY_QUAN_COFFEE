@@ -24,14 +24,6 @@ const getHomeRouteByRole = (role) => {
   }
 };
  
-const DEMO_ACCOUNTS = [
-  { label: 'Admin', username: 'admin' },
-  { label: 'Quản lý', username: 'manager' },
-  { label: 'Thu ngân', username: 'cashier' },
-  { label: 'Pha chế', username: 'barista' },
-  { label: 'Thủ kho', username: 'warehouse' },
-];
- 
 // Bộ SVG Icon nét mảnh đồng bộ
 const Icon = {
   User: () => (
@@ -79,7 +71,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showExtraFields, setShowExtraFields] = useState(false);
-  const [showDemoBox, setShowDemoBox] = useState(false);
  
   // State Đăng nhập
   const [username, setUsername] = useState('');
@@ -233,32 +224,11 @@ export default function Login() {
             <h1 className="mch-showcase-title">
               Hương vị thủ công,<br />trọn vẹn từng khoảnh khắc.
             </h1>
-            <p className="mch-showcase-sub">
-              Đặt trước ly cà phê yêu thích không cần xếp hàng chờ, hoặc đăng nhập không gian điều hành POS thời gian thực dành cho đội ngũ cửa hàng.
-            </p>
- 
-            <div className="mch-feature-list">
-              <div className="mch-feature-item">
-                <span className="mch-feature-dot"><Icon.Check /></span>
-                <span>Tặng ngay 50 điểm chào mừng khi đăng ký hội viên</span>
-              </div>
-              <div className="mch-feature-item">
-                <span className="mch-feature-dot"><Icon.Check /></span>
-                <span>Tích 1 điểm mỗi 10.000đ • Quy đổi giảm giá trực tiếp</span>
-              </div>
-              <div className="mch-feature-item">
-                <span className="mch-feature-dot"><Icon.Check /></span>
-                <span>Hẹn giờ nhận món chủ động & theo dõi tiến độ pha chế live</span>
-              </div>
-            </div>
- 
-            <div className="mch-guest-banner">
+
+            <div className="mch-guest-banner" style={{ marginTop: '36px' }}>
               <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#FFFFFF' }}>
-                  Đặt món ngay không cần tài khoản
-                </div>
-                <div style={{ fontSize: '0.73rem', color: '#E2D3C3', marginTop: '2px' }}>
-                  Xem thực đơn 57+ món & quét mã VietQR tức thì
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>
+                  Đặt món không cần tài khoản
                 </div>
               </div>
               <button
@@ -298,9 +268,7 @@ export default function Login() {
           {mode === 'login' ? (
             <form onSubmit={handleLoginSubmit} noValidate>
               <h2 className="mch-form-heading">Chào mừng trở lại</h2>
-              <p className="mch-form-desc">
-                Nhập tên tài khoản nhân viên hoặc số điện thoại hội viên của bạn.
-              </p>
+              
  
               {errors.login && (
                 <div style={{
@@ -320,7 +288,7 @@ export default function Login() {
                       id="login-user"
                       type="text"
                       className="mch-field"
-                      placeholder="VD: 0901234567 hoặc cashier"
+                      placeholder="Tài khoản hoặc số điện thoại"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       autoComplete="username"
@@ -336,7 +304,7 @@ export default function Login() {
                       id="login-pass"
                       type={showPassword ? 'text' : 'password'}
                       className="mch-field has-eye"
-                      placeholder="Nhập mật khẩu của bạn"
+                      placeholder="Mật khẩu"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete="current-password"
@@ -375,36 +343,7 @@ export default function Login() {
                 </button>
               </div>
  
-              {/* Ngăn kéo tài khoản trải nghiệm ẩn gọn gàng (tiện khi demo đồ án) */}
-              <div className="mch-demo-toggle">
-                <button
-                  type="button"
-                  onClick={() => setShowDemoBox((v) => !v)}
-                  style={{ background: 'none', border: 'none', color: '#8C7768', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  {showDemoBox ? 'Ẩn tài khoản trải nghiệm ▲' : 'Điền nhanh tài khoản trải nghiệm (Demo) ▼'}
-                </button>
- 
-                {showDemoBox && (
-                  <div className="mch-demo-chips">
-                    {DEMO_ACCOUNTS.map((acc) => (
-                      <button
-                        key={acc.username}
-                        type="button"
-                        className="mch-demo-chip"
-                        onClick={() => {
-                          setUsername(acc.username);
-                          setPassword('123456');
-                          setErrors({});
-                        }}
-                      >
-                        {acc.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </form>
+              </form>
           ) : (
             <form onSubmit={handleRegisterSubmit} noValidate>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -417,9 +356,7 @@ export default function Login() {
                   <Icon.Gift /> +50 điểm
                 </span>
               </div>
-              <p className="mch-form-desc">
-                Tạo tài khoản bằng số điện thoại để tích điểm và nhận ưu đãi thành viên.
-              </p>
+              
  
               {errors.register && (
                 <div style={{
@@ -440,7 +377,7 @@ export default function Login() {
                         id="reg-name"
                         type="text"
                         className={`mch-field ${errors.fullName ? 'is-error' : ''}`}
-                        placeholder="Nguyễn Văn An"
+                        placeholder="Họ và tên"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                       />
@@ -456,7 +393,7 @@ export default function Login() {
                         id="reg-phone"
                         type="tel"
                         className={`mch-field ${errors.phone ? 'is-error' : ''}`}
-                        placeholder="0901234567"
+                        placeholder="Số điện thoại"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                       />
@@ -473,7 +410,7 @@ export default function Login() {
                       id="reg-pass"
                       type={showPassword ? 'text' : 'password'}
                       className={`mch-field has-eye ${errors.regPassword ? 'is-error' : ''}`}
-                      placeholder="Tối thiểu 6 ký tự"
+                      placeholder="Mật khẩu (tối thiểu 6 ký tự)"
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                     />
@@ -513,7 +450,7 @@ export default function Login() {
                       id="reg-confirm"
                       type={showPassword ? 'text' : 'password'}
                       className={`mch-field ${errors.confirmPassword ? 'is-error' : ''}`}
-                      placeholder="Nhập lại mật khẩu phía trên"
+                      placeholder="Xác nhận mật khẩu"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                     />

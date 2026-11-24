@@ -59,13 +59,7 @@ export default function AuditLogs() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
       {/* HEADER GỌN GÀNG KHÔNG IN HOA SERIF, KHÔNG TRÀN MÉP PHẢI */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#1E1815' }}>Nhật ký hoạt động hệ thống</h2>
-          <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#73675E' }}>
-            Ghi nhận tự động các thao tác đăng nhập, phân quyền nhân sự, đơn hàng và cấu hình quan trọng.
-          </p>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '8px' }}>
         <button type="button" className="ui-btn ui-btn-outline" onClick={() => fetchLogs(pagination.page)}>
           Làm mới dữ liệu
         </button>

@@ -645,10 +645,7 @@ export default function Shifts() {
               </button>
             </div>
 
-            {/* Instruction tooltip */}
-            <div style={{ fontSize: '0.75rem', color: '#a8a29e' }}>
-              💡 <span style={{ color: '#fbbf24' }}>Mẹo:</span> Bấm vào ô ca trực để <strong style={{ color: '#fef3c7' }}>đổi người / đổi ca</strong>, bấm vào ô trống để <strong style={{ color: '#fef3c7' }}>phân ca nhanh</strong>.
-            </div>
+            
           </div>
 
           {/* Weekly Timetable Grid Table */}

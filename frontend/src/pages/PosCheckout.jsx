@@ -265,11 +265,8 @@ export default function PosCheckout() {
             cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px'
           }}
         >
-          <ArrowLeft size={16} /> Quay lại chọn thêm món
+          <ArrowLeft size={16} /> Quay lại chọn món
         </button>
-        <div style={{ fontSize: '0.84rem', color: '#A1A1AA' }}>
-          Kiểm tra lại danh sách đồ uống và hoàn tất thu tiền tại quầy
-        </div>
       </div>
  
       {cart.length === 0 ? (

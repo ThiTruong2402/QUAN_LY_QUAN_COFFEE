@@ -60,6 +60,8 @@ const Icon = {
   ),
 };
  
+const shortAreaName = (name = "") => name.split(" - ")[0].trim();
+
 export default function Tables() {
   const navigate = useNavigate();
   const [tables, setTables] = useState([]);
@@ -408,24 +410,18 @@ export default function Tables() {
       `}</style>
  
       {/* 1. HEADER */}
-      <div className="fp-header">
+      <div className="fp-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h1 className="fp-title">Sơ đồ bàn phục vụ</h1>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              fontSize: '0.74rem', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
-              background: storeIsOpen ? '#ECFDF5' : '#FEF2F2',
-              color: storeIsOpen ? '#15803D' : '#DC2626',
-              border: `1px solid ${storeIsOpen ? '#BBF7D0' : '#FECACA'}`
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: storeIsOpen ? '#16A34A' : '#DC2626' }} />
-              {storeIsOpen ? 'Cổng Online: Đang nhận đơn' : 'Cổng Online: Ngoài giờ'}
-            </span>
-          </div>
-          <div style={{ fontSize: '0.78rem', color: '#78716C', marginTop: '3px' }}>
-            Đồng bộ thời gian thực • Cập nhật lúc {lastUpdated.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-          </div>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            fontSize: '0.76rem', fontWeight: 700, padding: '5px 12px', borderRadius: '999px',
+            background: storeIsOpen ? '#ECFDF5' : '#FEF2F2',
+            color: storeIsOpen ? '#15803D' : '#DC2626',
+            border: `1px solid ${storeIsOpen ? '#BBF7D0' : '#FECACA'}`
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: storeIsOpen ? '#16A34A' : '#DC2626' }} />
+            {storeIsOpen ? 'Cổng Online: Đang mở' : 'Cổng Online: Ngoài giờ'}
+          </span>
         </div>
  
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -511,13 +507,13 @@ export default function Tables() {
       <div className="fp-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
           <button type="button" className={`fp-area-pill ${selectedArea === 'all' ? 'active' : ''}`} onClick={() => setSelectedArea('all')}>
-            Tất cả khu vực ({tables.length})
+            Tất cả ({tables.length})
           </button>
           {areas.map((a) => {
             const count = tables.filter((t) => String(t.area_id) === String(a.id)).length;
             return (
               <button key={a.id} type="button" className={`fp-area-pill ${String(selectedArea) === String(a.id) ? 'active' : ''}`} onClick={() => setSelectedArea(String(a.id))}>
-                {a.name} ({count})
+                {shortAreaName(a.name)} ({count})
               </button>
             );
           })}

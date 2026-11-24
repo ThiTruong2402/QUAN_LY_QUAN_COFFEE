@@ -2147,17 +2147,7 @@ export default function CustomerPortal() {
         </div>
       </div>
 
-      {/* Footer cảm ơn gọn gàng */}
-      <div style={{
-        padding: '14px 28px',
-        background: '#141417',
-        borderTop: '1px solid #26262B',
-        textAlign: 'center',
-        fontSize: '0.8rem',
-        color: '#A1A1AA',
-      }}>
-        Cảm ơn bạn đã đồng hành cùng <strong style={{ color: '#F4F1EC', fontWeight: 600 }}>My Coffee House</strong> — Hân hạnh phục vụ tại 100 Cầu Giấy, Hà Nội.
-      </div>
+      
     </div>
   </div>
 )}

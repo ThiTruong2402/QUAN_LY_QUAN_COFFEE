@@ -209,7 +209,7 @@ export default function Reports() {
             <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>Xu hướng doanh thu theo ngày</span>
-                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>Biểu đồ vùng • VNĐ</span>
+                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>VNĐ</span>
               </div>
               <div style={{ height: '270px' }}>
                 {loading || dailyChart.length === 0 ? (
@@ -239,7 +239,7 @@ export default function Reports() {
             <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>Cơ cấu phương thức thanh toán</span>
-                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>Biểu đồ Donut</span>
+                
               </div>
               <div style={{ height: '270px' }}>
                 {paymentPieData.length === 0 ? (
@@ -264,7 +264,7 @@ export default function Reports() {
             <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>Top món bán chạy nhất (Doanh thu)</span>
-                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>Biểu đồ cột ngang</span>
+                
               </div>
               <div style={{ height: '260px' }}>
                 {topProductsBar.length === 0 ? (
@@ -293,7 +293,7 @@ export default function Reports() {
             <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>Phân bổ doanh thu theo khung giờ hôm nay</span>
-                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>Biểu đồ cột đứng</span>
+                
               </div>
               <div style={{ height: '260px' }}>
                 {hourlyBarData.length === 0 ? (
@@ -322,7 +322,7 @@ export default function Reports() {
             <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>Top nguyên liệu tiêu hao giá trị lớn nhất</span>
-                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>Biểu đồ cột ngang</span>
+                
               </div>
               <div style={{ height: '240px' }}>
                 {topConsumedBar.length === 0 ? (
@@ -344,7 +344,7 @@ export default function Reports() {
             <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>Tỷ lệ trạng thái tồn kho</span>
-                <span style={{ fontSize: '0.76rem', color: '#71717A' }}>Biểu đồ Donut</span>
+                
               </div>
               <div style={{ height: '240px' }}>
                 <ResponsiveContainer width="100%" height="100%">

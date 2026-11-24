@@ -471,9 +471,6 @@ export default function PosOrder() {
                 {summary.totalItems} món trong giỏ hàng
                 {orderMeta.tableCode && orderMeta.orderType === 'dine_in' ? ` • ${orderMeta.tableCode}` : ''}
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#D6C7B8' }}>
-                Bấm để xem nhanh hoặc chuyển sang trang thanh toán
-              </div>
             </div>
           </div>
  
