@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const rateLimit = require('express-rate-limit');
 const c = require('../controllers/orderController');
-const { authenticate, optionalAuthenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 // BIZ-10: Rate limiter chống spam tạo đơn tự động cho cổng direct-checkout
 const directCheckoutLimiter = rateLimit({
@@ -19,7 +19,14 @@ router.get('/all', authenticate, authorize('admin', 'manager', 'cashier'), c.get
 router.get('/:id', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista', 'customer'), c.getOne);
 
 // Tạo & bán đơn hàng tại quầy (POS) & Đặt món trực tuyến (Khách Hàng Online)
-router.post('/direct-checkout', directCheckoutLimiter, optionalAuthenticate, c.directCheckout);
+// AUTH-ORDER-01: BẮT BUỘC ĐĂNG NHẬP KHI ĐẶT HÀNG & THANH TOÁN (Khóa cứng JWT, chặn 100% khách vãng lai)
+router.post(
+  '/direct-checkout',
+  directCheckoutLimiter,
+  authenticate,
+  authorize('admin', 'manager', 'cashier', 'waiter', 'customer'),
+  c.directCheckout
+);
 router.post('/', authenticate, authorize('admin', 'manager', 'cashier', 'waiter'), c.create);
 
 // Thao tác món & quầy

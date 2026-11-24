@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -66,8 +66,10 @@ const Icon = {
 export default function Login() {
   const auth = useAuth();
   const navigate = useNavigate();
- 
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [searchParams] = useSearchParams();
+
+  // Tự động mở tab Đăng ký nếu URL có ?mode=register
+  const [mode, setMode] = useState(searchParams.get('mode') === 'register' ? 'register' : 'login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showExtraFields, setShowExtraFields] = useState(false);
@@ -159,7 +161,11 @@ export default function Login() {
           sessionStorage.setItem('accessToken', res.data.data.accessToken);
         }
         toast.success(`Chào mừng ${loggedUser.full_name || loggedUser.username}!`);
-        navigate(getHomeRouteByRole(loggedUser.role), { replace: true });
+        const redirectTarget = searchParams.get('redirect');
+        const nextPath = (loggedUser.role === 'customer' && redirectTarget === '/customer')
+          ? '/customer'
+          : getHomeRouteByRole(loggedUser.role);
+        navigate(nextPath, { replace: true });
       }
     } catch (err) {
       let msg = 'Sai tài khoản hoặc mật khẩu';
@@ -192,9 +198,13 @@ export default function Login() {
       });
  
       if (res.data?.success && res.data?.data) {
-        await applyAuthSession(res.data.data);
+        const loggedUser = await applyAuthSession(res.data.data);
         toast.success(res.data.message || 'Đăng ký thành công! Bạn được tặng 50 điểm chào mừng.');
-        navigate('/customer', { replace: true });
+        const redirectTarget = searchParams.get('redirect');
+        const nextPath = (loggedUser?.role === 'customer' && redirectTarget === '/customer')
+          ? '/customer'
+          : '/customer';
+        navigate(nextPath, { replace: true });
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Không thể đăng ký lúc này';
@@ -228,7 +238,10 @@ export default function Login() {
             <div className="mch-guest-banner" style={{ marginTop: '36px' }}>
               <div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>
-                  Đặt món không cần tài khoản
+                  Khám phá thực đơn quán
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#A1A1AA', marginTop: '2px' }}>
+                  Xem trước 57+ thức uống và ưu đãi
                 </div>
               </div>
               <button
@@ -236,7 +249,7 @@ export default function Login() {
                 className="mch-guest-btn"
                 onClick={() => navigate('/customer')}
               >
-                Vào thực đơn →
+                Xem thực đơn →
               </button>
             </div>
           </div>

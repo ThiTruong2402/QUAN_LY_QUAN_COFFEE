@@ -30,6 +30,37 @@ const PAYMENT_METHOD_MAP = {
  * Tạo đơn hàng trực tiếp (POS tại quầy hoặc Khách đặt Online)
  */
 async function createDirectOrder(conn, { orderData, reqUser, io }) {
+  // 0. CHỐT CHẶN BẮT BUỘC (AUTH-ORDER-01): Không có tài khoản đăng nhập -> Từ chối HTTP 401 ngay lập tức
+  if (!reqUser || !reqUser.id || !reqUser.role) {
+    const authErr = new Error('Vui lòng đăng nhập hoặc đăng ký tài khoản để đặt hàng và thanh toán.');
+    authErr.status = 401;
+    throw authErr;
+  }
+
+  // Kiểm tra tài khoản thực tế trong CSDL còn hoạt động (is_active = 1)
+  const [userRows] = await conn.query(
+    `SELECT u.id, u.username, u.full_name, u.phone, u.is_active, r.name AS role_name 
+     FROM users u 
+     JOIN roles r ON r.id = u.role_id 
+     WHERE u.id = ? LIMIT 1`,
+    [reqUser.id]
+  );
+  if (!userRows.length || Number(userRows[0].is_active) !== 1) {
+    const lockErr = new Error('Tài khoản không tồn tại hoặc đã bị tạm khóa. Vui lòng đăng nhập lại.');
+    lockErr.status = 401;
+    throw lockErr;
+  }
+
+  const dbUser = userRows[0];
+  const isStaff = ['admin', 'manager', 'cashier', 'waiter'].includes(dbUser.role_name);
+  const isOnlineCustomer = dbUser.role_name === 'customer';
+
+  if (!isStaff && !isOnlineCustomer) {
+    const roleErr = new Error('Vai trò tài khoản hiện tại không có quyền đặt hàng.');
+    roleErr.status = 403;
+    throw roleErr;
+  }
+
   const {
     items,
     customer_name,
@@ -49,33 +80,36 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     status: requestedStatus,
   } = orderData;
 
-  const isStaff = reqUser && ['admin', 'manager', 'cashier'].includes(reqUser.role);
-  const isOnlineCustomer = reqUser?.role === 'customer' || !reqUser || orderData.is_online_order;
-
   // 1. Zero-Trust Định giá và kiểm tra danh sách món
   const { validatedItems, subtotal } = await pricingService.validateAndPriceItems(conn, items);
 
   // 2. Pre-check tồn kho chống âm kho
   await inventoryService.checkStockAvailability(conn, validatedItems);
 
-  // 3. Nhận diện khách hàng
-  const effectivePhone = customer_phone || (reqUser?.role === 'customer' ? (reqUser.phone || reqUser.username) : null);
-  const effectiveName = customer_name || (reqUser?.role === 'customer' ? reqUser.full_name : 'Khách');
+  // 3. KHÓA DANH TÍNH KHÁCH HÀNG THEO TÀI KHOẢN ĐÃ ĐĂNG NHẬP (Anti-Spoofing & Zero-Trust)
+  // - Nếu là khách hàng (role = 'customer'): Bắt buộc lấy SĐT và Họ tên từ chính tài khoản đã đăng ký (chống mạo danh SĐT / trộm điểm người khác)
+  // - Nếu là nhân viên thu ngân tại quầy POS: Cho phép nhập SĐT hội viên của khách đến mua trực tiếp
+  const effectivePhone = isOnlineCustomer
+    ? (dbUser.phone || dbUser.username)
+    : (customer_phone ? String(customer_phone).trim() : null);
 
-  // Chống spam / double-click tức thì (Idempotency in-memory lock chặn đứng race-condition)
-  if (effectivePhone) {
-    const lastTime = recentOrderLocks.get(effectivePhone);
-    const now = Date.now();
-    if (lastTime && now - lastTime < 3000) {
-      const spamErr = new Error('Bạn đang thao tác quá nhanh! Vui lòng chờ ít giây trước khi thực hiện đơn mới.');
-      spamErr.status = 429;
-      throw spamErr;
-    }
-    recentOrderLocks.set(effectivePhone, now);
-    if (recentOrderLocks.size > 500) {
-      for (const [p, t] of recentOrderLocks.entries()) {
-        if (now - t > 10000) recentOrderLocks.delete(p);
-      }
+  const effectiveName = isOnlineCustomer
+    ? (dbUser.full_name || dbUser.username)
+    : (customer_name ? String(customer_name).trim() : 'Khách lẻ');
+
+  // Chống spam / double-click tức thì theo chính user.id (Idempotency in-memory lock)
+  const lockKey = `user:${dbUser.id}`;
+  const now = Date.now();
+  const lastTime = recentOrderLocks.get(lockKey);
+  if (lastTime && now - lastTime < 3000) {
+    const spamErr = new Error('Bạn đang thao tác quá nhanh! Vui lòng chờ 3 giây trước khi tạo đơn mới.');
+    spamErr.status = 429;
+    throw spamErr;
+  }
+  recentOrderLocks.set(lockKey, now);
+  if (recentOrderLocks.size > 500) {
+    for (const [p, t] of recentOrderLocks.entries()) {
+      if (now - t > 10000) recentOrderLocks.delete(p);
     }
   }
 
@@ -234,20 +268,20 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
   const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
   const closedAt = finalOrderStatus === 'paid' && finalPaymentStatus === 'paid' ? 'NOW()' : 'NULL';
 
-  // 10. Chèn bản ghi Orders
+  // 10. Chèn bản ghi Orders (created_by ghi chính xác ID tài khoản đang tạo đơn, không fallback về Admin)
   let orderRes;
   try {
     [orderRes] = await conn.query(
       `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${closedAt}, ?)`,
-      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, shipping_fee || 0, recipient_phone || null, validCouponCode, reqUser?.id || 1, effectivePickupDate]
+      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, shipping_fee || 0, recipient_phone || null, validCouponCode, dbUser.id, effectivePickupDate]
     );
   } catch (insErr) {
     if (insErr.message?.includes('pickup_time')) {
       [orderRes] = await conn.query(
         `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${closedAt})`,
-        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, shipping_fee || 0, recipient_phone || null, validCouponCode, reqUser?.id || 1]
+        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, shipping_fee || 0, recipient_phone || null, validCouponCode, dbUser.id]
       );
     } else {
       throw insErr;

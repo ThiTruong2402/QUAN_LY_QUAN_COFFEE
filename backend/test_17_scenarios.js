@@ -56,6 +56,25 @@ async function runTests() {
   const cashierLogin = await req('/auth/login', 'POST', { username: 'cashier', password: '123456' });
   const cashierToken = cashierLogin.data?.data?.accessToken;
 
+  // Login / Register Customer (0912345678 / password123)
+  let customerToken = null;
+  let customerUser = null;
+  const regInit = await req('/auth/register', 'POST', {
+    phone: '0912345678',
+    password: 'password123',
+    full_name: 'Khách Thử Nghiệm VIP'
+  });
+  customerToken = regInit.data?.data?.accessToken;
+  customerUser = regInit.data?.data?.user;
+  if (!customerToken) {
+    const loginInit = await req('/auth/login', 'POST', {
+      username: '0912345678',
+      password: 'password123'
+    });
+    customerToken = loginInit.data?.data?.accessToken;
+    customerUser = loginInit.data?.data?.user;
+  }
+
   // Ensure store is open: 00:00 - 23:59
   await req('/settings/store-hours', 'PUT', { openTime: '00:00', closeTime: '23:59' }, adminToken);
 
@@ -192,7 +211,7 @@ async function runTests() {
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
       payment_method: 'Tiền mặt'
-    });
+    }, customerToken);
 
     const pass = orderRes.status === 400 && orderRes.data?.message?.includes('đóng cửa');
     record(
@@ -210,24 +229,24 @@ async function runTests() {
   }
 
   // --- CUS-01: Khách đăng ký, đăng nhập Customer Portal -> Chỉ thấy portal, không vào được quản trị ---
-  let customerToken = null;
-  let customerUser = null;
   try {
-    const regRes = await req('/auth/register', 'POST', {
-      phone: '0912345678',
-      password: 'password123',
-      full_name: 'Khách Thử Nghiệm VIP'
-    });
-    customerToken = regRes.data?.data?.accessToken;
-    customerUser = regRes.data?.data?.user;
-
     if (!customerToken) {
-      const loginRes = await req('/auth/login', 'POST', {
-        username: '0912345678',
-        password: 'password123'
+      const regRes = await req('/auth/register', 'POST', {
+        phone: '0912345678',
+        password: 'password123',
+        full_name: 'Khách Thử Nghiệm VIP'
       });
-      customerToken = loginRes.data?.data?.accessToken;
-      customerUser = loginRes.data?.data?.user;
+      customerToken = regRes.data?.data?.accessToken;
+      customerUser = regRes.data?.data?.user;
+
+      if (!customerToken) {
+        const loginRes = await req('/auth/login', 'POST', {
+          username: '0912345678',
+          password: 'password123'
+        });
+        customerToken = loginRes.data?.data?.accessToken;
+        customerUser = loginRes.data?.data?.user;
+      }
     }
 
     // Thử truy cập API quản trị nội bộ
@@ -245,18 +264,40 @@ async function runTests() {
     record('CUS-01', 'Customer registration & portal RBAC', false, err.message);
   }
 
+  // --- AUTH-ORDER-01: Khách chưa đăng nhập / chưa có tài khoản gọi API đặt hàng -> Bị chặn 401 ---
+  try {
+    const unauthOrder = await req('/orders/direct-checkout', 'POST', {
+      customer_name: 'Khách Chưa Đăng Ký',
+      customer_phone: '0999888777',
+      order_type: 'takeaway',
+      items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
+      payment_method: 'Tiền mặt'
+    }); // Cố tình KHÔNG gửi token
+
+    const pass = unauthOrder.status === 401;
+    record(
+      'AUTH-ORDER-01',
+      'Khách chưa có tài khoản / chưa đăng nhập gọi API đặt hàng -> Bị chặn HTTP 401 Unauthorized',
+      pass,
+      `HTTP ${unauthOrder.status}: "${unauthOrder.data?.message}"`
+    );
+  } catch (err) {
+    record('AUTH-ORDER-01', 'Chặn đặt hàng không cần tài khoản', false, err.message);
+  }
+
   // --- CUS-02: Khách đặt món lấy ngay -> Đơn đến POS và KDS, khách thấy tiến trình realtime ---
   let createdOrderId = null;
   try {
+    await new Promise(r => setTimeout(r, 3100)); // Chờ khóa spam lock user hết hiệu lực
     const directOrder = await req('/orders/direct-checkout', 'POST', {
       customer_name: 'Khách Đặt Món Lấy Ngay',
-      customer_phone: '0911000001',
+      customer_phone: '0912345678',
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
       payment_method: 'Tiền mặt',
       payment_status: 'paid',
       status: 'pending'
-    });
+    }, customerToken);
 
     createdOrderId = directOrder.data?.data?.orderId;
     const kdsCheck = await req('/barista/queue', 'GET', null, adminToken);
@@ -275,14 +316,15 @@ async function runTests() {
 
   // --- CUS-03: Khách đặt món hẹn giờ -> Kiểm tra giờ hợp lệ trong khung mở cửa ---
   try {
+    await new Promise(r => setTimeout(r, 3100)); // Chờ spam lock 3s
     const invalidPast = await req('/orders/direct-checkout', 'POST', {
       customer_name: 'Khách Hẹn Giờ Quá Khứ',
-      customer_phone: '0911000002',
+      customer_phone: '0912345678',
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
       payment_method: 'Tiền mặt',
       pickup_time: '2020-01-01T10:00:00' // Giờ trong quá khứ
-    });
+    }, customerToken);
 
     const pass = invalidPast.status === 400 && (invalidPast.data?.message?.includes('quá khứ') || invalidPast.data?.message?.includes('tối thiểu'));
     record(
@@ -401,9 +443,10 @@ async function runTests() {
 
   // --- CUS-08: Khách đặt đơn trùng liên tục (spam, double click) -> Chống trùng 429 ---
   try {
+    await new Promise(r => setTimeout(r, 3500));
     const orderPayload = {
       customer_name: 'Spam Tester Ultra Fast',
-      customer_phone: '0933999888',
+      customer_phone: '0912345678',
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
       payment_method: 'Tiền mặt'
@@ -411,16 +454,17 @@ async function runTests() {
 
     // Gửi liên tiếp 2 request cực nhanh
     const [req1, req2] = await Promise.all([
-      req('/orders/direct-checkout', 'POST', orderPayload),
-      req('/orders/direct-checkout', 'POST', orderPayload)
+      req('/orders/direct-checkout', 'POST', orderPayload, customerToken),
+      req('/orders/direct-checkout', 'POST', orderPayload, customerToken)
     ]);
 
-    const pass = req1.status === 200 && (req2.status === 429 || req2.status === 400);
+    const pass = (req1.status === 200 && (req2.status === 429 || req2.status === 400)) ||
+                 (req2.status === 200 && (req1.status === 429 || req1.status === 400));
     record(
       'CUS-08',
       'Khách đặt đơn trùng lặp tức thì (< 3s) -> Bị chặn chống spam/double-click (429)',
       pass,
-      `Request 1: HTTP ${req1.status}, Request 2: HTTP ${req2.status} ("${req2.data?.message}")`
+      `Request 1: HTTP ${req1.status}, Request 2: HTTP ${req2.status} ("${req2.data?.message || req1.data?.message}")`
     );
   } catch (err) {
     record('CUS-08', 'Spam / Double-click protection', false, err.message);

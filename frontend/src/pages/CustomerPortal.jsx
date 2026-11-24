@@ -67,8 +67,7 @@ export default function CustomerPortal() {
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [completedOrderModal, setCompletedOrderModal] = useState(null);
   const [customerRedirectCountdown, setCustomerRedirectCountdown] = useState(4);
-  const [guestName, setGuestName] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
+  const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
 
   // Tự động chuyển sang Lịch Sử Đơn Hàng / Tiến trình pha chế sau khi đặt đơn thành công
   useEffect(() => {
@@ -114,20 +113,16 @@ export default function CustomerPortal() {
   }, [cart]);
 
   const loadOrderHistory = async () => {
+    if (!user) {
+      setOrderHistory([]);
+      return;
+    }
     try {
-      if (user) {
-        const res = await api.get('/orders/my-history');
-        setOrderHistory(Array.isArray(res.data?.data) ? res.data.data : []);
-      } else {
-        const saved = localStorage.getItem('guest_orders');
-        setOrderHistory(saved ? JSON.parse(saved) : []);
-      }
+      const res = await api.get('/orders/my-history');
+      setOrderHistory(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
       console.warn('Could not load order history:', err);
-      const saved = localStorage.getItem('guest_orders');
-      if (saved) {
-        try { setOrderHistory(JSON.parse(saved)); } catch (_) {}
-      }
+      setOrderHistory([]);
     }
   };
 
@@ -471,9 +466,13 @@ export default function CustomerPortal() {
     toast.success('Đã hủy áp dụng mã giảm giá');
   };
 
-  // --- XÁC NHẬN ĐẶT ĐƠN (ĐẨY TỰ ĐỘNG CHO BARISTA & THU NGÂN) ---
-  // Lưu ý: Quán mặc định làm vào cốc đóng sẵn nên không cần hỏi hình thức phục vụ (tại quán/mang về)
+  // --- XÁC NHẬN ĐẶT ĐƠN (YÊU CẦU ĐĂNG NHẬP - AUTH-REQUIRED) ---
   const handleCompleteOrder = async () => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập hoặc đăng ký tài khoản để đặt món và thanh toán!');
+      setShowAuthRequiredModal(true);
+      return;
+    }
     if (cart.length === 0) {
       toast.error('Vui lòng chọn ít nhất một món trước khi đặt đơn!');
       return;
@@ -486,17 +485,8 @@ export default function CustomerPortal() {
       return;
     }
 
-    const customerName = (user?.full_name || guestName || '').trim();
-    const customerPhone = (user?.phone || user?.username || guestPhone || '').trim();
-
-    if (!customerName) {
-      toast.error('Vui lòng nhập họ và tên của bạn để quán chuẩn bị đồ uống!');
-      return;
-    }
-    if (!customerPhone || customerPhone.length < 9) {
-      toast.error('Vui lòng nhập số điện thoại hợp lệ (tối thiểu 9 số) để nhận thông báo đơn hàng!');
-      return;
-    }
+    const customerName = (user.full_name || user.username || '').trim();
+    const customerPhone = (user.phone || user.username || '').trim();
 
     try {
       setSubmittingOrder(true);
@@ -536,27 +526,6 @@ export default function CustomerPortal() {
             ? `🗓️ Đặt trước thành công! Đơn sẽ tự động chuyển Barista trước giờ nhận 15 phút.`
             : `🎉 Đặt đơn thành công! Đơn hàng đã chuyển sang quầy Barista pha chế.`
         );
-
-        // Lưu đơn hàng Khách Hàng vào localStorage để xem lại ở tab Lịch sử
-        if (!user) {
-          try {
-            const guestOrders = JSON.parse(localStorage.getItem('guest_orders') || '[]');
-            guestOrders.unshift({
-              id: orderData?.orderId,
-              code: orderData?.orderCode || orderData?.invoiceNo,
-              total: finalTotal,
-              status: orderData?.status || 'pending',
-              payment_status: orderData?.payment_status || 'unpaid',
-              created_at: new Date().toISOString(),
-              items: [...cart],
-              order_type: 'takeaway',
-              pickup_time: orderData?.pickup_time,
-            });
-            localStorage.setItem('guest_orders', JSON.stringify(guestOrders.slice(0, 20)));
-          } catch (e) {
-            console.warn('Could not save guest order to localStorage', e);
-          }
-        }
 
         // Hiển thị modal hoàn tất đơn hàng giữa màn hình
         setCompletedOrderModal({
@@ -616,7 +585,7 @@ export default function CustomerPortal() {
     return matchCat && matchSearch;
   });
 
-  const customerPhone = user?.phone || user?.username || guestPhone || '';
+  const customerPhone = user?.phone || user?.username || '';
   const vietQrUrl = generateVietQRUrl({
     amount: finalTotal,
     memo: `CF ${customerPhone || 'KHACH'} DH`
@@ -1625,44 +1594,68 @@ export default function CustomerPortal() {
                     </div>
                   </div>
 
-                  {/* Thông tin Khách Hàng (nếu chưa đăng nhập) */}
-                  {!user && (
+                  {/* Thông tin Khách Hàng / Yêu cầu đăng nhập (AUTH-REQUIRED) */}
+                  {!user ? (
                     <div style={{
-                      background: 'rgba(217, 119, 6, 0.12)',
-                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
+                      background: '#18181B',
+                      border: '1px solid #2A2A30',
+                      borderRadius: '12px',
+                      padding: '16px 14px',
+                      textAlign: 'center',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '6px'
+                      gap: '8px',
+                      alignItems: 'center',
+                      margin: '10px 0'
                     }}>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>👤 THÔNG TIN ĐẶT MÓN</span>
-                        <span
-                          style={{ fontSize: '0.7rem', color: '#38bdf8', cursor: 'pointer', textDecoration: 'underline' }}
-                          onClick={() => navigate('/login')}
+                      <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#F4F1EC' }}>
+                        Đăng nhập để đặt món &amp; thanh toán
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.45, maxWidth: '320px' }}>
+                        Tài khoản thành viên giúp bạn theo dõi đơn hàng thời gian thực và tích điểm đổi quà. Giỏ hàng sẽ được giữ nguyên!
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '300px', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/login?redirect=/customer')}
+                          style={{
+                            flex: 1, height: '36px', borderRadius: '8px', border: 'none',
+                            background: '#D97706', color: '#FFFFFF', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
+                          }}
                         >
-                          Đăng nhập thành viên
-                        </span>
+                          Đăng nhập
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/login?mode=register&redirect=/customer')}
+                          style={{
+                            flex: 1, height: '36px', borderRadius: '8px',
+                            background: '#202024', border: '1px solid #2E2E35', color: '#F4F1EC',
+                            fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
+                          }}
+                        >
+                          Đăng ký (+50đ)
+                        </button>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Họ và tên *"
-                          value={guestName}
-                          onChange={(e) => setGuestName(e.target.value)}
-                          style={{ padding: '6px 8px', fontSize: '0.78rem', background: '#190e07', border: '1px solid #5a341e', color: '#fff', borderRadius: '5px' }}
-                        />
-                        <input
-                          type="tel"
-                          className="form-input"
-                          placeholder="Số điện thoại *"
-                          value={guestPhone}
-                          onChange={(e) => setGuestPhone(e.target.value)}
-                          style={{ padding: '6px 8px', fontSize: '0.78rem', background: '#190e07', border: '1px solid #5a341e', color: '#fff', borderRadius: '5px' }}
-                        />
-                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: 'rgba(217, 119, 6, 0.1)',
+                      border: '1px solid rgba(217, 119, 6, 0.25)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '0.8rem',
+                      margin: '10px 0'
+                    }}>
+                      <span style={{ color: '#F4F1EC', fontWeight: 600 }}>
+                        👤 {user.full_name || user.username} ({user.phone || 'Chưa có SĐT'})
+                      </span>
+                      <span style={{ color: '#10B981', fontWeight: 700, fontSize: '0.75rem' }}>
+                        ✓ Đã đăng nhập
+                      </span>
                     </div>
                   )}
 
@@ -1682,20 +1675,24 @@ export default function CustomerPortal() {
                       className="btn btn-primary"
                       style={{
                         flex: 2,
-                        background: submittingOrder ? '#4b5563' : 'linear-gradient(135deg, #15803d, #166534)',
-                        borderColor: '#15803d',
+                        background: submittingOrder ? '#4b5563' : (!user ? '#D97706' : 'linear-gradient(135deg, #15803d, #166534)'),
+                        borderColor: !user ? '#D97706' : '#15803d',
                         color: '#fff',
                         fontWeight: 800,
                         fontSize: '0.88rem',
                         padding: '9px 12px',
                         cursor: submittingOrder || cart.length === 0 ? 'not-allowed' : 'pointer',
                         borderRadius: '6px',
-                        boxShadow: '0 4px 12px rgba(21, 128, 61, 0.4)'
+                        boxShadow: !user ? '0 4px 12px rgba(217, 119, 6, 0.4)' : '0 4px 12px rgba(21, 128, 61, 0.4)'
                       }}
-                      onClick={handleCompleteOrder}
+                      onClick={!user ? () => setShowAuthRequiredModal(true) : handleCompleteOrder}
                       disabled={cart.length === 0 || submittingOrder}
                     >
-                      {submittingOrder ? '⏳ Đang gửi đơn...' : (orderTimingMode === 'scheduled' || !storeHours.isOpen ? '🗓️ XÁC NHẬN ĐẶT TRƯỚC' : '🚀 XÁC NHẬN ĐẶT ĐƠN')}
+                      {submittingOrder
+                        ? '⏳ Đang gửi đơn...'
+                        : (!user
+                          ? '🔑 ĐĂNG NHẬP ĐỂ ĐẶT ĐƠN'
+                          : (orderTimingMode === 'scheduled' || !storeHours.isOpen ? '🗓️ XÁC NHẬN ĐẶT TRƯỚC' : '🚀 XÁC NHẬN ĐẶT ĐƠN'))}
                     </button>
                   </div>
                 </div>
@@ -1859,7 +1856,27 @@ export default function CustomerPortal() {
                 </button>
               </div>
 
-              {historyList.length === 0 ? (
+              {!user ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', background: '#18181B', border: '1px solid #2A2A30', borderRadius: '14px' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🔒</div>
+                  <h3 style={{ margin: '0 0 8px', fontSize: '1.15rem', color: '#F4F1EC', fontWeight: 700 }}>
+                    Đăng nhập để xem lịch sử đơn hàng
+                  </h3>
+                  <p style={{ margin: '0 0 20px', fontSize: '0.85rem', color: '#A1A1AA', maxWidth: '420px', marginInline: 'auto', lineHeight: 1.5 }}>
+                    Vui lòng đăng nhập tài khoản thành viên để theo dõi tiến trình pha chế trực tuyến và xem lại các đơn hàng đã đặt.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login?redirect=/customer')}
+                    style={{
+                      background: '#D97706', color: '#FFFFFF', border: 'none', borderRadius: '8px',
+                      padding: '10px 22px', fontWeight: 600, fontSize: '0.86rem', cursor: 'pointer'
+                    }}
+                  >
+                    Đăng nhập ngay
+                  </button>
+                </div>
+              ) : historyList.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 0', background: '#1c1008', borderRadius: '12px', color: '#94a3b8' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>☕</div>
                   <div>Bạn chưa có đơn hàng nào tại quán. Hãy đặt ngay một ly cà phê thơm ngon nhé!</div>
@@ -2575,6 +2592,100 @@ export default function CustomerPortal() {
                 }}
               >
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL YÊU CẦU ĐĂNG NHẬP / ĐĂNG KÝ (AUTH-REQUIRED) */}
+      {showAuthRequiredModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backdropFilter: 'blur(4px)'
+          }}
+          onClick={() => setShowAuthRequiredModal(false)}
+        >
+          <div
+            style={{
+              background: '#18181B',
+              border: '1px solid #2A2A30',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '420px',
+              width: '100%',
+              color: '#F4F1EC',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#F4F1EC' }}>
+                🔑 Yêu cầu tài khoản hội viên
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAuthRequiredModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#A1A1AA',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer',
+                  padding: '4px 8px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.86rem', color: '#D4D4D8', lineHeight: 1.55 }}>
+              Hệ thống yêu cầu đăng nhập tài khoản trước khi gửi đơn hàng và thanh toán. Các món bạn đã chọn ({cartTotalCount} món) vẫn được lưu tự động trong giỏ hàng.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/login?mode=register&redirect=/customer')}
+                style={{
+                  flex: 1,
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: '#202024',
+                  border: '1px solid #2E2E35',
+                  color: '#F4F1EC',
+                  fontWeight: 600,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Đăng ký (+50đ)
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/login?redirect=/customer')}
+                style={{
+                  flex: 1,
+                  height: '42px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#D97706',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Đăng nhập ngay
               </button>
             </div>
           </div>
