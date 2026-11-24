@@ -40,19 +40,54 @@
 html, body, #root {
   margin: 0;
   padding: 0;
+  height: 100%;
   width: 100%;
-  max-width: 100vw;
-  overflow-x: hidden;          /* Vá dứt điểm lỗi tràn ngang cắt chữ bên phải */
+  overflow: hidden !important;          /* Toàn trang không tự cuộn, nhường cuộn cho vùng nội dung */
   background: var(--ui-bg) !important;
   color: var(--ui-text) !important;
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif !important;
   -webkit-font-smoothing: antialiased;
 }
  
-/* Chống tràn ngang trên vùng chính của Layout */
-.mch-shell { width: 100%; max-width: 100vw; overflow-x: hidden; }
-.mch-main  { flex: 1; min-width: 0 !important; max-width: 100%; overflow-x: hidden; }
-.mch-content { width: 100%; max-width: 100%; padding: 20px 24px !important; }
+/* Khung ứng dụng chính cao đúng 100vh và không bị trôi Sticky */
+.mch-shell {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+.mch-sidebar {
+  height: 100vh !important;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mch-nav-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.mch-main  {
+  flex: 1;
+  min-width: 0 !important;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mch-topbar {
+  height: 58px;
+  flex-shrink: 0;
+}
+.mch-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px !important;
+  scroll-behavior: smooth;
+}
  
 /* 1. THẺ NỘI DUNG MỀM MẠI (KHÔNG VUÔNG CỨNG, KHÔNG VIỀN NEON) */
 .ui-card, .mockup-panel {
@@ -154,7 +189,11 @@ html, body, #root {
   border-bottom: 1px solid var(--ui-border);
   padding: 0 4px;
   overflow-x: auto;
+  overflow-y: hidden !important;     /* Triệt tiêu hoàn toàn vạch scrollbar dọc thừa */
+  scrollbar-width: none;
+  padding-bottom: 2px;
 }
+.ui-underline-tabs::-webkit-scrollbar { display: none; }
  
 .ui-underline-tab {
   position: relative;
@@ -316,3 +355,181 @@ html, body, #root {
 .ui-badge-blue   { background: var(--ui-blue-bg);   color: var(--ui-blue);   border-color: var(--ui-blue-bd); }
 .ui-badge-purple { background: var(--ui-purple-bg); color: var(--ui-purple); border-color: var(--ui-purple-bd); }
 .ui-badge-gray   { background: #F3EFEA; color: #5E534B; border-color: #E5DDD3; }
+
+/* ==========================================================================
+   VÁ TRIỆT ĐỂ LỖI CUỘN DANH SÁCH MÓN BỊ MẤT Ô THANH TOÁN BÊN PHẢI (PosOrder.jsx)
+   ========================================================================== */
+.pos-locked-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 18px;
+  height: calc(100vh - 98px);        /* 58px TopBar + 40px padding trên/dưới */
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.pos-menu-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.pos-menu-header {
+  flex-shrink: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pos-menu-scroll-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;                  /* CHỈ vùng lưới sản phẩm này cuộn */
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+
+.pos-checkout-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.pos-checkout-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;                  /* Danh sách món đã chọn cuộn riêng bên trong */
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pos-checkout-footer {
+  flex-shrink: 0;                    /* Tổng tiền + Nút Thanh toán F9 luôn ghim ở đáy */
+  padding: 14px 16px;
+  background: var(--ui-surface-2);
+  border-top: 1px solid var(--ui-border);
+}
+
+@media (max-width: 1024px) {
+  .pos-locked-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+}
+
+/* ==========================================================================
+   ĐỒNG BỘ MỌI MODAL TRONG TOÀN DỰ ÁN
+   ========================================================================== */
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 9999;
+}
+
+.ui-modal-box {
+  width: 100%;
+  max-width: 480px;
+  background: #18181B;
+  border: 1px solid #2A2A30;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  color: #F4F1EC;
+}
+
+.ui-modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid #2A2A30;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ui-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #F4F1EC;
+}
+
+.ui-modal-body {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ui-modal-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #A1A1AA;
+  margin-bottom: 6px;
+}
+
+.ui-modal-footer {
+  padding: 14px 22px;
+  background: #141417;
+  border-top: 1px solid #2A2A30;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ==========================================================================
+   ĐỒNG BỘ THẺ MÓN POS (Bỏ nền nâu cũ, bỏ emoji, nút cam Caramel)
+   ========================================================================== */
+.pos-product-card {
+  background: #202024;
+  border: 1px solid #2A2A30;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  cursor: pointer;
+}
+.pos-product-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217, 119, 6, 0.55);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+.pos-add-btn {
+  background: #D97706;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 9px;
+  padding: 6px 13px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.pos-add-btn:hover { background: #B45309; }
+

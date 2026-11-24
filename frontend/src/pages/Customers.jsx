@@ -332,57 +332,57 @@ export default function Customers() {
 
       {/* 4. MODAL THÊM / CẬP NHẬT KHÁCH HÀNG */}
       {showModal && (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">
-                {editId ? '✏️ Cập nhật khách hàng' : '👥 Thêm khách hàng mới'}
-              </h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+        <div className="ui-modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="ui-modal-box animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="ui-modal-header">
+              <h3 className="ui-modal-title">
+                {editId ? 'Cập nhật khách hàng' : 'Thêm khách hàng mới'}
+              </h3>
+              <button type="button" className="ui-btn-icon" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="ui-modal-body">
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem' }}>📞 Số điện thoại *</label>
+                  <label className="ui-modal-label">Số điện thoại *</label>
                   <input
-                    className="form-input"
+                    className="ui-input"
                     placeholder="VD: 0901234567"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     required
-                    style={{ width: '100%', padding: '8px 12px' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem' }}>👤 Họ và tên</label>
+                  <label className="ui-modal-label">Họ và tên</label>
                   <input
-                    className="form-input"
+                    className="ui-input"
                     placeholder="VD: Nguyễn Văn A"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    style={{ width: '100%', padding: '8px 12px' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem' }}>🎂 Ngày sinh</label>
+                  <label className="ui-modal-label">Ngày sinh</label>
                   <input
                     type="date"
-                    className="form-input"
+                    className="ui-input"
                     value={form.birthday}
                     onChange={(e) => setForm({ ...form, birthday: e.target.value })}
-                    style={{ width: '100%', padding: '8px 12px' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem' }}>👑 Hạng thành viên</label>
+                  <label className="ui-modal-label">Hạng thành viên</label>
                   <select
-                    className="form-select"
+                    className="ui-select"
                     value={form.tier_id}
                     onChange={(e) => setForm({ ...form, tier_id: parseInt(e.target.value) })}
-                    style={{ width: '100%', padding: '8px 12px' }}
+                    style={{ width: '100%' }}
                   >
                     {tiers.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -393,35 +393,19 @@ export default function Customers() {
                 </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="ui-modal-footer">
                 <button
                   type="button"
-                  className="btn"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    color: '#c4a482',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontWeight: 700,
-                  }}
+                  className="ui-btn ui-btn-outline"
                   onClick={() => setShowModal(false)}
                 >
-                  HỦY BỎ
+                  Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="btn"
-                  style={{
-                    background: 'linear-gradient(135deg, #d97706, #b45309)',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '8px 20px',
-                    borderRadius: '6px',
-                    fontWeight: 800,
-                  }}
+                  className="ui-btn ui-btn-brand"
                 >
-                  {editId ? 'LƯU THAY ĐỔI' : 'TẠO MỚI'}
+                  {editId ? 'Lưu thay đổi' : 'Tạo mới'}
                 </button>
               </div>
             </form>

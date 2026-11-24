@@ -542,20 +542,19 @@ export default function PosOrder() {
   return (
     <div className="animate-fade-in">
       {!showPayment ? (
-        /* SCREEN 1: POS ORDER (matching image3.png with 3 Sizes S, M, L) */
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 390px', gap: '18px', alignItems: 'start' }}>
+        /* SCREEN 1: POS ORDER (2-Column Dual Independent Scroll) */
+        <div className="pos-locked-workspace">
           {/* LEFT: DANH SÁCH MÓN */}
-          <div className="mockup-panel">
-            <div className="mockup-panel-header">
-              <div className="mockup-panel-title">
-                <span>☕</span>
-                <span>DANH SÁCH MÓN ({filteredProducts.length} MÓN)</span>
+          <div className="pos-menu-column">
+            <div className="pos-menu-header">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--ui-espresso)' }}>
+                  Danh sách món ({filteredProducts.length} món)
+                </span>
               </div>
-            </div>
 
-            <div className="mockup-panel-body">
               {/* Search & Category Filter */}
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <input
                   type="text"
                   className="form-input"
@@ -583,9 +582,10 @@ export default function PosOrder() {
                   ))}
                 </div>
               </div>
+            </div>
 
-              {/* Product Grid with Images & 3 Sizes (S, M, L - 4k diff) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(215px, 1fr))', gap: '16px' }}>
+            {/* Product Grid with Independent Scroll */}
+            <div className="pos-menu-scroll-grid">
                 {filteredProducts.map((p) => {
                   const currentSizeName = cardSizes[p.id] || 'M';
                   const currentSizeObj = getProductSize(p, currentSizeName);
@@ -594,25 +594,19 @@ export default function PosOrder() {
                   return (
                     <div
                       key={p.id}
-                      className="product-card"
+                      className="pos-product-card"
                       style={{
-                        background: '#1c120b',
-                        border: '1px solid #3d2618',
-                        borderRadius: '12px',
-                        overflow: 'hidden',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
-                        transition: 'transform 0.2s ease, border-color 0.2s ease',
                       }}
                     >
                       <div
                         style={{
                           position: 'relative',
-                          height: '168px',
+                          height: '155px',
                           overflow: 'hidden',
-                          background: '#150d08',
+                          background: '#18181B',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -718,24 +712,13 @@ export default function PosOrder() {
 
                           <button
                             type="button"
-                            className="btn btn-sm"
-                            style={{
-                              background: '#15803d',
-                              color: '#fff',
-                              fontWeight: 700,
-                              padding: '5px 14px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                            }}
+                            className="pos-add-btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               addToCart(p);
                             }}
                           >
-                            <span>+ Thêm</span>
+                            + Thêm
                           </button>
                         </div>
                       </div>
@@ -744,42 +727,19 @@ export default function PosOrder() {
                 })}
               </div>
             </div>
-          </div>
 
-          {/* RIGHT: THÔNG TIN ĐƠN HÀNG (STICKY FLOATING PANEL - di chuyển theo khi scroll) */}
-          <div
-            className="mockup-panel pos-sticky-cart"
-            style={{
-              position: 'sticky',
-              top: '16px',
-              maxHeight: 'calc(100vh - 32px)',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 4px 20px rgba(74, 40, 16, 0.08)',
-              zIndex: 10,
-            }}
-          >
-            <div className="mockup-panel-header" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '8px' }}>
-              <div className="mockup-panel-title">
-                <span>📋</span>
-                <span>THÔNG TIN ĐƠN HÀNG ({cart.length} DÒNG)</span>
+          {/* RIGHT: THÔNG TIN ĐƠN HÀNG (CỐ ĐỊNH 100% CHIỀU CAO) */}
+          <div className="pos-checkout-column">
+            <div className="mockup-panel-header" style={{ flexShrink: 0, padding: '14px 18px', borderBottom: '1px solid var(--ui-border)', background: 'var(--ui-surface)' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--ui-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Thông tin đơn hàng ({cart.length} món)</span>
               </div>
-              <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '12px', fontWeight: 800 }}>
-                💵 TT XONG MỚI LÀM
+              <span style={{ fontSize: '0.72rem', background: '#ECFDF5', color: '#15803D', border: '1px solid #BBF7D0', padding: '3px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                TT xong mới làm
               </span>
             </div>
 
-            <div
-              className="mockup-panel-body"
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                padding: '14px 16px',
-              }}
-            >
+            <div className="pos-checkout-body">
               {/* 1. HÌNH THỨC PHỤC VỤ & BÀN (20 BÀN) */}
               <div
                 style={{
@@ -1148,18 +1108,7 @@ export default function PosOrder() {
             </div>
 
             {/* PINNED FOOTER: TOTALS & ACTION BUTTONS */}
-            <div
-              style={{
-                flexShrink: 0,
-                background: 'rgba(38, 24, 15, 0.96)',
-                borderTop: '1px solid rgba(245, 158, 11, 0.2)',
-                padding: '12px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                boxShadow: '0 -4px 16px rgba(0,0,0,0.3)',
-              }}
-            >
+            <div className="pos-checkout-footer">
               {/* Totals Summary */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.84rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1256,8 +1205,8 @@ export default function PosOrder() {
                     className="btn btn-primary"
                     style={{
                       flex: 2,
-                      background: isSubmitting ? '#4b5563' : 'linear-gradient(135deg, #15803d, #166534)',
-                      borderColor: '#15803d',
+                      background: isSubmitting ? '#4b5563' : 'linear-gradient(135deg, #d97706, #b45309)',
+                      borderColor: '#d97706',
                       fontWeight: 800,
                       fontSize: '0.88rem',
                       padding: '9px 12px',

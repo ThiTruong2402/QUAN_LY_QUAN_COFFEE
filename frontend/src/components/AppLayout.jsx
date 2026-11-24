@@ -128,7 +128,9 @@ export default function AppLayout({ children }) {
 
         .mch-shell {
           display: flex;
-          min-height: 100vh;
+          height: 100vh;
+          width: 100vw;
+          overflow: hidden;
           background: #F6F3EE !important;
           color: #1F1611 !important;
           font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -141,9 +143,8 @@ export default function AppLayout({ children }) {
           display: flex;
           flex-direction: column;
           transition: width 0.2s ease;
-          position: sticky;
-          top: 0;
           height: 100vh;
+          overflow: hidden;
           z-index: 40;
           color: #EFE6DC;
         }
@@ -201,38 +202,41 @@ export default function AppLayout({ children }) {
         }
         .mch-shell {
           display: flex;
-          min-height: 100vh;
-          width: 100%;
-          overflow-x: hidden;
+          height: 100vh;
+          width: 100vw;
+          overflow: hidden;
           background: #F7F5F0;
         }
         .mch-main {
           flex: 1;
-          min-width: 0;
+          min-width: 0 !important;
+          height: 100vh;
           display: flex;
           flex-direction: column;
-          overflow-x: hidden;
+          overflow: hidden;
         }
         .mch-topbar {
           height: 58px;
+          flex-shrink: 0;
           background: #FFFFFF;
           border-bottom: 1px solid #EAE3DA;
           padding: 0 24px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          position: sticky;
-          top: 0;
           z-index: 30;
           box-shadow: 0 1px 3px rgba(44, 26, 18, 0.03);
         }
         .mch-content {
           flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
           padding: 20px 24px;
-          max-width: 1560px;
+          scroll-behavior: smooth;
           width: 100%;
           min-width: 0;
-          margin: 0 auto;
+          box-sizing: border-box;
         }
         .mch-badge {
           background: #DC2626;

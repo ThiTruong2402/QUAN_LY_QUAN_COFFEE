@@ -921,67 +921,74 @@ export default function Accounts() {
 
       {/* MODAL: THÊM / SỬA KHÁCH HÀNG */}
       {customerModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
-          <div className="animate-fade-in" style={{ background: '#1c120b', borderRadius: '14px', maxWidth: '440px', width: '100%', border: '2px solid rgba(245, 158, 11, 0.4)', padding: '20px', color: '#fdf8f0' }}>
-            <h3 style={{ margin: '0 0 14px', color: '#fbbf24', fontSize: '1.15rem', fontWeight: 800 }}>
-              {customerForm.id ? 'SỬA THÔNG TIN KHÁCH HÀNG' : 'THÊM KHÁCH HÀNG MỚI'}
-            </h3>
-            <form onSubmit={handleSaveCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label className="form-label">SỐ ĐIỆN THOẠI:</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={customerForm.phone}
-                  onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                  placeholder="0901234567"
-                  style={{ width: '100%', padding: '8px' }}
-                  required
-                />
+        <div className="ui-modal-backdrop" onClick={() => setCustomerModal(false)}>
+          <div className="ui-modal-box animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="ui-modal-header">
+              <h3 className="ui-modal-title">
+                {customerForm.id ? 'Sửa thông tin khách hàng' : 'Thêm khách hàng mới'}
+              </h3>
+              <button type="button" className="ui-btn-icon" onClick={() => setCustomerModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveCustomer}>
+              <div className="ui-modal-body">
+                <div>
+                  <label className="ui-modal-label">Số điện thoại *</label>
+                  <input
+                    type="text"
+                    className="ui-input"
+                    value={customerForm.phone}
+                    onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                    placeholder="0901234567"
+                    style={{ width: '100%' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="ui-modal-label">Họ và tên *</label>
+                  <input
+                    type="text"
+                    className="ui-input"
+                    value={customerForm.name}
+                    onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                    placeholder="Nguyễn Văn A"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="ui-modal-label">Hạng thành viên</label>
+                    <select
+                      className="ui-select"
+                      value={customerForm.tier_id}
+                      onChange={(e) => setCustomerForm({ ...customerForm, tier_id: parseInt(e.target.value) })}
+                      style={{ width: '100%' }}
+                    >
+                      <option value={1}>Đồng (Tiêu chuẩn)</option>
+                      <option value={2}>Bạc (Giảm 5%)</option>
+                      <option value={3}>Vàng (Giảm 10%)</option>
+                      <option value={4}>Kim Cương (Giảm 15%)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="ui-modal-label">Điểm tích lũy (1đ = 1.000đ)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="ui-input"
+                      value={customerForm.points_balance || 0}
+                      onChange={(e) => setCustomerForm({ ...customerForm, points_balance: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                      placeholder="0"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="form-label">HỌ VÀ TÊN:</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={customerForm.name}
-                  onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
-                  placeholder="Nguyễn Văn A"
-                  style={{ width: '100%', padding: '8px' }}
-                />
-              </div>
-              <div>
-                <label className="form-label">HẠNG THÀNH VIÊN:</label>
-                <select
-                  className="form-select"
-                  value={customerForm.tier_id}
-                  onChange={(e) => setCustomerForm({ ...customerForm, tier_id: parseInt(e.target.value) })}
-                  style={{ width: '100%', padding: '8px' }}
-                >
-                  <option value={1}>🥉 Đồng (Tiêu chuẩn)</option>
-                  <option value={2}>🥈 Bạc (Giảm 5%)</option>
-                  <option value={3}>👑 Vàng (Giảm 10%)</option>
-                  <option value={4}>💎 Kim Cương (Giảm 15%)</option>
-                </select>
-              </div>
-              <div>
-                <label className="form-label">ĐIỂM TÍCH LŨY (1 điểm = 1.000 đ giảm giá):</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="form-input"
-                  value={customerForm.points_balance || 0}
-                  onChange={(e) => setCustomerForm({ ...customerForm, points_balance: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                  placeholder="0"
-                  style={{ width: '100%', padding: '8px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
-                <button type="button" className="btn btn-outline" style={{ borderColor: '#4a2c18', color: '#d5bba2' }} onClick={() => setCustomerModal(false)}>
+              <div className="ui-modal-footer">
+                <button type="button" className="ui-btn ui-btn-outline" onClick={() => setCustomerModal(false)}>
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}>
-                  LƯU THÔNG TIN
+                <button type="submit" className="ui-btn ui-btn-brand">
+                  Lưu thông tin
                 </button>
               </div>
             </form>
@@ -991,77 +998,80 @@ export default function Accounts() {
 
       {/* MODAL: TẠO VOUCHER */}
       {promoModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
-          <div className="animate-fade-in" style={{ background: '#1c120b', borderRadius: '14px', maxWidth: '440px', width: '100%', border: '2px solid rgba(245, 158, 11, 0.4)', padding: '20px', color: '#fdf8f0' }}>
-            <h3 style={{ margin: '0 0 14px', color: '#fbbf24', fontSize: '1.15rem', fontWeight: 800 }}>
-              TẠO MÃ GIẢM GIÁ / VOUCHER MỚI
-            </h3>
-            <form onSubmit={handleSavePromo} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label className="form-label">MÃ VOUCHER:</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={promoForm.code}
-                  onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
-                  placeholder="COFFEE15"
-                  style={{ width: '100%', padding: '8px', textTransform: 'uppercase', fontWeight: 800 }}
-                  required
-                />
-              </div>
-              <div>
-                <label className="form-label">TÊN CHƯƠNG TRÌNH:</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={promoForm.name}
-                  onChange={(e) => setPromoForm({ ...promoForm, name: e.target.value })}
-                  placeholder="Giảm 15% tri ân khách hàng"
-                  style={{ width: '100%', padding: '8px' }}
-                  required
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div className="ui-modal-backdrop" onClick={() => setPromoModal(false)}>
+          <div className="ui-modal-box animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="ui-modal-header">
+              <h3 className="ui-modal-title">Tạo mã giảm giá / Voucher mới</h3>
+              <button type="button" className="ui-btn-icon" onClick={() => setPromoModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSavePromo}>
+              <div className="ui-modal-body">
                 <div>
-                  <label className="form-label">LOẠI GIẢM GIÁ:</label>
-                  <select
-                    className="form-select"
-                    value={promoForm.type}
-                    onChange={(e) => setPromoForm({ ...promoForm, type: e.target.value })}
-                    style={{ width: '100%', padding: '8px' }}
-                  >
-                    <option value="percent_order">Giảm theo %</option>
-                    <option value="amount_order">Giảm số tiền cố định</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">GIÁ TRỊ GIẢM:</label>
+                  <label className="ui-modal-label">Mã voucher *</label>
                   <input
-                    type="number"
-                    className="form-input"
-                    value={promoForm.value}
-                    onChange={(e) => setPromoForm({ ...promoForm, value: Number(e.target.value) })}
-                    style={{ width: '100%', padding: '8px', fontWeight: 800, color: '#4ade80' }}
+                    type="text"
+                    className="ui-input"
+                    value={promoForm.code}
+                    onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                    placeholder="COFFEE15"
+                    style={{ width: '100%', textTransform: 'uppercase', fontWeight: 800 }}
                     required
                   />
                 </div>
+                <div>
+                  <label className="ui-modal-label">Tên chương trình *</label>
+                  <input
+                    type="text"
+                    className="ui-input"
+                    value={promoForm.name}
+                    onChange={(e) => setPromoForm({ ...promoForm, name: e.target.value })}
+                    placeholder="Giảm 15% tri ân khách hàng"
+                    style={{ width: '100%' }}
+                    required
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="ui-modal-label">Loại giảm giá</label>
+                    <select
+                      className="ui-select"
+                      value={promoForm.type}
+                      onChange={(e) => setPromoForm({ ...promoForm, type: e.target.value })}
+                      style={{ width: '100%' }}
+                    >
+                      <option value="percent_order">Giảm theo %</option>
+                      <option value="amount_order">Giảm số tiền cố định</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="ui-modal-label">Giá trị giảm *</label>
+                    <input
+                      type="number"
+                      className="ui-input"
+                      value={promoForm.value}
+                      onChange={(e) => setPromoForm({ ...promoForm, value: Number(e.target.value) })}
+                      style={{ width: '100%', fontWeight: 800, color: '#34D399' }}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="ui-modal-label">Đơn hàng tối thiểu (VNĐ)</label>
+                  <input
+                    type="number"
+                    className="ui-input"
+                    value={promoForm.min_order_value}
+                    onChange={(e) => setPromoForm({ ...promoForm, min_order_value: Number(e.target.value) })}
+                    style={{ width: '100%' }}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="form-label">ĐƠN HÀNG TỐI THIỂU (VNĐ):</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={promoForm.min_order_value}
-                  onChange={(e) => setPromoForm({ ...promoForm, min_order_value: Number(e.target.value) })}
-                  style={{ width: '100%', padding: '8px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
-                <button type="button" className="btn btn-outline" style={{ borderColor: '#4a2c18', color: '#d5bba2' }} onClick={() => setPromoModal(false)}>
+              <div className="ui-modal-footer">
+                <button type="button" className="ui-btn ui-btn-outline" onClick={() => setPromoModal(false)}>
                   Hủy bỏ
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #15803d, #166534)', borderColor: '#15803d', fontWeight: 800 }}>
-                  LƯU MÃ VOUCHER
+                <button type="submit" className="ui-btn ui-btn-brand">
+                  Lưu mã voucher
                 </button>
               </div>
             </form>
