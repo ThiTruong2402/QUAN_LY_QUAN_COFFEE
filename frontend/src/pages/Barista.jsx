@@ -62,6 +62,7 @@ export default function Barista() {
           table_code: it.table_code,
           order_type: it.order_type,
           customer_name: it.customer_name,
+          pickup_time: it.pickup_time,
           sent_at: it.sent_at || it.opened_at,
           items: [],
         });
@@ -87,17 +88,17 @@ export default function Barista() {
   };
 
   const columns = [
-    { id: 'pending',   title: 'Chờ pha chế',       accent: '#D97706', bg: '#FFFBEB', btnLabel: 'Nhận pha ngay',   nextStatus: 'preparing', btnBg: '#D97706' },
-    { id: 'preparing', title: 'Đang pha chế',      accent: '#0284C7', bg: '#F0F9FF', btnLabel: 'Báo pha xong',    nextStatus: 'done',      btnBg: '#0284C7' },
-    { id: 'done',      title: 'Sẵn sàng trả món',  accent: '#10B981', bg: '#ECFDF5', btnLabel: 'Xác nhận trả món', nextStatus: 'served',    btnBg: '#10B981' },
+    { id: 'pending',   title: 'Chờ pha chế',       accent: '#D97706', bg: '#221B14', btnLabel: 'Nhận pha ngay',   nextStatus: 'preparing', btnBg: 'linear-gradient(135deg, #D97706, #B45309)' },
+    { id: 'preparing', title: 'Đang pha chế',      accent: '#0284C7', bg: '#132330', btnLabel: 'Báo pha xong',    nextStatus: 'done',      btnBg: 'linear-gradient(135deg, #0284C7, #0369A1)' },
+    { id: 'done',      title: 'Sẵn sàng trả món',  accent: '#10B981', bg: '#132820', btnLabel: 'Xác nhận trả món', nextStatus: 'served',    btnBg: 'linear-gradient(135deg, #10B981, #059669)' },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Thanh điều khiển KDS */}
-      <div className="mch-card" style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+      <div className="mch-card" style={{ padding: '12px 18px', background: '#18181B', border: '1px solid #27272B', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 800, fontSize: '0.96rem', color: '#2C1A12' }}>Hàng đợi pha chế trực tuyến</span>
+          <span style={{ fontWeight: 800, fontSize: '0.96rem', color: '#F4F1EC' }}>Hàng đợi pha chế trực tuyến</span>
           <span className="mch-badge mch-badge-amber">{groupedOrders.filter((o) => o.col === 'pending').length} chờ pha</span>
           <span className="mch-badge mch-badge-blue">{groupedOrders.filter((o) => o.col === 'preparing').length} đang làm</span>
           <span className="mch-badge mch-badge-green">{groupedOrders.filter((o) => o.col === 'done').length} chờ trả</span>
@@ -112,57 +113,67 @@ export default function Barista() {
 
       {/* 3 Cột Kanban KDS */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: '#78716C' }}>Đang tải hàng đợi pha chế...</div>
+        <div style={{ textAlign: 'center', padding: '48px', color: '#A1A1AA' }}>Đang tải hàng đợi pha chế...</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'start' }}>
           {columns.map((col) => {
             const list = groupedOrders.filter((o) => o.col === col.id);
             return (
-              <div key={col.id} style={{ background: '#FFFFFF', border: '1px solid #E7DFD5', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(44, 26, 18, 0.04)' }}>
+              <div key={col.id} style={{ background: '#18181B', border: '1px solid #27272B', borderRadius: '16px', overflow: 'hidden' }}>
                 <div style={{ padding: '12px 16px', background: col.bg, borderBottom: `2px solid ${col.accent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1F1611' }}>{col.title}</span>
+                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#F4F1EC' }}>{col.title}</span>
                   <span style={{ background: col.accent, color: '#FFFFFF', fontSize: '0.74rem', fontWeight: 800, padding: '2px 9px', borderRadius: '999px' }}>{list.length}</span>
                 </div>
 
                 <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
                   {list.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '28px 10px', fontSize: '0.82rem', color: '#A8A29E' }}>Không có đơn trong cột này</div>
+                    <div style={{ textAlign: 'center', padding: '28px 10px', fontSize: '0.82rem', color: '#71717A' }}>Không có đơn trong cột này</div>
                   ) : list.map((ord) => {
                     const mins = getWaitMins(ord.sent_at);
                     const isLate = mins >= 12 && col.id !== 'done';
                     return (
                       <div key={ord.order_id} style={{
-                        border: isLate ? '1.5px solid #DC2626' : '1px solid #E7DFD5',
-                        borderRadius: '12px', padding: '12px', background: '#FAF7F2'
+                        border: isLate ? '1.5px solid #EF4444' : '1px solid #2A2A30',
+                        borderRadius: '12px', padding: '12px', background: '#202024'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                           <div>
-                            <span style={{ fontWeight: 800, color: '#2C1A12', fontSize: '0.9rem' }}>#{ord.order_code}</span>
-                            <span style={{ marginLeft: '6px', fontSize: '0.72rem', fontWeight: 700, padding: '2px 7px', borderRadius: '6px', background: '#FFFFFF', border: '1px solid #E7DFD5', color: '#2C1A12' }}>
-                              {ord.table_code || 'Mang về'}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 800, color: '#F59E0B', fontSize: '0.9rem' }}>#{ord.order_code}</span>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 7px', borderRadius: '6px', background: '#27272B', border: '1px solid #3F3F46', color: '#F4F1EC' }}>
+                                {ord.table_code || 'Mang về'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.76rem', color: '#A1A1AA', marginTop: '3px' }}>
+                              👤 {ord.customer_name || 'Khách'}
+                              {ord.pickup_time && (
+                                <span style={{ marginLeft: '6px', color: '#38BDF8', fontWeight: 700, background: 'rgba(56, 189, 248, 0.15)', padding: '1px 6px', borderRadius: '6px' }}>
+                                  ⏰ Hẹn: {new Date(ord.pickup_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isLate ? '#DC2626' : '#78716C' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isLate ? '#EF4444' : '#A1A1AA' }}>
                             ⏱️ {mins} phút
                           </span>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
                           {ord.items.map((it) => (
-                            <div key={it.id} style={{ background: '#FFFFFF', padding: '8px 10px', borderRadius: '8px', border: '1px solid #F0EAE1' }}>
+                            <div key={it.id} style={{ background: '#18181B', padding: '8px 10px', borderRadius: '8px', border: '1px solid #27272B' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#1F1611' }}>
+                                <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#F4F1EC' }}>
                                   {it.product_name} {it.size_name && it.size_name !== 'Tiêu chuẩn' ? `(${it.size_name})` : ''} × {it.quantity}
                                 </span>
                                 {it.recipe?.length > 0 && (
                                   <button type="button" onClick={() => setSelectedRecipeItem(it)}
-                                    style={{ background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '6px', cursor: 'pointer' }}>
+                                    style={{ background: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgba(217, 119, 6, 0.3)', color: '#FBBF24', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: '6px', cursor: 'pointer' }}>
                                     Công thức
                                   </button>
                                 )}
                               </div>
-                              {it.toppings && <div style={{ fontSize: '0.73rem', color: '#C86A28', marginTop: '2px' }}>+ {it.toppings}</div>}
-                              {it.note && <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#DC2626', marginTop: '2px' }}>Lưu ý: {it.note}</div>}
+                              {it.toppings && <div style={{ fontSize: '0.73rem', color: '#FBBF24', marginTop: '2px' }}>+ {it.toppings}</div>}
+                              {it.note && <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#F87171', marginTop: '2px' }}>Lưu ý: {it.note}</div>}
                             </div>
                           ))}
                         </div>
@@ -173,6 +184,7 @@ export default function Barista() {
                           style={{
                             width: '100%', background: col.btnBg, color: '#FFFFFF', border: 'none',
                             padding: '8px', borderRadius: '9px', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                             transition: 'opacity 0.15s ease'
                           }}
                         >

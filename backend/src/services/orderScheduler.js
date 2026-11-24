@@ -33,7 +33,8 @@ const checkAndDispatchScheduledOrders = async (io) => {
        LEFT JOIN invoices inv ON inv.order_id = o.id
        WHERE o.status = 'scheduled'
          AND o.pickup_time IS NOT NULL
-         AND o.pickup_time <= ?`,
+         AND o.pickup_time <= ?
+         AND (o.order_type = 'dine_in' OR o.payment_status = 'paid')`,
       [thresholdStr]
     );
 

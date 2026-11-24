@@ -207,7 +207,9 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
   // 8. Trạng thái thanh toán:
   // SEC-02 & BIZ-01: Khách đặt online (isOnlineCustomer) BẮT BUỘC có payment_status = 'unpaid'
   // Chỉ nhân viên thu ngân tại quầy (isStaff) tạo đơn tại POS mới được phép gán 'paid' khi thu tiền trực tiếp
-  const finalPaymentStatus = isOnlineCustomer ? 'unpaid' : ((isStaff && requestedStatus === 'paid') ? 'paid' : 'unpaid');
+  const finalPaymentStatus = isOnlineCustomer
+    ? 'unpaid'
+    : ((isStaff && (requestedStatus === 'paid' || orderData.payment_status === 'paid')) ? 'paid' : 'unpaid');
 
   // 9. Sinh số hóa đơn và mã đơn hàng tuần tự
   const today = getVietnamDateString();

@@ -34,6 +34,7 @@ const getQueue = async (req, res) => {
        ) oit_agg ON oit_agg.order_item_id = oi.id
        WHERE oi.status IN ('pending', 'preparing', 'done')
          AND o.status NOT IN ('cancelled', 'scheduled')
+         AND (o.order_type = 'dine_in' OR o.payment_status = 'paid')
        ORDER BY oi.sent_at ASC`
     );
 
@@ -133,6 +134,39 @@ const updateItemStatus = async (req, res) => {
     const validStatuses = ['pending', 'preparing', 'done', 'served'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
+    }
+
+    // BIZ-07: Kiểm tra tính hợp lệ của đơn hàng và chuyển trạng thái 1 chiều
+    const [itemRows] = await db.query(
+      `SELECT oi.id, oi.status, oi.order_id, o.status AS order_status, o.payment_status, o.order_type 
+       FROM order_items oi 
+       JOIN orders o ON o.id = oi.order_id 
+       WHERE oi.id = ?`,
+      [req.params.id]
+    );
+    if (!itemRows.length) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy món cần cập nhật' });
+    }
+    const currentItem = itemRows[0];
+    if (['cancelled', 'scheduled'].includes(currentItem.order_status)) {
+      return res.status(400).json({ success: false, message: `Không thể cập nhật món của đơn hàng đang ở trạng thái "${currentItem.order_status}"!` });
+    }
+    if (currentItem.order_type !== 'dine_in' && currentItem.payment_status !== 'paid') {
+      return res.status(400).json({ success: false, message: 'Đơn hàng mang về chưa thanh toán, không thể tiến hành pha chế!' });
+    }
+
+    // Luồng trạng thái 1 chiều của món: pending -> preparing -> done -> served
+    const ITEM_TRANSITIONS = {
+      pending: ['preparing', 'done', 'served'],
+      preparing: ['done', 'served'],
+      done: ['served'],
+      served: []
+    };
+    if (currentItem.status !== status && !ITEM_TRANSITIONS[currentItem.status]?.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Chuyển trạng thái món không hợp lệ: Không thể chuyển từ "${currentItem.status}" về "${status}"`
+      });
     }
 
     let query = 'UPDATE order_items SET status = ?';

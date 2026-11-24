@@ -600,12 +600,15 @@ export default function PosOrder() {
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
+                        minHeight: '350px',
+                        boxSizing: 'border-box',
                       }}
                     >
                       <div
                         style={{
                           position: 'relative',
                           height: '155px',
+                          flexShrink: 0,
                           overflow: 'hidden',
                           background: '#18181B',
                           display: 'flex',
@@ -646,81 +649,125 @@ export default function PosOrder() {
                         )}
                       </div>
 
-                      <div style={{ padding: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', background: 'rgba(251, 191, 36, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(251, 191, 36, 0.25)', letterSpacing: '0.5px' }}>
-                            {p.code || `ID:${p.id}`}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: '#a88265', fontWeight: 600 }}>
-                            {p.category_id === 9 ? 'Ăn vặt' : 'Đồ uống'}
-                          </span>
-                        </div>
+                      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', background: 'rgba(251, 191, 36, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(251, 191, 36, 0.25)', letterSpacing: '0.5px' }}>
+                              {p.code || `ID:${p.id}`}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: '#a88265', fontWeight: 600 }}>
+                              {p.category_id === 9 ? 'Ăn vặt' : 'Đồ uống'}
+                            </span>
+                          </div>
 
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.88rem',
-                            color: '#fef3c7',
-                            minHeight: '48px',
-                            lineHeight: 1.42,
-                            paddingTop: '2px',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          <span style={{ fontSize: '1.05rem', flexShrink: 0, marginTop: '0px' }}>
-                            {getCategoryIcon(p.category_id)}
-                          </span>
-                          <span
+                          <div
                             style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '6px',
+                              fontWeight: 700,
+                              fontSize: '0.88rem',
+                              color: '#fef3c7',
+                              minHeight: '44px',
+                              lineHeight: 1.42,
+                              paddingTop: '2px',
+                              marginBottom: '4px',
+                            }}
+                          >
+                            <span style={{ fontSize: '1.05rem', flexShrink: 0, marginTop: '0px' }}>
+                              {getCategoryIcon(p.category_id)}
+                            </span>
+                            <span
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                wordBreak: 'break-word',
+                              }}
+                              title={p.name}
+                            >
+                              {p.name}
+                            </span>
+                          </div>
+                          <p
+                            style={{
+                              fontSize: '0.73rem',
+                              color: '#c4a482',
+                              margin: '0 0 8px',
+                              minHeight: '32px',
+                              lineHeight: 1.35,
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden',
-                              wordBreak: 'break-word',
                             }}
-                            title={p.name}
                           >
-                            {p.name}
-                          </span>
+                            {p.description || 'Hương vị thơm ngon hảo hạng từ MY COFFEE HOUSE'}
+                          </p>
                         </div>
-                        <p
-                          style={{
-                            fontSize: '0.73rem',
-                            color: '#c4a482',
-                            margin: '0 0 10px',
-                            minHeight: '34px',
-                            lineHeight: 1.35,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {p.description || 'Hương vị thơm ngon hảo hạng từ MY COFFEE HOUSE'}
-                        </p>
 
-                        {/* Price & Add to Cart button */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                          <div>
-                            <span style={{ fontSize: '0.72rem', color: '#a88265', fontWeight: 600 }}>Giá: </span>
-                            <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fbbf24' }}>
-                              {fmt(currentSizeObj.price)}
-                            </span>
+                        <div>
+                          {/* Size Selection Buttons on Card */}
+                          {(() => {
+                            const sizesList = p.sizes && p.sizes.length > 1
+                              ? Array.from(new Map(p.sizes.map((s) => [s.name, s])).values())
+                              : [];
+                            if (sizesList.length > 1) {
+                              return (
+                                <div style={{ display: 'flex', gap: '5px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                  {sizesList.map((sz) => {
+                                    const active = currentSizeName === sz.name;
+                                    return (
+                                      <button
+                                        key={sz.name}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCardSizes((prev) => ({ ...prev, [p.id]: sz.name }));
+                                        }}
+                                        style={{
+                                          padding: '2px 8px',
+                                          borderRadius: '5px',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                          border: active ? '1.5px solid #F59E0B' : '1px solid #3F3F46',
+                                          background: active ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                                          color: active ? '#FFFFFF' : '#A1A1AA',
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                      >
+                                        Size {sz.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+
+                          {/* Price & Add to Cart button */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                            <div>
+                              <span style={{ fontSize: '0.72rem', color: '#a88265', fontWeight: 600 }}>Giá: </span>
+                              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fbbf24' }}>
+                                {fmt(currentSizeObj.price)}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="pos-add-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(p, currentSizeName);
+                              }}
+                            >
+                              + Thêm
+                            </button>
                           </div>
-
-                          <button
-                            type="button"
-                            className="pos-add-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCart(p);
-                            }}
-                          >
-                            + Thêm
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -856,110 +903,94 @@ export default function PosOrder() {
                         </td>
                       </tr>
                     ) : (
-                      cart.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#18181B' : '#1C1C20' }}>
-                          <td style={{ padding: '7px 8px' }}>
-                            <div style={{ fontWeight: 600, color: '#F4F1EC', lineHeight: 1.25 }}>{item.name}</div>
-                            {item.size_name && item.size_name !== 'Tiêu chuẩn' && item.size_name !== 'default' && (
-                              <span
-                                style={{
-                                  display: 'inline-block',
-                                  marginTop: '2px',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 700,
-                                  background: 'rgba(217, 119, 6, 0.15)',
-                                  color: '#FBBF24',
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  border: '1px solid rgba(217, 119, 6, 0.3)',
-                                }}
-                              >
-                                Size {item.size_name}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '7px 4px', textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                              <button
-                                type="button"
-                                style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #3F3F46', background: '#27272B', color: '#F4F1EC', cursor: 'pointer', lineHeight: '16px', fontSize: '12px' }}
-                                onClick={() => updateCartLineQty(idx, -1)}
-                              >
-                                -
-                              </button>
-                              <span style={{ fontWeight: 700, minWidth: '16px', textAlign: 'center', color: '#F4F1EC' }}>{item.quantity}</span>
-                              <button
-                                type="button"
-                                style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #3F3F46', background: '#27272B', color: '#F4F1EC', cursor: 'pointer', lineHeight: '16px', fontSize: '12px' }}
-                                onClick={() => updateCartLineQty(idx, 1)}
-                              >
-                                +
-                              </button>
-                            </div>
-                          </td>
-                          <td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 700, color: '#FBBF24' }}>
-                            {fmt(item.price * item.quantity)}
-                          </td>
-                        </tr>
-                      ))
+                      cart.map((item, idx) => {
+                        const prod = products.find((p) => p.id === item.product_id);
+                        const availableSizes = prod?.sizes && prod.sizes.length > 1
+                          ? Array.from(new Map(prod.sizes.map((s) => [s.name, s])).values())
+                          : [];
+
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#18181B' : '#1C1C20' }}>
+                            <td style={{ padding: '7px 8px' }}>
+                              <div style={{ fontWeight: 600, color: '#F4F1EC', lineHeight: 1.25 }}>{item.name}</div>
+                              {availableSizes.length > 1 ? (
+                                <div style={{ display: 'flex', gap: '3px', marginTop: '4px' }}>
+                                  {availableSizes.map((sz) => {
+                                    const active = item.size_name === sz.name;
+                                    return (
+                                      <button
+                                        key={sz.name}
+                                        type="button"
+                                        onClick={() => updateCartItemSize(idx, sz.name)}
+                                        style={{
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          fontSize: '0.68rem',
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                          border: active ? '1px solid #F59E0B' : '1px solid #3F3F46',
+                                          background: active ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                                          color: active ? '#FFFFFF' : '#A1A1AA',
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                        title={`Đổi sang Size ${sz.name} (${fmt(sz.price)})`}
+                                      >
+                                        {sz.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                item.size_name && item.size_name !== 'Tiêu chuẩn' && item.size_name !== 'default' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      marginTop: '2px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
+                                      background: 'rgba(217, 119, 6, 0.15)',
+                                      color: '#FBBF24',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      border: '1px solid rgba(217, 119, 6, 0.3)',
+                                    }}
+                                  >
+                                    Size {item.size_name}
+                                  </span>
+                                )
+                              )}
+                            </td>
+                            <td style={{ padding: '7px 4px', textAlign: 'center' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <button
+                                  type="button"
+                                  style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #3F3F46', background: '#27272B', color: '#F4F1EC', cursor: 'pointer', lineHeight: '16px', fontSize: '12px' }}
+                                  onClick={() => updateCartLineQty(idx, -1)}
+                                >
+                                  -
+                                </button>
+                                <span style={{ fontWeight: 700, minWidth: '16px', textAlign: 'center', color: '#F4F1EC' }}>{item.quantity}</span>
+                                <button
+                                  type="button"
+                                  style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #3F3F46', background: '#27272B', color: '#F4F1EC', cursor: 'pointer', lineHeight: '16px', fontSize: '12px' }}
+                                  onClick={() => updateCartLineQty(idx, 1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+                            <td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 700, color: '#FBBF24' }}>
+                              {fmt(item.price * item.quantity)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
 
-              {/* 3. CHỌN SIZE ĐỒ UỐNG (Chỉ hiện khi có đồ uống nhiều size) */}
-              {cart.some((it) => {
-                const prod = products.find((p) => p.id === it.product_id);
-                return prod?.sizes && prod.sizes.length > 1;
-              }) && (
-                <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '10px', padding: '9px 12px' }}>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
-                    ☕ CHỌN SIZE ĐỒ UỐNG:
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {cart.map((it, idx) => {
-                      const prod = products.find((p) => p.id === it.product_id);
-                      if (!prod?.sizes || prod.sizes.length <= 1) return null;
-                      return (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#18181B', padding: '5px 8px', borderRadius: '6px', border: '1px solid #2E2E35', fontSize: '0.78rem' }}>
-                          <span style={{ fontWeight: 600, color: '#F4F1EC', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={it.name}>
-                            {it.name}
-                          </span>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            {prod.sizes.map((szObj) => {
-                              const sz = szObj.name;
-                              const active = it.size_name === sz;
-                              return (
-                                <button
-                                  key={sz}
-                                  type="button"
-                                  onClick={() => updateCartItemSize(idx, sz)}
-                                  style={{
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    border: active ? '1.5px solid #F59E0B' : '1px solid #3F3F46',
-                                    background: active ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
-                                    color: active ? '#FFFFFF' : '#A1A1AA',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                  title={`Chọn Size ${sz} (${fmt(szObj.price)})`}
-                                >
-                                  {sz}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* 4. HỘI VIÊN & TÍCH ĐIỂM */}
+              {/* 3. HỘI VIÊN & TÍCH ĐIỂM */}
               <div
                 style={{
                   background: '#202024',
@@ -1359,7 +1390,10 @@ export default function PosOrder() {
                   <tbody>
                     {cart.map((item, idx) => {
                       const prod = products.find(p => p.id === item.product_id);
-                      const hasMultiSizes = prod?.sizes && prod.sizes.length > 1;
+                      const uniqueSizes = prod?.sizes && prod.sizes.length > 1
+                        ? Array.from(new Map(prod.sizes.map((s) => [s.name, s])).values())
+                        : [];
+                      const hasMultiSizes = uniqueSizes.length > 1;
 
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#18181B' : '#1C1C20' }}>
@@ -1368,7 +1402,7 @@ export default function PosOrder() {
                             <div style={{ fontSize: '0.82rem', color: '#F4F1EC' }}>{item.name}</div>
                             {hasMultiSizes && (
                               <div style={{ display: 'inline-flex', gap: '3px', marginTop: '3px' }}>
-                                {prod.sizes.map((szObj) => {
+                                {uniqueSizes.map((szObj) => {
                                   const sz = szObj.name;
                                   const isCurrent = item.size_name === sz;
                                   return (
@@ -1805,24 +1839,24 @@ export default function PosOrder() {
                       background: '#202024',
                     }}
                   >
-                    <table className="mockup-table">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                       <thead>
-                        <tr>
-                          <th>Món</th>
-                          <th style={{ textAlign: 'center', width: '35px' }}>SL</th>
-                          <th style={{ textAlign: 'right' }}>Đơn giá</th>
-                          <th style={{ textAlign: 'right' }}>T.Tiền</th>
+                        <tr style={{ background: '#18181B', color: '#A1A1AA', borderBottom: '1px solid #27272B' }}>
+                          <th style={{ padding: '6px 8px', textAlign: 'left' }}>Món</th>
+                          <th style={{ textAlign: 'center', width: '35px', padding: '6px 4px' }}>SL</th>
+                          <th style={{ textAlign: 'right', padding: '6px 8px' }}>Đơn giá</th>
+                          <th style={{ textAlign: 'right', padding: '6px 8px' }}>T.Tiền</th>
                         </tr>
                       </thead>
                       <tbody>
                         {cart.map((it, idx) => (
-                          <tr key={idx}>
-                            <td style={{ fontWeight: 600, color: '#fef3c7' }}>
+                          <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#202024' : '#1C1C20' }}>
+                            <td style={{ padding: '6px 8px', fontWeight: 600, color: '#F4F1EC' }}>
                               {it.name} {it.size_name && it.size_name !== 'Tiêu chuẩn' ? `(${it.size_name})` : ''}
                             </td>
-                            <td style={{ textAlign: 'center', color: '#fbbf24', fontWeight: 700 }}>{it.quantity}</td>
-                            <td style={{ textAlign: 'right', color: '#c4a482' }}>{fmt(it.price)}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#fef3c7' }}>{fmt(it.price * it.quantity)}</td>
+                            <td style={{ textAlign: 'center', color: '#FBBF24', fontWeight: 700, padding: '6px 4px' }}>{it.quantity}</td>
+                            <td style={{ textAlign: 'right', color: '#A1A1AA', padding: '6px 8px' }}>{fmt(it.price)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#FBBF24', padding: '6px 8px' }}>{fmt(it.price * it.quantity)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1833,42 +1867,42 @@ export default function PosOrder() {
                 {/* Price Breakdown */}
                 <div
                   style={{
-                    background: '#24160e',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                    background: '#202024',
+                    border: '1px solid #2A2A30',
                     borderRadius: '8px',
-                    padding: '8px 12px',
+                    padding: '9px 12px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '3px',
+                    gap: '4px',
                     fontSize: '0.82rem',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c4a482' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A1A1AA' }}>
                     <span>Tổng tiền hàng:</span>
-                    <span style={{ fontWeight: 700, color: '#fef3c7' }}>{fmt(totalAmount)}</span>
+                    <span style={{ fontWeight: 700, color: '#F4F1EC' }}>{fmt(totalAmount)}</span>
                   </div>
                   {Number(discount) > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#F87171' }}>
                       <span>Giảm giá voucher ({appliedCoupon?.code || 'KM'}):</span>
                       <span style={{ fontWeight: 700 }}>-{fmt(discount)}</span>
                     </div>
                   )}
                   {Number(tax) > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c4a482' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A1A1AA' }}>
                       <span>Thuế:</span>
-                      <span style={{ fontWeight: 700 }}>+{fmt(tax)}</span>
+                      <span style={{ fontWeight: 700, color: '#F4F1EC' }}>+{fmt(tax)}</span>
                     </div>
                   )}
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      borderTop: '1px dashed rgba(245, 158, 11, 0.3)',
-                      paddingTop: '5px',
+                      borderTop: '1px dashed #3F3F46',
+                      paddingTop: '6px',
                       marginTop: '2px',
                       fontSize: '1.2rem',
-                      fontWeight: 800,
-                      color: '#4ade80',
+                      fontWeight: 900,
+                      color: '#F59E0B',
                     }}
                   >
                     <span>CẦN THANH TOÁN:</span>
@@ -2061,32 +2095,32 @@ export default function PosOrder() {
                 <div style={{ fontWeight: 700, color: '#fef3c7', marginBottom: '6px', fontSize: '0.85rem', fontFamily: "'Playfair Display', Georgia, serif" }}>
                   ☕ Chi tiết món trong hóa đơn:
                 </div>
-                <table className="mockup-table">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                   <thead>
-                    <tr>
-                      <th>Tên món</th>
-                      <th style={{ width: '75px', textAlign: 'center' }}>Size</th>
-                      <th style={{ width: '45px', textAlign: 'center' }}>SL</th>
-                      <th style={{ textAlign: 'right' }}>Đơn giá</th>
-                      <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                    <tr style={{ background: '#202024', color: '#A1A1AA', borderBottom: '1px solid #27272B' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left' }}>Tên món</th>
+                      <th style={{ width: '75px', textAlign: 'center', padding: '8px 4px' }}>Size</th>
+                      <th style={{ width: '45px', textAlign: 'center', padding: '8px 4px' }}>SL</th>
+                      <th style={{ textAlign: 'right', padding: '8px 10px' }}>Đơn giá</th>
+                      <th style={{ textAlign: 'right', padding: '8px 10px' }}>Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
                     {completedOrder.items.map((it, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontWeight: 600, color: '#fef3c7' }}>{it.name}</td>
-                        <td style={{ textAlign: 'center' }}>
+                      <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#18181B' : '#1C1C20' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: '#F4F1EC' }}>{it.name}</td>
+                        <td style={{ textAlign: 'center', padding: '8px 4px' }}>
                           {it.size_name && it.size_name !== 'Tiêu chuẩn' ? (
-                            <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, fontSize: '0.75rem', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                            <span style={{ background: 'rgba(217, 119, 6, 0.15)', color: '#FBBF24', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, fontSize: '0.74rem', border: '1px solid rgba(217, 119, 6, 0.3)' }}>
                               Size {it.size_name}
                             </span>
                           ) : (
-                            <span style={{ color: '#8c7662', fontSize: '0.75rem' }}>—</span>
+                            <span style={{ color: '#71717A', fontSize: '0.74rem' }}>—</span>
                           )}
                         </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#fef3c7' }}>{it.quantity}</td>
-                        <td style={{ textAlign: 'right', color: '#d5bba2' }}>{fmt(it.price)}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: '#fbbf24' }}>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#F4F1EC', padding: '8px 4px' }}>{it.quantity}</td>
+                        <td style={{ textAlign: 'right', color: '#A1A1AA', padding: '8px 10px' }}>{fmt(it.price)}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#FBBF24', padding: '8px 10px' }}>
                           {fmt(it.price * it.quantity)}
                         </td>
                       </tr>

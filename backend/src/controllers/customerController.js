@@ -63,11 +63,15 @@ const create = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Số điện thoại không được để trống' });
     }
     const cleanPhone = String(phone).trim();
-    const pts = Math.max(0, parseInt(points_balance, 10) || 0);
+
+    // RBAC-03: Chỉ Admin hoặc Manager mới được phép gán points_balance và tier_id thủ công
+    const isManagerOrAdmin = ['admin', 'manager'].includes(req.user?.role);
+    const pts = isManagerOrAdmin ? Math.max(0, parseInt(points_balance, 10) || 0) : 0;
+    const targetTier = isManagerOrAdmin && tier_id ? tier_id : 1;
 
     const [result] = await db.query(
       'INSERT INTO customers (phone, name, birthday, tier_id, points_balance) VALUES (?, ?, ?, ?, ?)',
-      [cleanPhone, name ? String(name).trim() : null, birthday || null, tier_id || 1, pts]
+      [cleanPhone, name ? String(name).trim() : null, birthday || null, targetTier, pts]
     );
     res.status(201).json({ success: true, message: 'Thêm khách hàng thành công', data: { id: result.insertId } });
   } catch (err) {
@@ -87,12 +91,39 @@ const update = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Số điện thoại không được để trống' });
     }
     const cleanPhone = String(phone).trim();
-    const pts = points_balance !== undefined ? Math.max(0, parseInt(points_balance, 10) || 0) : null;
+
+    // RBAC-03: Chỉ Admin hoặc Manager mới được sửa points_balance và tier_id thủ công
+    const isManagerOrAdmin = ['admin', 'manager'].includes(req.user?.role);
+    if (!isManagerOrAdmin && (points_balance !== undefined || tier_id !== undefined)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ Quản trị viên (Admin) hoặc Quản lý mới có quyền điều chỉnh điểm và hạng hội viên thủ công!'
+      });
+    }
+
+    const [oldCust] = await db.query('SELECT points_balance, tier_id FROM customers WHERE id = ?', [id]);
+    const oldPts = oldCust[0]?.points_balance;
+    const pts = (isManagerOrAdmin && points_balance !== undefined) ? Math.max(0, parseInt(points_balance, 10) || 0) : null;
+    const targetTier = (isManagerOrAdmin && tier_id !== undefined) ? tier_id : null;
 
     await db.query(
       'UPDATE customers SET phone = ?, name = COALESCE(?, name), birthday = COALESCE(?, birthday), tier_id = COALESCE(?, tier_id), points_balance = COALESCE(?, points_balance) WHERE id = ?',
-      [cleanPhone, name ? String(name).trim() : null, birthday || null, tier_id || null, pts, id]
+      [cleanPhone, name ? String(name).trim() : null, birthday || null, targetTier, pts, id]
     );
+
+    // RBAC-03: Ghi Audit Log khi thay đổi điểm thủ công
+    if (isManagerOrAdmin && pts !== null && pts !== oldPts) {
+      const { logAudit } = require('../services/auditLogger');
+      logAudit({
+        userId: req.user?.id || null,
+        action: 'UPDATE_CUSTOMER_POINTS',
+        entityType: 'CUSTOMER',
+        entityId: id,
+        reason: `Điều chỉnh điểm thủ công khách hàng ID #${id}: ${oldPts} -> ${pts} điểm`,
+        ipAddress: req.ip
+      });
+    }
+
     res.json({ success: true, message: 'Cập nhật thông tin khách hàng thành công' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {

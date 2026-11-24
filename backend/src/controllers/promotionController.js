@@ -27,6 +27,13 @@ const create = async (req, res) => {
     if (!name || value === undefined || value === null) {
       return res.status(400).json({ success: false, message: 'Vui lòng nhập tên và giá trị khuyến mãi' });
     }
+    const numVal = Number(value);
+    if (isNaN(numVal) || numVal <= 0) {
+      return res.status(400).json({ success: false, message: 'Giá trị khuyến mãi phải là số dương lớn hơn 0' });
+    }
+    if ((type === 'percent_order' || type === 'percentage' || type === 'happy_hour') && numVal > 100) {
+      return res.status(400).json({ success: false, message: 'Khuyến mãi theo phần trăm không được vượt quá 100%' });
+    }
     const cleanCode = code ? String(code).trim().toUpperCase() : null;
     const [result] = await db.query(
       `INSERT INTO promotions (name, code, type, value, min_order_value, max_discount, description, start_date, end_date, is_active)

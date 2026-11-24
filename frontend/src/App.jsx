@@ -244,11 +244,11 @@ export default function App() {
               }
             />
 
-            {/* 11. Báo cáo & Thống kê tích hợp Dashboard: Admin & Quản lý */}
+            {/* 11. Báo cáo & Thống kê tích hợp Dashboard: Admin & Quản lý & Thủ kho */}
             <Route
               path="reports"
               element={
-                <RoleRoute allowedRoles={['admin', 'manager']}>
+                <RoleRoute allowedRoles={['admin', 'manager', 'warehouse']}>
                   <Reports />
                 </RoleRoute>
               }

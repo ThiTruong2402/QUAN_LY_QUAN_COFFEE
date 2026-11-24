@@ -23,10 +23,17 @@ const getAll = async (req, res) => {
     }
     const [toppings] = await db.query('SELECT * FROM toppings WHERE is_active=1');
 
-    const productMap = products.map(p => ({
-      ...p,
-      sizes: sizes.filter(s => s.product_id === p.id),
-    }));
+    const productMap = products.map(p => {
+      const pSizes = sizes.filter(s => s.product_id === p.id);
+      const uniqueMap = new Map();
+      for (const s of pSizes) {
+        uniqueMap.set(s.name, s);
+      }
+      return {
+        ...p,
+        sizes: Array.from(uniqueMap.values()),
+      };
+    });
 
     res.json({ success: true, data: { categories, products: productMap, toppings } });
   } catch (err) {
@@ -97,13 +104,15 @@ const update = async (req, res) => {
       }
     }
 
-    // Update sizes array if provided
+    // Update sizes array if provided (BIZ-08: Hỗ trợ cả s.id và s.size_id để chống nhân bản trùng Size)
     if (sizes && Array.isArray(sizes) && sizes.length > 0) {
       for (const s of sizes) {
-        if (s.id) {
-          await db.query('UPDATE product_sizes SET name = ?, price = ?, is_default = ? WHERE id = ?', [s.name, s.price, s.is_default ? 1 : 0, s.id]);
+        const sid = s.id || s.size_id;
+        const sPrice = Math.max(0, Number(s.price) || 0);
+        if (sid) {
+          await db.query('UPDATE product_sizes SET name = ?, price = ?, is_default = ? WHERE id = ?', [s.name, sPrice, s.is_default ? 1 : 0, sid]);
         } else {
-          await db.query('INSERT INTO product_sizes (product_id, name, price, is_default) VALUES (?, ?, ?, ?)', [id, s.name, s.price, s.is_default ? 1 : 0]);
+          await db.query('INSERT INTO product_sizes (product_id, name, price, is_default) VALUES (?, ?, ?, ?)', [id, s.name, sPrice, s.is_default ? 1 : 0]);
         }
       }
     }

@@ -768,6 +768,9 @@ const cancelOrder = async (req, res) => {
       await loyaltyService.refundPointsOnCancel(conn, { orderId: id, customerId: order.customer_id });
     }
 
+    // BIZ-05: Luôn đánh dấu hủy hóa đơn (voided) khi đơn bị hủy (dù paid hay unpaid)
+    await conn.query('UPDATE invoices SET status = "voided", void_reason = ?, voided_by = ? WHERE order_id = ?', [cancel_reason || 'Đơn bị hủy', req.user?.id || 1, id]);
+
     // Nếu đơn đã thanh toán: hoàn tiền & điều chỉnh total_spent
     if (order.payment_status === 'paid') {
       if (order.customer_id) {
@@ -778,8 +781,6 @@ const cancelOrder = async (req, res) => {
         // BIZ-04: Cập nhật lại hạng hội viên tương ứng với total_spent mới sau khi trừ tiền
         await loyaltyService.recalculateCustomerTier(conn, order.customer_id);
       }
-      // Đánh dấu hủy hóa đơn (voided) theo chuẩn schema
-      await conn.query('UPDATE invoices SET status = "voided", void_reason = ?, voided_by = ? WHERE order_id = ?', [cancel_reason || 'Đơn bị hủy', req.user?.id || 1, id]);
       // Ghi nhận bản ghi hoàn tiền (refund) tương ứng đúng phương thức thanh toán gốc
       const [origPayments] = await conn.query(
         'SELECT method FROM payments WHERE order_id = ? AND type = "payment" ORDER BY id DESC LIMIT 1',
@@ -799,7 +800,7 @@ const cancelOrder = async (req, res) => {
       action: 'CANCEL_ORDER',
       entityType: 'ORDER',
       entityId: id,
-      reason: `Hủy đơn hàng #${order.order_code}: ${cancel_reason || 'Không rõ lý do'}`,
+      reason: `Hủy đơn hàng #${order.code}: ${cancel_reason || 'Không rõ lý do'}`,
       ipAddress: req.ip
     });
 

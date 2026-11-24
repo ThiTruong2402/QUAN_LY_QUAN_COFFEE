@@ -98,6 +98,15 @@ const reserveTable = async (req, res) => {
 // POST /api/tables/:id/cancel-reservation
 const cancelReservation = async (req, res) => {
   try {
+    const [tableRow] = await db.query('SELECT status, code FROM `tables` WHERE id = ?', [req.params.id]);
+    if (!tableRow.length) return res.status(404).json({ success: false, message: 'Không tìm thấy bàn' });
+    if (tableRow[0].status !== 'reserved') {
+      return res.status(400).json({
+        success: false,
+        message: `Bàn [${tableRow[0].code}] hiện ở trạng thái "${tableRow[0].status}", không phải bàn đang đặt trước!`
+      });
+    }
+
     await db.query(
       `UPDATE \`tables\` SET 
         status='empty', 
@@ -106,7 +115,7 @@ const cancelReservation = async (req, res) => {
         reservation_time=NULL, 
         reservation_note=NULL, 
         customer_count=0 
-       WHERE id=?`,
+       WHERE id=? AND status='reserved'`,
       [req.params.id]
     );
     res.json({ success: true, message: 'Đã hủy đặt bàn thành công' });

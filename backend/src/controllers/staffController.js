@@ -5,13 +5,19 @@ const { logAudit } = require('../services/auditLogger');
 // GET /api/staff
 const getAll = async (req, res) => {
   try {
-    const [users] = await db.query(
-      `SELECT u.id, u.code, u.username, u.full_name, u.birthday, u.gender, u.email, u.phone, u.role_id, u.is_active, u.created_at,
-              r.name AS role_name, r.label AS role_label
-       FROM users u
-       JOIN roles r ON r.id = u.role_id
-       ORDER BY u.id DESC`
-    );
+    let query = `
+      SELECT u.id, u.code, u.username, u.full_name, u.birthday, u.gender, u.email, u.phone, u.role_id, u.is_active, u.created_at,
+             r.name AS role_name, r.label AS role_label
+      FROM users u
+      JOIN roles r ON r.id = u.role_id
+    `;
+    const params = [];
+    // RBAC-04: Manager không xem được tài khoản Admin
+    if (req.user?.role === 'manager') {
+      query += ' WHERE r.name != "admin"';
+    }
+    query += ' ORDER BY u.id DESC';
+    const [users] = await db.query(query, params);
     const [roles] = await db.query('SELECT * FROM roles ORDER BY id');
     res.json({ success: true, data: { users, roles } });
   } catch (err) {
@@ -25,6 +31,9 @@ const create = async (req, res) => {
     const { code, username, password, full_name, birthday, gender, email, phone, role_id } = req.body;
     if (!username || !password || !full_name) {
       return res.status(400).json({ success: false, message: 'Vui lòng điền đủ tên đăng nhập, mật khẩu và họ tên' });
+    }
+    if (String(password).trim().length < 6) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu phải có tối thiểu 6 ký tự' });
     }
 
     const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
@@ -150,9 +159,12 @@ const update = async (req, res) => {
     }
 
     let query = 'UPDATE users SET code = COALESCE(?, code), full_name = ?, birthday = ?, gender = ?, email = ?, phone = ?, role_id = COALESCE(?, role_id), is_active = COALESCE(?, is_active)';
-    const params = [code || null, full_name.trim(), birthday || null, gender || 'Khác', email || null, phone || null, role_id || null, is_active !== undefined ? is_active : 1];
+    const params = [code || null, full_name.trim(), birthday || null, gender || 'Khác', email || null, phone || null, role_id || null, is_active !== undefined ? is_active : null];
 
     if (password && String(password).trim()) {
+      if (String(password).trim().length < 6) {
+        return res.status(400).json({ success: false, message: 'Mật khẩu phải có tối thiểu 6 ký tự' });
+      }
       const hash = await bcrypt.hash(password, 10);
       query += ', password_hash = ?';
       params.push(hash);
@@ -205,7 +217,7 @@ const remove = async (req, res) => {
       await db.query('DELETE FROM users WHERE id = ?', [id]);
       logAudit({
         userId: req.user?.id || null,
-        action: 'DELETE_USER',
+        action: 'DELETE_STAFF',
         entityType: 'USER',
         entityId: id,
         reason: `Xóa tài khoản ID #${id} khỏi hệ thống`,

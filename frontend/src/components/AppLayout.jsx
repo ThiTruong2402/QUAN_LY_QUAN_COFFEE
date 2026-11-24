@@ -28,7 +28,7 @@ const NAV_GROUPS = [
       { to: '/menu', label: 'Thực đơn & Công thức', roles: ['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse'], icon: <SvgIcon d={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>} /> },
       { to: '/inventory', label: 'Kho nguyên liệu', roles: ['admin', 'manager', 'warehouse', 'barista', 'cashier'], icon: <SvgIcon d={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} /> },
       { to: '/shifts', label: 'Lịch phân ca', roles: ['admin', 'manager', 'cashier', 'barista', 'waiter', 'warehouse'], icon: <SvgIcon d={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>} /> },
-      { to: '/reports', label: 'Thống kê & Doanh thu', roles: ['admin', 'manager'], icon: <SvgIcon d={<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>} /> },
+      { to: '/reports', label: 'Thống kê & Doanh thu', roles: ['admin', 'manager', 'warehouse'], icon: <SvgIcon d={<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>} /> },
     ],
   },
   {
@@ -109,15 +109,15 @@ export default function AppLayout({ children }) {
 
     socket.on('newOrder', handleNewOrder);
     socket.on('order:created', handleNewOrder);
-    socket.on('order:status-changed', handleUpdate);
-    socket.on('table:status-changed', handleUpdate);
+    socket.on('order:status_updated', handleUpdate);
+    socket.on('table:status_updated', handleUpdate);
 
     return () => {
       clearInterval(interval);
       socket.off('newOrder', handleNewOrder);
       socket.off('order:created', handleNewOrder);
-      socket.off('order:status-changed', handleUpdate);
-      socket.off('table:status-changed', handleUpdate);
+      socket.off('order:status_updated', handleUpdate);
+      socket.off('table:status_updated', handleUpdate);
     };
   }, []);
 
@@ -131,8 +131,8 @@ export default function AppLayout({ children }) {
           height: 100vh;
           width: 100vw;
           overflow: hidden;
-          background: #F6F3EE !important;
-          color: #1F1611 !important;
+          background: #121214 !important;
+          color: #F4F1EC !important;
           font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .mch-sidebar {

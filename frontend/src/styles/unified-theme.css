@@ -397,12 +397,14 @@ body:has(.mch-shell) {
 .pos-menu-scroll-grid {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;                  /* CHỈ vùng lưới sản phẩm này cuộn */
+  overflow-y: auto !important;
+  overflow-x: hidden;
   padding: 16px 18px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px;
+  grid-auto-rows: max-content;
   align-content: start;
+  gap: 14px;
 }
 
 .pos-checkout-column {
@@ -421,7 +423,7 @@ body:has(.mch-shell) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;                  /* Danh sách món đã chọn cuộn riêng bên trong */
-  padding: 14px 16px;
+  padding: 14px 16px 28px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -519,6 +521,8 @@ body:has(.mch-shell) {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 350px;
+  box-sizing: border-box;
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
   cursor: pointer;
 }

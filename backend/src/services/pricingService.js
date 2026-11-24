@@ -24,7 +24,7 @@ async function validateAndPriceItems(conn, items) {
         `SELECT ps.id, ps.price, ps.name AS size_name, p.id AS product_id, p.name AS product_name 
          FROM product_sizes ps
          JOIN products p ON p.id = ps.product_id
-         WHERE ps.id = ?`,
+         WHERE ps.id = ? AND p.is_active = 1 AND p.is_available = 1`,
         [productSizeId]
       );
       if (sizeRows.length) sizeRow = sizeRows[0];
@@ -35,7 +35,7 @@ async function validateAndPriceItems(conn, items) {
         `SELECT ps.id, ps.price, ps.name AS size_name, p.id AS product_id, p.name AS product_name
          FROM product_sizes ps
          JOIN products p ON p.id = ps.product_id
-         WHERE ps.product_id = ?
+         WHERE ps.product_id = ? AND p.is_active = 1 AND p.is_available = 1
          ORDER BY ps.is_default DESC, ps.id ASC
          LIMIT 1`,
         [productId]
@@ -44,7 +44,7 @@ async function validateAndPriceItems(conn, items) {
     }
 
     if (!sizeRow) {
-      throw new Error(`Món đồ uống "${item.name || 'chưa rõ'}" không tồn tại hoặc kích thước không hợp lệ trong hệ thống!`);
+      throw new Error(`Món đồ uống "${item.name || 'chưa rõ'}" không tồn tại, đã ngừng kinh doanh hoặc kích thước không hợp lệ!`);
     }
 
     const unitPrice = Number(sizeRow.price);
@@ -60,10 +60,10 @@ async function validateAndPriceItems(conn, items) {
     for (const t of rawToppings) {
       const topId = t.topping_id || t.id;
       if (!topId) continue;
-      const [topRows] = await conn.query('SELECT id, name, price FROM toppings WHERE id = ?', [topId]);
+      const [topRows] = await conn.query('SELECT id, name, price FROM toppings WHERE id = ? AND is_active = 1', [topId]);
       if (topRows.length) {
         const topPrice = Number(topRows[0].price);
-        const topQty = Math.max(1, parseInt(t.quantity, 10) || 1);
+        const topQty = Math.min(10, Math.max(1, parseInt(t.quantity, 10) || 1));
         itemToppingsTotal += topPrice * topQty;
         validatedItemToppings.push({
           topping_id: topRows[0].id,
@@ -74,7 +74,7 @@ async function validateAndPriceItems(conn, items) {
       }
     }
 
-    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+    const qty = Math.min(100, Math.max(1, parseInt(item.quantity, 10) || 1));
     const lineTotal = (unitPrice + itemToppingsTotal) * qty;
     subtotal += lineTotal;
 
