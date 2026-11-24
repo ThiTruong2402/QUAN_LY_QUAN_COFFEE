@@ -28,12 +28,25 @@ const getAll = async (req, res) => {
 const lookupPhone = async (req, res) => {
   try {
     const { phone } = req.params;
+    const cleanPhone = String(phone).trim();
+
+    // RBAC-01: Nếu là khách hàng (role 'customer'), chỉ được phép tra cứu thông tin của chính mình
+    if (req.user?.role === 'customer') {
+      const selfPhone = req.user.phone || req.user.username;
+      if (selfPhone !== cleanPhone) {
+        return res.status(403).json({
+          success: false,
+          message: 'Quyền hạn: Quý khách chỉ có thể tra cứu thông tin tài khoản của chính mình!'
+        });
+      }
+    }
+
     const [rows] = await db.query(
-      `SELECT c.*, t.name AS tier_name, t.discount_pct 
+      `SELECT c.id, c.phone, c.name, c.tier_id, c.points_balance, c.total_spent, t.name AS tier_name, t.discount_pct 
        FROM customers c
        LEFT JOIN membership_tiers t ON t.id = c.tier_id
        WHERE c.phone = ?`,
-      [phone]
+      [cleanPhone]
     );
     if (!rows.length) return res.status(404).json({ success: false, message: 'Khách hàng chưa có trong hệ thống' });
     res.json({ success: true, data: rows[0] });

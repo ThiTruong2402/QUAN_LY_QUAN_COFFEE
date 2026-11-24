@@ -174,9 +174,10 @@ async function calculatePromotions(conn, { couponCode, subtotal, customerId, ord
 }
 
 /**
- * 3. Tính toán 3 tầng chiết khấu và tổng thanh toán cuối cùng (Chống thuế âm)
+ * 3. Tính toán 4 tầng chiết khấu và tổng thanh toán cuối cùng (Chống thuế âm)
+ * BIZ-03: Áp dụng chiết khấu hạng hội viên (tierDiscount) chuẩn xác
  */
-function calculateFinalTotal({ subtotal, promoDiscount = 0, pointsDiscount = 0, tax = 0, shippingFee = 0 }) {
+function calculateFinalTotal({ subtotal, promoDiscount = 0, tierDiscount = 0, pointsDiscount = 0, tax = 0, shippingFee = 0 }) {
   // Phòng chống tấn công thuế âm
   const finalTax = Math.max(0, Number(tax || 0));
   const finalShipping = Math.max(0, Number(shippingFee || 0));
@@ -185,16 +186,21 @@ function calculateFinalTotal({ subtotal, promoDiscount = 0, pointsDiscount = 0, 
   const effectivePromoDiscount = Math.min(subtotal, Math.max(0, Number(promoDiscount || 0)));
   const afterPromo = subtotal - effectivePromoDiscount;
 
-  // Tầng 2: Điểm thưởng (không vượt quá phần còn lại sau promo)
-  const effectivePointsDiscount = Math.min(afterPromo, Math.max(0, Number(pointsDiscount || 0)));
-  const totalDiscount = effectivePromoDiscount + effectivePointsDiscount;
+  // Tầng 2: Chiết khấu hạng hội viên (BIZ-03)
+  const effectiveTierDiscount = Math.min(afterPromo, Math.max(0, Number(tierDiscount || 0)));
+  const afterTier = afterPromo - effectiveTierDiscount;
 
-  // Tầng 3: Thuế VAT & Phí vận chuyển
+  // Tầng 3: Điểm thưởng (không vượt quá phần còn lại sau promo và tier)
+  const effectivePointsDiscount = Math.min(afterTier, Math.max(0, Number(pointsDiscount || 0)));
+  const totalDiscount = effectivePromoDiscount + effectiveTierDiscount + effectivePointsDiscount;
+
+  // Tầng 4: Thuế VAT & Phí vận chuyển
   const total = Math.max(0, subtotal - totalDiscount + finalTax + finalShipping);
 
   return {
     subtotal,
     promoDiscount: effectivePromoDiscount,
+    tierDiscount: effectiveTierDiscount,
     pointsDiscount: effectivePointsDiscount,
     totalDiscount,
     tax: finalTax,

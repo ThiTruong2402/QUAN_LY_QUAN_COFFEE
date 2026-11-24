@@ -40,13 +40,18 @@
 html, body, #root {
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100%;
   width: 100%;
-  overflow: hidden !important;          /* Toàn trang không tự cuộn, nhường cuộn cho vùng nội dung */
   background: var(--ui-bg) !important;
   color: var(--ui-text) !important;
   font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif !important;
   -webkit-font-smoothing: antialiased;
+}
+
+/* FE-02: Chỉ khóa tràn màn hình cho hệ thống dashboard nội bộ .mch-shell để giữ bố cục POS/KDS */
+body:has(.mch-shell) {
+  overflow: hidden !important;
+  height: 100%;
 }
  
 /* Khung ứng dụng chính cao đúng 100vh và không bị trôi Sticky */

@@ -1,6 +1,13 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+// SEC-05: Kiểm tra an toàn biến môi trường trong Production
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+    throw new Error('FATAL: JWT_SECRET và JWT_REFRESH_SECRET phải được thiết lập an toàn trong môi trường Production!');
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'mycoffeehouse_jwt_secret_2025_very_long_key';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'mycoffeehouse_refresh_secret_2025';
 const getExpiresIn = (val, fallback) => {

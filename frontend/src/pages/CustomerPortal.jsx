@@ -553,7 +553,7 @@ export default function CustomerPortal() {
               payment_status: orderData?.payment_status || 'unpaid',
               created_at: new Date().toISOString(),
               items: [...cart],
-              order_type: orderType,
+              order_type: 'takeaway',
               pickup_time: orderData?.pickup_time,
             });
             localStorage.setItem('guest_orders', JSON.stringify(guestOrders.slice(0, 20)));

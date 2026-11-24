@@ -103,7 +103,7 @@ async function refundPointsOnCancel(conn, { orderId, customerId }) {
         [tx.points, customerId]
       );
       await conn.query(
-        'INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "earn", ?)',
+        'INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "refund", ?)',
         [customerId, orderId, tx.points]
       );
     } else if (tx.type === 'earn') {
@@ -112,12 +112,34 @@ async function refundPointsOnCancel(conn, { orderId, customerId }) {
         'UPDATE customers SET points_balance = GREATEST(0, points_balance - ?) WHERE id = ?',
         [tx.points, customerId]
       );
+      await conn.query(
+        'INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "clawback", ?)',
+        [customerId, orderId, -tx.points]
+      );
     }
+  }
+}
+
+/**
+ * 4. Tự động tính toán và cập nhật lại hạng thành viên (Tier) dựa trên total_spent (Cả khi nâng và hạ hạng)
+ */
+async function recalculateCustomerTier(conn, customerId) {
+  if (!customerId) return;
+  const [custData] = await conn.query('SELECT total_spent FROM customers WHERE id = ?', [customerId]);
+  if (!custData.length) return;
+  const spent = Number(custData[0].total_spent || 0);
+  const [tierRows] = await conn.query(
+    'SELECT id FROM membership_tiers WHERE min_spent <= ? ORDER BY min_spent DESC LIMIT 1',
+    [spent]
+  );
+  if (tierRows.length) {
+    await conn.query('UPDATE customers SET tier_id = ? WHERE id = ?', [tierRows[0].id, customerId]);
   }
 }
 
 module.exports = {
   validateAndCalculateRedemption,
   processEarnAndRedeem,
-  refundPointsOnCancel
+  refundPointsOnCancel,
+  recalculateCustomerTier
 };

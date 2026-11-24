@@ -101,8 +101,9 @@ async function autoMigrate() {
           `, [s.code, s.username, defaultHash, s.name, s.roleId, s.phone, s.email]);
           console.log(`✅ Auto-seeded staff: ${s.username} (password: 123456)`);
         } else {
-          // Luôn đảm bảo mật khẩu đăng nhập là 123456 và role_id chuẩn
-          await db.query('UPDATE users SET password_hash = ?, role_id = ?, full_name = ? WHERE id = ?', [defaultHash, s.roleId, s.name, u[0].id]);
+          // SEC-01: Không bao giờ đè lại mật khẩu của người dùng đã thay đổi trên production/restart
+          // Chỉ đảm bảo role_id hợp lệ nếu chưa có
+          await db.query('UPDATE users SET full_name = COALESCE(full_name, ?) WHERE id = ?', [s.name, u[0].id]);
         }
       }
     } catch (e) {

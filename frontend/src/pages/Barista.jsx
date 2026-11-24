@@ -35,21 +35,18 @@ export default function Barista() {
     const onSync = () => fetchQueue();
 
     socket.emit('join_barista');
+    // FE-05: Chỉ lắng nghe barista:new_order để chống chuông báo và thông báo bị nhân đôi
     socket.on('barista:new_order', onNewOrder);
-    socket.on('newOrder', onNewOrder);
     socket.on('barista:item_updated', onSync);
     socket.on('order:status_updated', onSync);
-    socket.on('order:created', onNewOrder);
     socket.on('order:cancelled', onSync);
     const interval = setInterval(fetchQueue, 20000);
 
     return () => {
       clearInterval(interval);
       socket.off('barista:new_order', onNewOrder);
-      socket.off('newOrder', onNewOrder);
       socket.off('barista:item_updated', onSync);
       socket.off('order:status_updated', onSync);
-      socket.off('order:created', onNewOrder);
       socket.off('order:cancelled', onSync);
     };
   }, [soundOn]);

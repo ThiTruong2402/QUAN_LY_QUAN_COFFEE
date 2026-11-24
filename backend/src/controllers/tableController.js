@@ -128,11 +128,18 @@ const transferTable = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Bàn đích không hợp lệ' });
     }
 
-    // Kiểm tra bàn đích có trống không
+    // BIZ-05: Kiểm tra bàn đích có tồn tại và đang trống không
     const [targetTable] = await conn.query('SELECT * FROM `tables` WHERE id=?', [to_table_id]);
     if (!targetTable.length) {
       await conn.rollback();
       return res.status(404).json({ success: false, message: 'Không tìm thấy bàn đích' });
+    }
+    if (targetTable[0].status !== 'empty') {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Bàn đích [${targetTable[0].code}] hiện không trống (trạng thái: ${targetTable[0].status})! Vui lòng chọn bàn trống khác.`
+      });
     }
 
     // Chuyển tất cả đơn của bàn sang bàn đích (bao gồm đang làm, đã làm, đã phục vụ)

@@ -317,6 +317,16 @@ const pay = async (req, res) => {
       ? payments
       : [{ method: 'cash', amount: order.total }];
 
+    // BIZ-02: Kiểm tra tổng số tiền thanh toán có đủ không
+    const totalPaid = paymentList.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    if (totalPaid < Number(order.total)) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Số tiền thanh toán (${totalPaid.toLocaleString('vi-VN')} đ) chưa đủ! Tổng đơn hàng là ${Number(order.total).toLocaleString('vi-VN')} đ`
+      });
+    }
+
     // Record payments
     for (const p of paymentList) {
       const pm = methodMap[p.method] || 'cash';
@@ -362,9 +372,9 @@ const pay = async (req, res) => {
       }
     }
 
-    // Update order status & free table
+    // BIZ-02: Cập nhật đồng bộ status = 'paid' VÀ payment_status = 'paid'
     await conn.query(
-      "UPDATE orders SET status='paid', closed_at=NOW() WHERE id=?", [orderId]
+      "UPDATE orders SET status='paid', payment_status='paid', closed_at=NOW() WHERE id=?", [orderId]
     );
     if (order.table_id) {
       await conn.query("UPDATE `tables` SET status='empty' WHERE id=?", [order.table_id]);
@@ -507,30 +517,33 @@ const updateStatus = async (req, res) => {
     }
 
     // State Machine: Kiểm tra luồng trạng thái hợp lệ
+    // Đơn hàng đã ở trạng thái kết thúc ('paid', 'cancelled', 'merged') thì KHÔNG được phép chuyển trạng thái (kể cả Admin)
+    if (['paid', 'cancelled', 'merged'].includes(order.status)) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Đơn hàng đã ở trạng thái kết thúc ("${order.status}"). Chặn tuyệt đối mọi thao tác chuyển trạng thái!`,
+      });
+    }
+
     const STATE_TRANSITIONS = {
       scheduled: ['pending', 'preparing', 'cancelled'],
-      open: ['pending', 'preparing'],
-      pending: ['preparing', 'done', 'served', 'paid'],
-      preparing: ['done', 'served', 'paid'],
-      done: ['served', 'paid'],
+      open: ['pending', 'preparing', 'cancelled'],
+      pending: ['preparing', 'done', 'served', 'paid', 'cancelled'],
+      preparing: ['done', 'served', 'paid', 'cancelled'],
+      done: ['served', 'paid', 'cancelled'],
       served: ['paid'],
       paid: [],
       cancelled: [],
       merged: [],
     };
     const allowedNext = STATE_TRANSITIONS[order.status] || [];
-    const isAdminOrManager = ['admin', 'manager'].includes(req.user?.role);
-    if (!isAdminOrManager && !allowedNext.includes(status)) {
+    if (!allowedNext.includes(status)) {
       await conn.rollback();
       return res.status(400).json({
         success: false,
         message: `Chuyển trạng thái không hợp lệ: Không thể chuyển từ "${order.status}" sang "${status}"`,
       });
-    }
-
-    if (order.status === 'paid' && status === 'paid') {
-      await conn.rollback();
-      return res.status(400).json({ success: false, message: 'Đơn hàng này đã được thanh toán trước đó' });
     }
 
     // PHÂN QUYỀN RBAC THEO NGHIỆP VỤ QUÁN CÀ PHÊ BÁN TRỰC TIẾP (3 BƯỚC):
@@ -762,6 +775,8 @@ const cancelOrder = async (req, res) => {
           'UPDATE customers SET total_spent = GREATEST(0, total_spent - ?) WHERE id = ?',
           [order.total, order.customer_id]
         );
+        // BIZ-04: Cập nhật lại hạng hội viên tương ứng với total_spent mới sau khi trừ tiền
+        await loyaltyService.recalculateCustomerTier(conn, order.customer_id);
       }
       // Đánh dấu hủy hóa đơn (voided) theo chuẩn schema
       await conn.query('UPDATE invoices SET status = "voided", void_reason = ?, voided_by = ? WHERE order_id = ?', [cancel_reason || 'Đơn bị hủy', req.user?.id || 1, id]);

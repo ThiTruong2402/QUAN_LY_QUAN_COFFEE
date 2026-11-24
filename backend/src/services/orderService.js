@@ -80,18 +80,35 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
   }
 
   let customerId = null;
+  let customerTierDiscountPct = 0;
   if (effectivePhone) {
-    const [cRows] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
+    const [cRows] = await conn.query(
+      `SELECT c.id, c.points_balance, c.tier_id, t.discount_pct 
+       FROM customers c 
+       LEFT JOIN membership_tiers t ON t.id = c.tier_id 
+       WHERE c.phone = ?`,
+      [effectivePhone]
+    );
     if (cRows.length) {
       customerId = cRows[0].id;
+      customerTierDiscountPct = Number(cRows[0].discount_pct || 0);
     } else {
       try {
-        const [newC] = await conn.query('INSERT INTO customers (phone, name) VALUES (?, ?)', [effectivePhone, effectiveName]);
+        const [newC] = await conn.query('INSERT INTO customers (phone, name, tier_id) VALUES (?, ?, 1)', [effectivePhone, effectiveName]);
         customerId = newC.insertId;
       } catch (cErr) {
         if (cErr.code === 'ER_DUP_ENTRY' || cErr.errno === 1062) {
-          const [reQuery] = await conn.query('SELECT id, points_balance FROM customers WHERE phone = ?', [effectivePhone]);
-          if (reQuery.length) customerId = reQuery[0].id;
+          const [reQuery] = await conn.query(
+            `SELECT c.id, c.points_balance, c.tier_id, t.discount_pct 
+             FROM customers c 
+             LEFT JOIN membership_tiers t ON t.id = c.tier_id 
+             WHERE c.phone = ?`,
+            [effectivePhone]
+          );
+          if (reQuery.length) {
+            customerId = reQuery[0].id;
+            customerTierDiscountPct = Number(reQuery[0].discount_pct || 0);
+          }
         } else {
           throw cErr;
         }
@@ -108,19 +125,48 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     isOnlineCustomer
   });
 
-  // 5. Tính toán điểm đổi (Tầng 2)
-  const subtotalAfterPromo = subtotal - promoDiscount;
-  const rawRequestedPts = points_to_redeem || points_redeemed || 0;
-  const { pointsToRedeem, pointsDiscount } = await loyaltyService.validateAndCalculateRedemption(conn, {
-    customerId,
-    requestedPoints: rawRequestedPts,
-    currentSubtotalAfterPromo: subtotalAfterPromo
-  });
+  // 4.1. BIZ-03: Tính chiết khấu hạng hội viên (Tầng 2)
+  const subtotalAfterPromo = Math.max(0, subtotal - promoDiscount);
+  const tierDiscount = customerTierDiscountPct > 0
+    ? Math.round((subtotalAfterPromo * customerTierDiscountPct) / 100)
+    : 0;
 
-  // 6. Tính tổng tiền cuối cùng (Tầng 3 - Thuế VAT & Phí vận chuyển)
+  // 5. Tính toán điểm đổi (Tầng 3)
+  // SEC-03: Bảo vệ điểm tích lũy - Chống trộm điểm
+  // Khách online bắt buộc phải đăng nhập và SĐT phải trùng với tài khoản chính chủ
+  const subtotalAfterTier = Math.max(0, subtotalAfterPromo - tierDiscount);
+  const rawRequestedPts = points_to_redeem || points_redeemed || 0;
+  let pointsToRedeem = 0;
+  let pointsDiscount = 0;
+
+  if (rawRequestedPts > 0) {
+    if (isOnlineCustomer) {
+      if (!reqUser || reqUser.role !== 'customer') {
+        const authErr = new Error('Quý khách vui lòng đăng nhập tài khoản để sử dụng điểm tích lũy!');
+        authErr.status = 401;
+        throw authErr;
+      }
+      const userPhone = reqUser.phone || reqUser.username;
+      if (!userPhone || (effectivePhone && effectivePhone !== userPhone)) {
+        const bolaErr = new Error('Số điện thoại đổi điểm không khớp với tài khoản đang đăng nhập!');
+        bolaErr.status = 403;
+        throw bolaErr;
+      }
+    }
+    const redemptionRes = await loyaltyService.validateAndCalculateRedemption(conn, {
+      customerId,
+      requestedPoints: rawRequestedPts,
+      currentSubtotalAfterPromo: subtotalAfterTier
+    });
+    pointsToRedeem = redemptionRes.pointsToRedeem;
+    pointsDiscount = redemptionRes.pointsDiscount;
+  }
+
+  // 6. Tính tổng tiền cuối cùng (Tầng 4 - Thuế VAT & Phí vận chuyển)
   const pricingResult = pricingService.calculateFinalTotal({
     subtotal,
     promoDiscount,
+    tierDiscount,
     pointsDiscount,
     tax,
     shippingFee: shipping_fee
@@ -158,9 +204,10 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     }
   }
 
-  // 8. Trạng thái thanh toán (Khách online chuyển khoản thì trạng thái thanh toán là unpaid chờ thu ngân xác nhận)
-  const isTransfer = ['Chuyển khoản', 'QR Banking', 'Ví MoMo', 'ZaloPay', 'bank_transfer'].includes(payment_method);
-  const finalPaymentStatus = (isOnlineCustomer && isTransfer) ? 'unpaid' : 'paid';
+  // 8. Trạng thái thanh toán:
+  // SEC-02 & BIZ-01: Khách đặt online (isOnlineCustomer) BẮT BUỘC có payment_status = 'unpaid'
+  // Chỉ nhân viên thu ngân tại quầy (isStaff) tạo đơn tại POS mới được phép gán 'paid' khi thu tiền trực tiếp
+  const finalPaymentStatus = isOnlineCustomer ? 'unpaid' : ((isStaff && requestedStatus === 'paid') ? 'paid' : 'unpaid');
 
   // 9. Sinh số hóa đơn và mã đơn hàng tuần tự
   const today = getVietnamDateString();
@@ -180,7 +227,8 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     invoiceNo = orderCode;
   }
 
-  const normalizedOrderType = order_type === 'dine_in' ? 'dine_in' : 'takeaway';
+  // SEC-04: Khách đặt online (isOnlineCustomer) BẮT BUỘC là takeaway, không được chọn dine_in hay chiếm bàn quán
+  const normalizedOrderType = (!isOnlineCustomer && order_type === 'dine_in') ? 'dine_in' : 'takeaway';
   const effectiveTableId = normalizedOrderType === 'dine_in' ? (table_id || null) : null;
   const closedAt = finalOrderStatus === 'paid' && finalPaymentStatus === 'paid' ? 'NOW()' : 'NULL';
 
@@ -271,12 +319,17 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
 
   // 17. Phát Socket.IO
   if (io) {
+    // Masking SĐT khi phát broadcast để bảo vệ quyền riêng tư
+    const maskedPhone = effectivePhone
+      ? (effectivePhone.length > 6 ? effectivePhone.slice(0, 3) + '****' + effectivePhone.slice(-3) : '***')
+      : null;
+
     io.emit('order:created', {
       orderId,
       orderCode,
       invoiceNo,
       customerName: effectiveName,
-      customerPhone: effectivePhone,
+      customerPhone: maskedPhone,
       items: validatedItems,
       orderType: normalizedOrderType,
       tableId: effectiveTableId,
@@ -286,6 +339,18 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
       status: finalOrderStatus,
       pickupTime: effectivePickupDate,
       pickupDisplayLabel,
+    });
+
+    // Phát đầy đủ chi tiết cho nhân viên quầy thu ngân (cashier room)
+    io.to('cashier').emit('cashier:new_order', {
+      orderId,
+      orderCode,
+      invoiceNo,
+      customerName: effectiveName,
+      customerPhone: effectivePhone,
+      total,
+      orderType: normalizedOrderType,
+      paymentStatus: finalPaymentStatus,
     });
 
     // Chỉ phát sang KDS Barista khi:

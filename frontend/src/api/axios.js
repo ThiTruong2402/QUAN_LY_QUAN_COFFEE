@@ -39,7 +39,11 @@ api.interceptors.response.use(
         return api(original);
       } catch {
         localStorage.clear();
-        window.location.href = '/login';
+        // FE-02: Không chuyển hướng cưỡng bức về /login nếu đang ở cổng khách hàng công khai
+        const path = window.location.pathname;
+        if (!path.startsWith('/customer') && !path.startsWith('/login') && !path.startsWith('/register')) {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(err);

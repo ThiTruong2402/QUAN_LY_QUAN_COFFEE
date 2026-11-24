@@ -18,11 +18,10 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
+    // SEC-07: Loại bỏ hoàn toàn wildcard *.vercel.app và *.onrender.com
     const isAllowed =
       allowedOrigins.includes(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
-      /\.vercel\.app$/.test(origin) ||
-      /\.onrender\.com$/.test(origin);
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -75,11 +74,41 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Lỗi server' });
 });
 
-// Socket.IO
+// Socket.IO: SEC-06 Xác thực Token và phân quyền Room
+const { verifyAccess } = require('./src/utils/jwt');
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '');
+  if (!token) {
+    socket.user = null;
+    return next();
+  }
+  try {
+    const decoded = verifyAccess(token);
+    socket.user = decoded;
+    return next();
+  } catch (err) {
+    socket.user = null;
+    return next();
+  }
+});
+
 io.on('connection', (socket) => {
-  console.log('🔌 Client connected:', socket.id);
-  socket.on('join_barista', () => socket.join('barista'));
-  socket.on('join_cashier', () => socket.join('cashier'));
+  console.log('🔌 Client connected:', socket.id, socket.user ? `[${socket.user.username} - ${socket.user.role}]` : '[Guest]');
+  
+  // Chỉ nhân viên có vai trò phù hợp mới được join room nội bộ
+  socket.on('join_barista', () => {
+    if (socket.user && ['admin', 'manager', 'barista'].includes(socket.user.role)) {
+      socket.join('barista');
+    }
+  });
+
+  socket.on('join_cashier', () => {
+    if (socket.user && ['admin', 'manager', 'cashier'].includes(socket.user.role)) {
+      socket.join('cashier');
+    }
+  });
+
   socket.on('disconnect', () => console.log('🔌 Client disconnected:', socket.id));
 });
 

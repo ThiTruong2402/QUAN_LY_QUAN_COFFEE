@@ -83,6 +83,39 @@ const update = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Không thể tự vô hiệu hóa tài khoản quản trị đang đăng nhập!' });
     }
 
+    // RBAC-04: Không cho phép Admin tự hạ vai trò (role_id) của chính mình
+    if (Number(id) === req.user?.id && role_id !== undefined) {
+      const [myUser] = await db.query('SELECT role_id FROM users WHERE id = ?', [id]);
+      if (myUser.length && Number(myUser[0].role_id) !== Number(role_id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bảo mật: Quản trị viên không được phép tự thay đổi hoặc hạ quyền của chính mình!'
+        });
+      }
+    }
+
+    // RBAC-04: Bảo mật: Không cho phép hạ quyền tài khoản Admin cuối cùng
+    if (role_id !== undefined) {
+      const [targetRows] = await db.query(
+        'SELECT u.role_id, r.name as role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?',
+        [id]
+      );
+      if (targetRows.length && targetRows[0].role_name === 'admin') {
+        const [newRoleRows] = await db.query('SELECT name FROM roles WHERE id = ?', [role_id]);
+        if (newRoleRows.length && newRoleRows[0].name !== 'admin') {
+          const [adminCount] = await db.query(
+            'SELECT COUNT(*) as count FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = "admin" AND u.is_active = 1'
+          );
+          if (adminCount[0].count <= 1) {
+            return res.status(400).json({
+              success: false,
+              message: 'Không thể hạ quyền tài khoản Quản trị viên (Admin) duy nhất còn lại của hệ thống!'
+            });
+          }
+        }
+      }
+    }
+
     // Bảo mật: Không cho phép vô hiệu hóa tài khoản Admin cuối cùng
     if (is_active !== undefined && Number(is_active) === 0) {
       const [targetRows] = await db.query(

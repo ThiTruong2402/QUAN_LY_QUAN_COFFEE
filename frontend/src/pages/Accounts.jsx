@@ -116,7 +116,9 @@ export default function Accounts() {
   const loadPromotions = async () => {
     try {
       const res = await api.get('/promotions');
-      setPromotions(res.data.data.promotions || []);
+      const raw = res.data?.data;
+      // FE-06: API /promotions trả về mảng trực tiếp trong data
+      setPromotions(Array.isArray(raw) ? raw : (raw?.promotions || []));
     } catch {
       toast.error('Lỗi tải dữ liệu khuyến mãi');
     }
