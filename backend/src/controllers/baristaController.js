@@ -183,12 +183,10 @@ const updateItemStatus = async (req, res) => {
     await db.query(query, params);
 
     // Đồng bộ trạng thái đơn hàng cha (orders.status)
-    const [itemRows] = await db.query('SELECT order_id FROM order_items WHERE id = ?', [req.params.id]);
-    let orderId = null;
+    const orderId = currentItem.order_id;
     let newOrderStatus = null;
 
-    if (itemRows.length) {
-      orderId = itemRows[0].order_id;
+    if (orderId) {
       const [allOrderItems] = await db.query('SELECT status FROM order_items WHERE order_id = ? AND status != "cancelled"', [orderId]);
 
       const allServed = allOrderItems.length > 0 && allOrderItems.every(it => it.status === 'served');

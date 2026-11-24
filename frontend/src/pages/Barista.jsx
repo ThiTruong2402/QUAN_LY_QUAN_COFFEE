@@ -27,7 +27,7 @@ export default function Barista() {
     fetchQueue();
     const onNewOrder = () => {
       if (soundOn) {
-        try { playNotificationSound(); } catch {}
+        try { playNotificationSound(); } catch { }
       }
       toast('🔔 Có đơn đồ uống mới!', { duration: 4000 });
       fetchQueue();
@@ -88,9 +88,9 @@ export default function Barista() {
   };
 
   const columns = [
-    { id: 'pending',   title: 'Chờ pha chế',       accent: '#D97706', bg: '#221B14', btnLabel: 'Nhận pha ngay',   nextStatus: 'preparing', btnBg: 'linear-gradient(135deg, #D97706, #B45309)' },
-    { id: 'preparing', title: 'Đang pha chế',      accent: '#0284C7', bg: '#132330', btnLabel: 'Báo pha xong',    nextStatus: 'done',      btnBg: 'linear-gradient(135deg, #0284C7, #0369A1)' },
-    { id: 'done',      title: 'Sẵn sàng trả món',  accent: '#10B981', bg: '#132820', btnLabel: 'Xác nhận trả món', nextStatus: 'served',    btnBg: 'linear-gradient(135deg, #10B981, #059669)' },
+    { id: 'pending', title: 'Chờ pha chế', accent: '#D97706', bg: '#221B14', btnLabel: 'Nhận pha ngay', nextStatus: 'preparing', btnBg: 'linear-gradient(135deg, #D97706, #B45309)' },
+    { id: 'preparing', title: 'Đang pha chế', accent: '#0284C7', bg: '#132330', btnLabel: 'Báo pha xong', nextStatus: 'done', btnBg: 'linear-gradient(135deg, #0284C7, #0369A1)' },
+    { id: 'done', title: 'Sẵn sàng trả món', accent: '#10B981', bg: '#132820', btnLabel: 'Xác nhận trả món', nextStatus: 'served', btnBg: 'linear-gradient(135deg, #10B981, #059669)' },
   ];
 
   return (
