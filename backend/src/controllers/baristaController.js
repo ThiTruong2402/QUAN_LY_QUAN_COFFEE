@@ -34,7 +34,6 @@ const getQueue = async (req, res) => {
        ) oit_agg ON oit_agg.order_item_id = oi.id
        WHERE oi.status IN ('pending', 'preparing', 'done')
          AND o.status NOT IN ('cancelled', 'scheduled')
-         AND (o.order_type = 'dine_in' OR o.payment_status = 'paid')
        ORDER BY oi.sent_at ASC`
     );
 

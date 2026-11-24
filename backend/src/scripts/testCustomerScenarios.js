@@ -198,6 +198,7 @@ async function runScenarios() {
   // KỊCH BẢN 5: ĐỔI ĐIỂM TÍCH LŨY (REDEEM POINTS)
   // =========================================================================
   console.log('\n--- KỊCH BẢN 5: Khách gọi thêm món và đổi điểm tích lũy ---');
+  await new Promise(r => setTimeout(r, 3100)); // Chờ 3.1s qua ngưỡng chống spam/double-click
   const pointsBefore = custRows[0].points_balance;
   const pointsToUse = Math.min(pointsBefore, 5); // đổi 5 điểm = 5.000 đ
 

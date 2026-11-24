@@ -348,8 +348,7 @@ export default function Accounts() {
             <div className="mockup-panel">
               <div className="mockup-panel-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
                 <div className="mockup-panel-title">
-                  <span>👥</span>
-                  <span>DANH SÁCH TÀI KHOẢN ({filteredUsers.length} / {users.length})</span>
+                  <span>Danh sách tài khoản ({filteredUsers.length} / {users.length})</span>
                 </div>
                 {/* Search input */}
                 <input
@@ -554,7 +553,7 @@ export default function Accounts() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">VAI TRÒ (ROLE):</label>
+                    <label className="form-label">Vai trò</label>
                     <select
                       className="form-select"
                       value={staffForm.role_id}
@@ -571,7 +570,7 @@ export default function Accounts() {
                 </div>
 
                 <div>
-                  <label className="form-label">HỌ VÀ TÊN:</label>
+                  <label className="form-label">Họ và tên</label>
                   <input
                     type="text"
                     className="form-input"
@@ -583,7 +582,7 @@ export default function Accounts() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label className="form-label">TÊN ĐĂNG NHẬP / SĐT:</label>
+                    <label className="form-label">Tên đăng nhập / Số điện thoại</label>
                     <input
                       type="text"
                       className="form-input"
@@ -593,7 +592,7 @@ export default function Accounts() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">MẬT KHẨU MỚI {selectedUser ? '(Để trống nếu không đổi)' : ''}:</label>
+                    <label className="form-label">Mật khẩu mới {selectedUser ? '(Để trống nếu không đổi)' : ''}</label>
                     <input
                       type="password"
                       className="form-input"
@@ -607,7 +606,7 @@ export default function Accounts() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label className="form-label">SỐ ĐIỆN THOẠI:</label>
+                    <label className="form-label">Số điện thoại</label>
                     <input
                       type="text"
                       className="form-input"
@@ -617,7 +616,7 @@ export default function Accounts() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">TRẠNG THÁI HOẠT ĐỘNG:</label>
+                    <label className="form-label">Trạng thái hoạt động</label>
                     <select
                       className="form-select"
                       value={staffForm.is_active}

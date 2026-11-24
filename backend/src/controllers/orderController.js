@@ -555,6 +555,7 @@ const updateStatus = async (req, res) => {
       await conn.rollback();
       return res.status(401).json({ success: false, message: 'Chưa đăng nhập hoặc thiếu thông tin vai trò' });
     }
+    const isAdminOrManager = userRole === 'admin' || userRole === 'manager';
     if (!isAdminOrManager && userRole === 'cashier') {
       if (['preparing'].includes(status)) {
         await conn.rollback();

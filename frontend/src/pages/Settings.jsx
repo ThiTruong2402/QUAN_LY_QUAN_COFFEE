@@ -72,26 +72,12 @@ export default function Settings() {
         gap: '14px',
         boxShadow: '0 2px 8px rgba(44, 26, 18, 0.04)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #FFF4E5 0%, #FFE6CC 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.4rem'
-          }}>
-            ⚙️
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#2C1A12', fontFamily: "'Playfair Display', Georgia, serif" }}>
-              CẤU HÌNH HỆ THỐNG &amp; GIỜ PHỤC VỤ
-            </h1>
-            <div style={{ fontSize: '0.82rem', color: '#8C5E3C', marginTop: '2px' }}>
-              Kiểm soát giờ mở/đóng cửa và thông số lập lịch nhận đồ uống toàn hệ thống
-            </div>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#1E1815' }}>
+            Cấu hình hệ thống & Giờ phục vụ
+          </h1>
+          <div style={{ fontSize: '0.82rem', color: '#73675E', marginTop: '2px' }}>
+            Kiểm soát giờ mở/đóng cửa và thông số lập lịch nhận đồ uống toàn hệ thống
           </div>
         </div>
 
@@ -127,16 +113,15 @@ export default function Settings() {
         {/* Section 1: Store Hours */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #E7DFD5', paddingBottom: '10px', marginBottom: '16px' }}>
-            <span style={{ fontSize: '1.15rem' }}>🕒</span>
-            <h3 style={{ margin: 0, fontSize: '1.02rem', color: '#2C1A12', fontWeight: 800 }}>
-              1. Khung Giờ Mở Cửa &amp; Phục Vụ
+            <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#1E1815', fontWeight: 800 }}>
+              1. Khung giờ mở cửa & phục vụ
             </h3>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px', display: 'block' }}>
-                ⏰ Giờ mở cửa đón khách :
+              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+                Giờ mở cửa đón khách
               </label>
               <input
                 type="time"
@@ -146,14 +131,14 @@ export default function Settings() {
                 required
                 style={{ fontSize: '0.95rem', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#8C5E3C', marginTop: '4px', display: 'block' }}>
+              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
                 Hệ thống bắt đầu nhận đơn tại quầy &amp; trực tuyến
               </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px', display: 'block' }}>
-                🌙 Giờ đóng cửa ngừng phục vụ :
+              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+                Giờ đóng cửa ngừng phục vụ
               </label>
               <input
                 type="time"
@@ -163,7 +148,7 @@ export default function Settings() {
                 required
                 style={{ fontSize: '0.95rem', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#8C5E3C', marginTop: '4px', display: 'block' }}>
+              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
                 Các đơn hàng sau giờ này sẽ tự động chuyển sang hẹn lịch hôm sau
               </span>
             </div>
@@ -173,16 +158,15 @@ export default function Settings() {
         {/* Section 2: Advance Order Parameters */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #E7DFD5', paddingBottom: '10px', marginBottom: '16px' }}>
-            <span style={{ fontSize: '1.15rem' }}>🗓️</span>
-            <h3 style={{ margin: 0, fontSize: '1.02rem', color: '#2C1A12', fontWeight: 800 }}>
-              2. Thông Số Đặt Trước &amp; Hẹn Giờ Lấy Món
+            <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#1E1815', fontWeight: 800 }}>
+              2. Thông số đặt trước & hẹn giờ lấy món
             </h3>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px', display: 'block' }}>
-                ⏱️ Bước chọn khung giờ (phút) :
+              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+                Bước chọn khung giờ (phút)
               </label>
               <select
                 className="form-select"
@@ -194,14 +178,14 @@ export default function Settings() {
                 <option value={15}>15 phút / slot (Khuyến nghị)</option>
                 <option value={30}>30 phút / slot</option>
               </select>
-              <span style={{ fontSize: '0.74rem', color: '#8C5E3C', marginTop: '4px', display: 'block' }}>
+              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
                 Khoảng giãn cách giữa các mốc giờ khách có thể chọn
               </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px', display: 'block' }}>
-                ⏳ Đặt trước tối thiểu (phút) :
+              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+                Đặt trước tối thiểu (phút)
               </label>
               <input
                 type="number"
@@ -213,14 +197,14 @@ export default function Settings() {
                 required
                 style={{ fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#8C5E3C', marginTop: '4px', display: 'block' }}>
+              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
                 Thời gian tối thiểu Barista cần chuẩn bị món hẹn giờ
               </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px', display: 'block' }}>
-                🚀 Tự động bắn lệnh Barista trước (phút) :
+              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+                Tự động chuyển Barista trước (phút)
               </label>
               <input
                 type="number"
@@ -232,14 +216,14 @@ export default function Settings() {
                 required
                 style={{ fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#8C5E3C', marginTop: '4px', display: 'block' }}>
+              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
                 Hệ thống tự động kích hoạt vé pha chế trước giờ hẹn lấy
               </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px', display: 'block' }}>
-                📅 Cho phép đặt trước tối đa (ngày) :
+              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+                Cho phép đặt trước tối đa (ngày)
               </label>
               <input
                 type="number"
@@ -251,7 +235,7 @@ export default function Settings() {
                 required
                 style={{ fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#8C5E3C', marginTop: '4px', display: 'block' }}>
+              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
                 Số ngày tới tối đa khách hàng có thể lên lịch đơn
               </span>
             </div>
@@ -275,7 +259,7 @@ export default function Settings() {
             disabled={saving}
             style={{ fontWeight: 600, padding: '8px 18px' }}
           >
-            🔄 Hoàn tác
+            Hoàn tác
           </button>
           <button
             type="submit"
@@ -290,7 +274,7 @@ export default function Settings() {
               boxShadow: '0 4px 12px rgba(200, 106, 40, 0.25)'
             }}
           >
-            {saving ? 'Đang lưu...' : '💾 Lưu Cấu Hình'}
+            {saving ? 'Đang lưu...' : 'Lưu cấu hình'}
           </button>
         </div>
       </form>
