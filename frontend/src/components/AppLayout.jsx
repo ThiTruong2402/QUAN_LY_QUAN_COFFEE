@@ -137,10 +137,10 @@ export default function AppLayout({ children }) {
           font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .mch-sidebar {
-          width: ${collapsed ? '68px' : '236px'};
+          width: ${collapsed ? '72px' : '268px'};
           flex-shrink: 0;
-          background: linear-gradient(180deg, #24160F 0%, #170E09 100%);
-          border-right: 1px solid #352116;
+          background: linear-gradient(180deg, #1E130D 0%, #140C08 100%);
+          border-right: 1px solid #2C1E16;
           display: flex;
           flex-direction: column;
           transition: width 0.2s ease;
@@ -150,42 +150,42 @@ export default function AppLayout({ children }) {
           color: #EFE6DC;
         }
         .mch-brand {
-          height: 56px;
-          padding: 0 14px;
+          height: 62px;
+          padding: 0 18px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.07);
           flex-shrink: 0;
         }
         .mch-nav-scroll {
           flex: 1;
           overflow-y: auto;
-          padding: 10px 8px;
+          padding: 16px 12px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 18px;
         }
         .mch-nav-scroll::-webkit-scrollbar { width: 4px; }
         .mch-nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 4px; }
         .mch-group-label {
-          font-size: 0.66rem;
-          font-weight: 700;
+          font-size: 0.68rem;
+          font-weight: 600;
           text-transform: uppercase;
-          letter-spacing: 0.07em;
-          color: #9C8370;
-          padding: 0 10px 4px;
+          letter-spacing: 0.08em;
+          color: #8C7463;
+          padding: 0 12px 6px;
           display: ${collapsed ? 'none' : 'block'};
         }
         .mch-nav-link {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 7px 10px;
-          border-radius: 9px;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 10px;
           color: #D6C7B8;
           text-decoration: none;
-          font-size: 0.82rem;
+          font-size: 0.86rem;
           font-weight: 500;
           transition: all 0.15s ease;
           justify-content: ${collapsed ? 'center' : 'flex-start'};
@@ -312,6 +312,36 @@ export default function AppLayout({ children }) {
             );
           })}
         </nav>
+
+        {!collapsed && (
+          <div style={{
+            padding: '14px 14px 16px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+            background: 'rgba(0, 0, 0, 0.18)',
+            flexShrink: 0,
+          }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '11px 12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#F4F1EC' }}>Chi nhánh Cầu Giấy</span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  fontSize: '0.68rem', fontWeight: 600, color: '#34D399',
+                }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                  Trực tuyến
+                </span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#A38B78', lineHeight: 1.4 }}>
+                100 Cầu Giấy, Q. Cầu Giấy, Hà Nội
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
       <div className="mch-main">

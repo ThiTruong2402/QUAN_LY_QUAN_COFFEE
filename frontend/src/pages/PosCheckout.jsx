@@ -228,8 +228,9 @@ export default function PosCheckout() {
           }
         `}</style>
         <div className="pos-thermal-receipt">
-          <div style={{ textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>MY COFFEE HOUSE</div>
-          <div style={{ textAlign: 'center', fontSize: '11px', marginBottom: '6px' }}>Hóa đơn #{completedOrder.orderCode} • {completedOrder.createdAt}</div>
+          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '14px' }}>MY COFFEE HOUSE</div>
+          <div style={{ textAlign: 'center', fontSize: '10px', marginBottom: '2px' }}>100 Cầu Giấy, Q. Cầu Giấy, Hà Nội</div>
+          <div style={{ textAlign: 'center', fontSize: '10px', marginBottom: '6px' }}>Hotline: 1900 1234 • HĐ #{completedOrder.orderCode}</div>
           <div style={{ borderTop: '1px dashed #000', padding: '6px 0' }}>
             {completedOrder.items.map((it) => (
               <div key={it.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', margin: '3px 0' }}>
@@ -450,7 +451,7 @@ export default function PosCheckout() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   className="ui-input"
-                  style={{ flex: 1, textTransform: 'uppercase' }}
+                  style={{ flex: 1 }}
                   placeholder="Nhập mã giảm giá..."
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
@@ -570,26 +571,31 @@ export default function PosCheckout() {
                   <span>Tổng giảm giá</span><span>-{fmt(totalDiscount)}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: '6px' }}>
-                <span style={{ fontWeight: 800, fontSize: '0.96rem', color: '#F4F1EC' }}>Thành tiền</span>
-                <span style={{ fontWeight: 800, fontSize: '1.35rem', color: '#F59E0B' }}>{fmt(finalTotal)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: '8px' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.94rem', color: '#E4E4E7' }}>Thành tiền</span>
+                <span className="ui-money" style={{ fontWeight: 700, fontSize: '1.4rem', color: '#F59E0B' }}>
+                  {fmt(finalTotal)}
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#71717A' }}>
-                <span>Điểm thưởng dự kiến</span><span style={{ color: '#34D399', fontWeight: 700 }}>+{earnedPoints} điểm</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: '#8C8C96' }}>
+                <span>Điểm thưởng dự kiến</span>
+                <span className="ui-money" style={{ color: '#34D399', fontWeight: 600 }}>+{earnedPoints} điểm</span>
               </div>
             </div>
- 
+
             <button
               type="button"
               disabled={submitting}
               onClick={handleSubmitCheckout}
+              className="ui-money"
               style={{
-                width: '100%', height: '48px', borderRadius: '12px', border: 'none',
-                background: '#D97706', color: '#FFFFFF', fontSize: '0.94rem', fontWeight: 800,
-                cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1
+                width: '100%', height: '46px', borderRadius: '11px', border: 'none',
+                background: '#D97706', color: '#FFFFFF',
+                fontSize: '0.9rem', fontWeight: 600, letterSpacing: '-0.01em',
+                cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1,
               }}
             >
-              {submitting ? 'Đang xử lý đơn hàng...' : `Xác nhận thanh toán • ${fmt(finalTotal)}`}
+              {submitting ? 'Đang xử lý đơn hàng...' : `Xác nhận thanh toán · ${fmt(finalTotal)}`}
             </button>
           </aside>
         </div>

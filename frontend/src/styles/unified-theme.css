@@ -2,7 +2,20 @@
    MY COFFEE HOUSE — UNIFIED PRODUCTION DESIGN SYSTEM (REAL F&B SAAS STYLE)
    Import tệp này tại dòng cuối của frontend/src/main.jsx
    ========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+
+html, body, #root, button, input, select, textarea {
+  font-family: 'Inter', 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Class định dạng số tiền thẳng hàng chuẩn tài chính */
+.ui-money {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
  
 :root {
   --ui-bg: #F7F5F0;            /* Nền giấy kem ấm dịu mắt */

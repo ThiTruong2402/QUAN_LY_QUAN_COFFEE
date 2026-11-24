@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import socket from '../api/socket';
 import toast from 'react-hot-toast';
+import {
+  Coffee, Ticket, Clock, MapPin, Wifi, Phone, Copy, ExternalLink, Lock, ArrowRight
+} from 'lucide-react';
 import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
@@ -627,7 +630,7 @@ export default function CustomerPortal() {
   });
 
   return (
-    <div className="animate-fade-in" style={{ minHeight: '100vh', background: '#130c08', color: '#f5efe6', paddingBottom: '60px' }}>
+    <div className="animate-fade-in" style={{ minHeight: '100vh', background: '#121214', color: '#F4F1EC', paddingBottom: '60px' }}>
       <style>{`
         .customer-product-card {
           background: #1c120b;
@@ -658,8 +661,8 @@ export default function CustomerPortal() {
       `}</style>
       {/* 1. TOP HEADER & GREETING */}
       <div style={{
-        background: 'linear-gradient(180deg, #24140b 0%, #170d07 100%)',
-        borderBottom: '1px solid #3d2314',
+        background: '#18181B',
+        borderBottom: '1px solid #27272B',
         padding: '18px 24px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
       }}>
@@ -692,7 +695,7 @@ export default function CustomerPortal() {
                 borderRadius: '20px',
               }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
-                <span>🟢 Đang mở cửa ({storeHours.open_time} – {storeHours.close_time})</span>
+                <span>Đang mở cửa ({storeHours.open_time} – {storeHours.close_time})</span>
               </div>
             ) : (
               <div style={{
@@ -708,7 +711,7 @@ export default function CustomerPortal() {
                 borderRadius: '20px',
               }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>
-                <span>🔴 Quán đóng cửa • Hẹn giờ nhận ({storeHours.open_time} – {storeHours.close_time})</span>
+                <span>Quán đóng cửa • Hẹn giờ nhận ({storeHours.open_time} – {storeHours.close_time})</span>
               </div>
             )}
             {user?.role === 'admin' && (
@@ -797,7 +800,7 @@ export default function CustomerPortal() {
           {[
             { id: 'menu', label: '☕ Thực Đơn', count: filteredProducts.length },
             ...(cartTotalCount > 0 ? [{ id: 'checkout', label: '🛒 Giỏ Hàng', count: cartTotalCount }] : []),
-            { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: voucherList.length },
+            { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: availableVouchers.length },
             { id: 'history', label: '📜 Lịch Sử Đơn Hàng', count: historyList.length },
             { id: 'about', label: '📍 Thông Tin Quán' }
           ].map((tab) => (
@@ -1709,135 +1712,130 @@ export default function CustomerPortal() {
 
           {/* TAB 2: MÃ KHUYẾN MÃI */}
           {activeTab === 'vouchers' && (
-            <div>
-              <div style={{ marginBottom: '20px' }}>
-                <h2 style={{ margin: '0 0 6px', fontSize: '1.25rem', color: '#fde68a' }}>
-                  🎁 Mã Khuyến Mãi Đang Áp Dụng
-                </h2>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: '#d4b094' }}>
-                  Bấm "Áp dụng vào đơn" để được trừ tiền trực tiếp trên giỏ hàng của bạn!
-                </p>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div>
+      <h2 style={{ margin: '0 0 4px', fontSize: '1.3rem', fontWeight: 700, color: '#F4F1EC', letterSpacing: '-0.02em' }}>
+        Ưu đãi &amp; Mã khuyến mãi
+      </h2>
+      <p style={{ margin: 0, fontSize: '0.84rem', color: '#A1A1AA' }}>
+        Chọn mã phù hợp để tự động khấu trừ trực tiếp vào đơn hàng của bạn.
+      </p>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '16px' }}>
+      {availableVouchers.map((v) => {
+        const isNewCode = ['BANMOI', 'BANMOI20'].includes(v.code);
+        const isBlockedNew = isNewCode && !isFirstTimeCustomer;
+        const minOrder = Number(v.min_order_value || 0);
+        const missingAmt = Math.max(0, minOrder - totalAmount);
+        const isQualified = !isBlockedNew && missingAmt === 0 && totalAmount > 0;
+
+        const isPct = ['percent_order', 'happy_hour', 'percentage'].includes(v.type);
+        const shortVal = isPct ? `-${Number(v.value)}%` : `-${Math.round(Number(v.value) / 1000)}K`;
+
+        return (
+          <div
+            key={v.id}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '104px 1fr',
+              background: '#18181B',
+              border: isQualified ? '1px solid rgba(217, 119, 6, 0.55)' : '1px solid #2A2A30',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              opacity: isBlockedNew ? 0.58 : 1,
+              transition: 'border-color 0.16s ease, transform 0.16s ease',
+            }}
+          >
+            {/* Cuống vé bên trái: Mức giảm nổi bật */}
+            <div style={{
+              background: isBlockedNew
+                ? '#202024'
+                : 'linear-gradient(160deg, rgba(217, 119, 6, 0.22) 0%, rgba(180, 83, 9, 0.08) 100%)',
+              borderRight: '1px dashed #2E2E35',
+              padding: '16px 10px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              gap: '6px',
+            }}>
+              <Ticket size={18} color={isBlockedNew ? '#71717A' : '#F59E0B'} />
+              <div className="ui-money" style={{ fontSize: '1.25rem', fontWeight: 700, color: isBlockedNew ? '#A1A1AA' : '#F59E0B', lineHeight: 1.1 }}>
+                {shortVal}
+              </div>
+              <span style={{
+                fontSize: '0.68rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px',
+                background: '#121214', color: '#D4D4D8', letterSpacing: '0.04em',
+              }}>
+                {v.code}
+              </span>
+            </div>
+
+            {/* Chi tiết điều kiện & Nút hành động */}
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.92rem', color: '#F4F1EC', marginBottom: '4px' }}>
+                  {v.name}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.4 }}>
+                  {v.description || 'Áp dụng cho mọi đồ uống tại quán.'}
+                </div>
               </div>
 
-              {availableVouchers.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px 0', background: '#1c1008', borderRadius: '12px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎫</div>
-                  <div>Hiện chưa có mã giảm giá chung nào đang phát hành. Hãy kiểm tra lại sau nhé!</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                  {availableVouchers.map((v) => {
-                    const isNewCode = ['BANMOI', 'BANMOI20'].includes(v.code);
-                    const isBlockedNew = isNewCode && !isFirstTimeCustomer;
-                    const isQualified = totalAmount >= Number(v.min_order_value || 0) && !isBlockedNew;
-                    const needMore = Math.max(0, Number(v.min_order_value || 0) - totalAmount);
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '8px', borderTop: '1px solid #242428' }}>
+                <span className="ui-money" style={{
+                  fontSize: '0.72rem', fontWeight: 600,
+                  color: isBlockedNew ? '#71717A' : isQualified ? '#34D399' : '#FBBF24',
+                }}>
+                  {isBlockedNew
+                    ? 'Chỉ áp dụng đơn đầu tiên'
+                    : isQualified
+                    ? 'Đủ điều kiện áp dụng'
+                    : totalAmount === 0
+                    ? `Đơn từ ${fmt(minOrder)}`
+                    : `Cần thêm ${fmt(missingAmt)}`}
+                </span>
 
-                    return (
-                      <div
-                        key={v.id}
-                        style={{
-                          background: 'linear-gradient(135deg, #24140b 0%, #1a0e07 100%)',
-                          border: isQualified ? '2px solid #16a34a' : (isBlockedNew ? '1px solid #4a2c18' : '2px dashed #f59e0b'),
-                          borderRadius: '12px',
-                          padding: '18px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          boxShadow: '0 6px 16px rgba(0,0,0,0.4)',
-                          opacity: isBlockedNew ? 0.6 : 1
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <span style={{
-                              background: isBlockedNew ? '#4a2c18' : '#b45309',
-                              color: '#fff',
-                              fontWeight: 800,
-                              fontSize: '1rem',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              letterSpacing: '1px'
-                            }}>
-                              {v.code}
-                            </span>
-                            <span style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              color: isBlockedNew ? '#94a3b8' : (isQualified ? '#34d399' : '#fbbf24')
-                            }}>
-                              {isBlockedNew
-                                ? '● DÀNH CHO BẠN MỚI'
-                                : (isQualified ? '● ĐỦ ĐIỀU KIỆN SỬ DỤNG' : `● CẦN THÊM ${fmt(needMore)}`)}
-                            </span>
-                          </div>
-
-                          <h4 style={{ margin: '0 0 6px', fontSize: '1.05rem', color: '#fff' }}>
-                            {v.name}
-                          </h4>
-                          <p style={{ margin: '0 0 10px', fontSize: '0.82rem', color: '#d4b094', lineHeight: 1.4 }}>
-                            {v.description || 'Ưu đãi dành cho tất cả quý khách hàng thân thiết.'}
-                          </p>
-
-                          <div style={{ fontSize: '0.75rem', color: '#a8a29e', borderTop: '1px solid #382012', paddingTop: '8px' }}>
-                            <div>Đơn tối thiểu: <strong>{fmt(v.min_order_value || 0)}</strong></div>
-                            {v.max_discount && <div>Giảm tối đa: <strong>{fmt(v.max_discount)}</strong></div>}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                          {isBlockedNew ? (
-                            <button
-                              disabled
-                              style={{
-                                width: '100%',
-                                background: '#382012',
-                                color: '#8c7667',
-                                border: '1px solid #4a2c18',
-                                padding: '9px',
-                                borderRadius: '8px',
-                                fontWeight: 700,
-                                fontSize: '0.82rem',
-                                cursor: 'not-allowed'
-                              }}
-                            >
-                              🔒 Chỉ áp dụng cho đơn đầu tiên
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                if (!isQualified && totalAmount < Number(v.min_order_value || 0)) {
-                                  toast.error(`Mã ${v.code} yêu cầu đơn từ ${fmt(v.min_order_value)}. Hãy chọn thêm món!`);
-                                  setActiveTab('menu');
-                                  return;
-                                }
-                                handleApplyCoupon(v.code);
-                                setActiveTab('menu');
-                              }}
-                              style={{
-                                width: '100%',
-                                background: isQualified ? '#15803d' : '#d97706',
-                                color: '#fff',
-                                border: 'none',
-                                padding: '9px',
-                                borderRadius: '8px',
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {isQualified ? '⚡ Áp dụng mã này vào đơn hàng' : '🛒 Chọn thêm món để áp dụng'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                <button
+                  type="button"
+                  disabled={isBlockedNew}
+                  onClick={() => {
+                    if (isQualified) {
+                      handleApplyCoupon(v.code);
+                      setActiveTab('menu');
+                    } else {
+                      setActiveTab('menu');
+                    }
+                  }}
+                  style={{
+                    height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none',
+                    fontSize: '0.76rem', fontWeight: 600,
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    cursor: isBlockedNew ? 'not-allowed' : 'pointer',
+                    background: isBlockedNew ? '#26262B' : isQualified ? '#D97706' : '#26262B',
+                    color: isBlockedNew ? '#71717A' : isQualified ? '#FFFFFF' : '#F4F1EC',
+                  }}
+                >
+                  {isBlockedNew ? (
+                    <><Lock size={12} /> Không khả dụng</>
+                  ) : isQualified ? (
+                    <>Áp dụng ngay <ArrowRight size={13} /></>
+                  ) : (
+                    <>Chọn món <ArrowRight size={13} /></>
+                  )}
+                </button>
+              </div>
             </div>
-          )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
-          {/* TAB 3: LỊCH SỬ ĐƠN HÀNG (LIVE TRẠNG THÁI PHA CHẾ) */}
+          {/* TAB 3: LỊCH SỬ ĐƠN HÀNG */}
           {activeTab === 'history' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
@@ -2027,63 +2025,142 @@ export default function CustomerPortal() {
 
           {/* TAB 4: THÔNG TIN QUÁN */}
           {activeTab === 'about' && (
-            <div style={{
-              background: '#1d1109',
-              border: '1px solid #382012',
-              borderRadius: '16px',
-              padding: '30px 24px',
-              maxWidth: '800px',
-              margin: '0 auto'
-            }}>
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '8px' }}>☕</div>
-                <h2 style={{ margin: 0, fontFamily: "'Playfair Display', serif", color: '#f59e0b', fontSize: '1.6rem' }}>
-                  MY COFFEE HOUSE
-                </h2>
-                <p style={{ margin: '4px 0 0', color: '#d4b094', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                  ~ Good coffee – Good day ~
-                </p>
-              </div>
+  <div style={{ maxWidth: '840px', margin: '8px auto 0' }}>
+    <div style={{
+      background: '#18181B',
+      border: '1px solid #2A2A30',
+      borderRadius: '20px',
+      overflow: 'hidden',
+      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.32)',
+    }}>
+      {/* Banner thương hiệu đồng bộ Espresso -> Matte Dark */}
+      <div style={{
+        background: 'linear-gradient(135deg, #24150D 0%, #18181B 100%)',
+        borderBottom: '1px solid #2A2A30',
+        padding: '32px 28px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          width: '52px', height: '52px', borderRadius: '14px',
+          background: 'rgba(217, 119, 6, 0.16)', border: '1px solid rgba(217, 119, 6, 0.4)',
+          color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: '14px',
+        }}>
+          <Coffee size={26} />
+        </div>
+        <h2 style={{ margin: '0 0 6px', fontSize: '1.55rem', fontWeight: 700, color: '#F4F1EC', letterSpacing: '-0.02em' }}>
+          My Coffee House
+        </h2>
+        <p style={{ margin: 0, fontSize: '0.88rem', color: '#A1A1AA', maxWidth: '460px', lineHeight: 1.5 }}>
+          Cà phê rang xay nguyên bản &amp; không gian làm việc ấm cúng tại trung tâm Cầu Giấy, Hà Nội.
+        </p>
+      </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-                <div style={{ background: '#24140b', padding: '16px', borderRadius: '10px', border: '1px solid #3d2314' }}>
-                  <div style={{ fontSize: '1.2rem', marginBottom: '4px' }}>📍 Địa Chỉ Quán</div>
-                  <div style={{ fontSize: '0.88rem', color: '#fff', fontWeight: 600 }}>123 Đường Cà Phê, Quận 1</div>
-                  <div style={{ fontSize: '0.8rem', color: '#a8a29e' }}>Thành phố Hồ Chí Minh</div>
-                </div>
+      {/* 4 Thẻ thông tin chuẩn Matte Dark + Lucide Icons */}
+      <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+        {/* 1. Địa chỉ cửa hàng — 100 Cầu Giấy, Hà Nội */}
+        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(217, 119, 6, 0.14)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <MapPin size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Địa chỉ cửa hàng</div>
+              <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>100 Cầu Giấy, Hà Nội</div>
+              <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>Quận Cầu Giấy, Thành phố Hà Nội</div>
+            </div>
+          </div>
+          <a
+            href="https://www.google.com/maps/search/?api=1&query=100+Cau+Giay+Ha+Noi"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'fit-content',
+              fontSize: '0.76rem', fontWeight: 600, color: '#F59E0B', textDecoration: 'none',
+            }}
+          >
+            Xem chỉ đường trên Google Maps <ExternalLink size={13} />
+          </a>
+        </div>
 
-                <div style={{ background: '#24140b', padding: '16px', borderRadius: '10px', border: '1px solid #3d2314' }}>
-                  <div style={{ fontSize: '1.2rem', marginBottom: '4px' }}>⏰ Giờ Mở Cửa</div>
-                  <div style={{ fontSize: '0.88rem', color: '#fff', fontWeight: 600 }}>06:30 – 23:00 Hàng ngày</div>
-                  <div style={{ fontSize: '0.8rem', color: '#a8a29e' }}>Phục vụ cả các ngày lễ Tết</div>
-                </div>
+        {/* 2. Giờ mở cửa (Đồng bộ động theo cấu hình Admin) */}
+        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.14)', color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Clock size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Giờ phục vụ</div>
+            <div className="ui-money" style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>
+              {storeHours.open_time} – {storeHours.close_time} hàng ngày
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>
+              Phục vụ cả cuối tuần &amp; ngày lễ • Hỗ trợ đặt hẹn giờ trước
+            </div>
+          </div>
+        </div>
 
-                <div style={{ background: '#24140b', padding: '16px', borderRadius: '10px', border: '1px solid #3d2314' }}>
-                  <div style={{ fontSize: '1.2rem', marginBottom: '4px' }}>📶 Wi-Fi Quán</div>
-                  <div style={{ fontSize: '0.88rem', color: '#fde68a', fontWeight: 700 }}>MyCoffeeHouse_5G</div>
-                  <div style={{ fontSize: '0.8rem', color: '#a8a29e' }}>Mật khẩu: <code>coffeehouse123</code></div>
-                </div>
-
-                <div style={{ background: '#24140b', padding: '16px', borderRadius: '10px', border: '1px solid #3d2314' }}>
-                  <div style={{ fontSize: '1.2rem', marginBottom: '4px' }}>📞 Hotline Hỗ Trợ</div>
-                  <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 800 }}>1900 1234</div>
-                  <div style={{ fontSize: '0.8rem', color: '#a8a29e' }}>Tư vấn đồ uống & hỗ trợ khách hàng</div>
-                </div>
-              </div>
-
-              <div style={{
-                background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                borderRadius: '12px',
-                padding: '16px',
-                textAlign: 'center',
-                fontSize: '0.85rem',
-                color: '#fde68a'
-              }}>
-                ❤️ Cảm ơn bạn đã đồng hành cùng <strong>MY COFFEE HOUSE</strong>. Quán chúc quý khách một ngày thật nhiều niềm vui!
+        {/* 3. Wi-Fi quán kèm nút sao chép mật khẩu */}
+        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.14)', color: '#C084FC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Wifi size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Wi-Fi tốc độ cao tại quán</div>
+              <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>MyCoffeeHouse_5G</div>
+              <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>
+                Mật khẩu: <strong style={{ color: '#F4F1EC', fontWeight: 600 }}>coffeehouse123</strong>
               </div>
             </div>
-          )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard?.writeText('coffeehouse123');
+              toast.success('Đã sao chép mật khẩu Wi-Fi');
+            }}
+            style={{
+              background: '#18181B', border: '1px solid #2E2E35', color: '#D4D4D8',
+              padding: '6px 9px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600,
+              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0,
+            }}
+          >
+            <Copy size={13} /> Chép
+          </button>
+        </div>
+
+        {/* 4. Hotline hỗ trợ */}
+        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.14)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Phone size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Hotline hỗ trợ</div>
+            <div className="ui-money" style={{ fontSize: '0.98rem', fontWeight: 700, color: '#34D399' }}>1900 1234</div>
+            <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>
+              Đặt bàn nhóm, tư vấn đồ uống &amp; phản hồi chất lượng
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer cảm ơn gọn gàng */}
+      <div style={{
+        padding: '14px 28px',
+        background: '#141417',
+        borderTop: '1px solid #26262B',
+        textAlign: 'center',
+        fontSize: '0.8rem',
+        color: '#A1A1AA',
+      }}>
+        Cảm ơn bạn đã đồng hành cùng <strong style={{ color: '#F4F1EC', fontWeight: 600 }}>My Coffee House</strong> — Hân hạnh phục vụ tại 100 Cầu Giấy, Hà Nội.
+      </div>
+    </div>
+  </div>
+)}
         </div>
       </div>
 
