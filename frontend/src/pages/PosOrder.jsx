@@ -401,6 +401,8 @@ export default function PosOrder() {
     }
     if (isSubmitting) return;
 
+    const chosenMethod = overrideMethod || paymentMethod || 'Tiền mặt';
+
     // Chặn thanh toán nếu thu thiếu tiền mặt
     if (chosenMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal) {
       toast.error(`Tiền khách đưa (${fmt(cashGiven)}) chưa đủ thanh toán! Còn thiếu ${fmt(finalTotal - Number(cashGiven))}`);
@@ -408,7 +410,6 @@ export default function PosOrder() {
     }
 
     setIsSubmitting(true);
-    const chosenMethod = overrideMethod || paymentMethod || 'Tiền mặt';
 
     try {
       const res = await api.post('/orders/direct-checkout', {
@@ -730,22 +731,22 @@ export default function PosOrder() {
 
           {/* RIGHT: THÔNG TIN ĐƠN HÀNG (CỐ ĐỊNH 100% CHIỀU CAO) */}
           <div className="pos-checkout-column">
-            <div className="mockup-panel-header" style={{ flexShrink: 0, padding: '14px 18px', borderBottom: '1px solid var(--ui-border)', background: 'var(--ui-surface)' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--ui-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ flexShrink: 0, padding: '12px 16px', borderBottom: '1px solid #27272B', background: '#1F1F23', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>Thông tin đơn hàng ({cart.length} món)</span>
               </div>
-              <span style={{ fontSize: '0.72rem', background: '#ECFDF5', color: '#15803D', border: '1px solid #BBF7D0', padding: '3px 8px', borderRadius: '12px', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '3px 8px', borderRadius: '12px', fontWeight: 700 }}>
                 TT xong mới làm
               </span>
             </div>
 
             <div className="pos-checkout-body">
-              {/* 1. HÌNH THỨC PHỤC VỤ & BÀN (20 BÀN) */}
+              {/* 1. HÌNH THỨC PHỤC VỤ & BÀN */}
               <div
                 style={{
-                  background: 'rgba(36, 22, 14, 0.85)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  borderRadius: '8px',
+                  background: '#202024',
+                  border: '1px solid #2A2A30',
+                  borderRadius: '10px',
                   padding: '9px 12px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -753,19 +754,19 @@ export default function PosOrder() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fbbf24' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC' }}>
                     🪑 VỊ TRÍ PHỤC VỤ:
                   </span>
                   <div style={{ display: 'flex', gap: '4px' }}>
                     <button
                       type="button"
                       style={{
-                        background: orderType === 'dine_in' ? '#d97706' : '#24160e',
-                        color: orderType === 'dine_in' ? '#ffffff' : '#c4a482',
-                        border: orderType === 'dine_in' ? '1px solid #fbbf24' : '1px solid #4a2c18',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.72rem',
+                        background: orderType === 'dine_in' ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                        color: orderType === 'dine_in' ? '#FFFFFF' : '#A1A1AA',
+                        border: orderType === 'dine_in' ? '1px solid #F59E0B' : '1px solid #3F3F46',
+                        padding: '3px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
                         fontWeight: 700,
                         cursor: 'pointer',
                       }}
@@ -776,12 +777,12 @@ export default function PosOrder() {
                     <button
                       type="button"
                       style={{
-                        background: orderType === 'takeaway' ? '#d97706' : '#24160e',
-                        color: orderType === 'takeaway' ? '#ffffff' : '#c4a482',
-                        border: orderType === 'takeaway' ? '1px solid #fbbf24' : '1px solid #4a2c18',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.72rem',
+                        background: orderType === 'takeaway' ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                        color: orderType === 'takeaway' ? '#FFFFFF' : '#A1A1AA',
+                        border: orderType === 'takeaway' ? '1px solid #F59E0B' : '1px solid #3F3F46',
+                        padding: '3px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
                         fontWeight: 700,
                         cursor: 'pointer',
                       }}
@@ -806,9 +807,9 @@ export default function PosOrder() {
                         width: '100%',
                         padding: '6px 8px',
                         fontSize: '0.8rem',
-                        background: '#1c120b',
-                        color: '#fef3c7',
-                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        background: '#18181B',
+                        color: '#F4F1EC',
+                        border: '1px solid #2E2E35',
                         borderRadius: '6px',
                       }}
                     >
@@ -822,229 +823,81 @@ export default function PosOrder() {
                 )}
               </div>
 
-              {/* 2. HỘI VIÊN & TÍCH ĐIỂM (10.000đ = 1 điểm, 1 điểm = 1k đ) */}
-              <div
-                style={{
-                  background: 'rgba(36, 22, 14, 0.85)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  borderRadius: '8px',
-                  padding: '9px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24', margin: 0 }}>
-                    👤 HỘI VIÊN &amp; TÍCH ĐIỂM:
-                  </label>
-                  {customerInfo && (
-                    <span style={{ fontSize: '0.7rem', color: '#34d399', fontWeight: 800 }}>
-                      ⭐ Hạng {customerInfo.tier_name || 'Đồng'}
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '6px' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="SĐT hội viên"
-                    value={customerPhone}
-                    onChange={(e) => {
-                      setCustomerPhone(e.target.value);
-                      lookupCustomerByPhone(e.target.value);
-                    }}
-                    style={{ padding: '5px 8px', fontSize: '0.8rem' }}
-                  />
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Tên khách"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    style={{ padding: '5px 8px', fontSize: '0.8rem' }}
-                  />
-                </div>
-
-                {customerInfo && (
-                  <div
-                    style={{
-                      background: '#1c120b',
-                      borderRadius: '6px',
-                      padding: '6px 8px',
-                      border: '1px solid rgba(245, 158, 11, 0.2)',
-                      fontSize: '0.74rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c4a482' }}>
-                      <span>Điểm tích lũy hiện có:</span>
-                      <strong style={{ color: '#34d399' }}>{customerInfo.points_balance || 0} điểm</strong>
-                    </div>
-
-                    {Number(customerInfo.points_balance || 0) > 0 && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#fbbf24', marginTop: '2px' }}>
-                        <input
-                          type="checkbox"
-                          checked={usePoints}
-                          onChange={(e) => setUsePoints(e.target.checked)}
-                        />
-                        <span>Đổi {effectivePointsRedeemed} điểm (giảm {fmt(pointsDiscount)})</span>
-                      </label>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 3. MÃ GIẢM GIÁ / VOUCHERS */}
-              <div style={{ background: 'rgba(36, 22, 14, 0.85)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '10px 12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24', margin: 0 }}>
-                    🏷️ MÃ GIẢM GIÁ / VOUCHER:
-                  </label>
-                  {appliedCoupon && (
+              {/* 2. DANH SÁCH MÓN ĐÃ CHỌN (CART ITEMS) - ĐẶT NGAY ĐÂY ĐỂ DỄ THEO DÕI */}
+              <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '10px', overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', background: '#27272B', borderBottom: '1px solid #2E2E35', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC' }}>
+                    🛒 MÓN ĐANG CHỌN ({cart.reduce((sum, it) => sum + it.quantity, 0)} ly)
+                  </span>
+                  {cart.length > 0 && (
                     <button
                       type="button"
-                      onClick={handleRemoveCoupon}
-                      style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                      onClick={clearCart}
+                      style={{ background: 'none', border: 'none', color: '#F87171', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
                     >
-                      ✕ Hủy mã
+                      Xóa tất cả
                     </button>
                   )}
                 </div>
-
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Nhập mã (COFFEE10, GIAM20K...)"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                    style={{ padding: '5px 8px', fontSize: '0.82rem', textTransform: 'uppercase', fontWeight: 700 }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary"
-                    style={{ background: '#d97706', borderColor: '#d97706', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}
-                    onClick={() => handleApplyCoupon()}
-                  >
-                    Áp dụng
-                  </button>
-                </div>
-
-                {/* Quick Voucher Pills */}
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  {availableCoupons.map((c) => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => handleApplyCoupon(c.code)}
-                      title={c.desc}
-                      style={{
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        border: appliedCoupon?.code === c.code ? '1px solid #16a34a' : '1px dashed #d97706',
-                        background: appliedCoupon?.code === c.code ? 'rgba(22, 163, 74, 0.25)' : '#24160e',
-                        color: appliedCoupon?.code === c.code ? '#4ade80' : '#fbbf24',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {appliedCoupon?.code === c.code ? '✅ ' : '🏷️ '}{c.code}
-                    </button>
-                  ))}
-                </div>
-
-                {appliedCoupon && (
-                  <div style={{ marginTop: '6px', fontSize: '0.74rem', color: '#4ade80', fontWeight: 700 }}>
-                    🎉 Đã áp dụng: {appliedCoupon.name} (-{fmt(discount)})
-                  </div>
-                )}
-              </div>
-
-              {/* 4. Ghi chú */}
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '2px' }}>
-                  📝 Ghi chú đơn:
-                </label>
-                <textarea
-                  className="form-input"
-                  rows={2}
-                  placeholder="Ghi chú pha chế (ít đá, ít đường, không ngọt...)"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  style={{ fontSize: '0.82rem', padding: '6px' }}
-                />
-              </div>
-
-              {/* 5. Items Table in Cart */}
-              <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px' }}>
-                <table className="mockup-table">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead>
-                    <tr>
-                      <th style={{ width: '30px' }}>STT</th>
-                      <th>Món / Size</th>
-                      <th style={{ width: '60px', textAlign: 'center' }}>SL</th>
-                      <th style={{ textAlign: 'right' }}>Đ.Giá</th>
-                      <th style={{ textAlign: 'right' }}>T.Tiền</th>
+                    <tr style={{ background: '#18181B', color: '#A1A1AA', fontSize: '0.72rem', borderBottom: '1px solid #27272B' }}>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Tên món</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'center', width: '70px' }}>SL</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right', width: '75px' }}>T.Tiền</th>
                     </tr>
                   </thead>
                   <tbody>
                     {cart.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#c4a482' }}>
-                          Chưa có món nào được chọn.
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '24px 12px', color: '#71717A' }}>
+                          <div style={{ fontSize: '1.2rem', marginBottom: '4px' }}>☕</div>
+                          Chưa có món nào. Nhấn "+ Thêm" từ danh sách.
                         </td>
                       </tr>
                     ) : (
                       cart.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>{idx + 1}</td>
-                          <td style={{ fontWeight: 600 }}>
-                            <div style={{ fontSize: '0.84rem', color: '#fef3c7', lineHeight: 1.2 }}>{item.name}</div>
+                        <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#18181B' : '#1C1C20' }}>
+                          <td style={{ padding: '7px 8px' }}>
+                            <div style={{ fontWeight: 600, color: '#F4F1EC', lineHeight: 1.25 }}>{item.name}</div>
                             {item.size_name && item.size_name !== 'Tiêu chuẩn' && item.size_name !== 'default' && (
                               <span
                                 style={{
                                   display: 'inline-block',
-                                  marginTop: '3px',
-                                  fontSize: '0.72rem',
+                                  marginTop: '2px',
+                                  fontSize: '0.7rem',
                                   fontWeight: 700,
-                                  background: 'rgba(245, 158, 11, 0.2)',
-                                  color: '#fbbf24',
+                                  background: 'rgba(217, 119, 6, 0.15)',
+                                  color: '#FBBF24',
                                   padding: '1px 6px',
                                   borderRadius: '4px',
-                                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                                  border: '1px solid rgba(217, 119, 6, 0.3)',
                                 }}
                               >
                                 Size {item.size_name}
                               </span>
                             )}
                           </td>
-                          <td style={{ textAlign: 'center' }}>
+                          <td style={{ padding: '7px 4px', textAlign: 'center' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                               <button
                                 type="button"
-                                style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #4a2c18', background: '#24160e', color: '#fef3c7', cursor: 'pointer', lineHeight: '16px', fontSize: '11px' }}
+                                style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #3F3F46', background: '#27272B', color: '#F4F1EC', cursor: 'pointer', lineHeight: '16px', fontSize: '12px' }}
                                 onClick={() => updateCartLineQty(idx, -1)}
                               >
                                 -
                               </button>
-                              <span style={{ fontWeight: 700, width: '16px', textAlign: 'center', fontSize: '0.82rem', color: '#fef3c7' }}>{item.quantity}</span>
+                              <span style={{ fontWeight: 700, minWidth: '16px', textAlign: 'center', color: '#F4F1EC' }}>{item.quantity}</span>
                               <button
                                 type="button"
-                                style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #4a2c18', background: '#24160e', color: '#fef3c7', cursor: 'pointer', lineHeight: '16px', fontSize: '11px' }}
+                                style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #3F3F46', background: '#27272B', color: '#F4F1EC', cursor: 'pointer', lineHeight: '16px', fontSize: '12px' }}
                                 onClick={() => updateCartLineQty(idx, 1)}
                               >
                                 +
                               </button>
                             </div>
                           </td>
-                          <td style={{ textAlign: 'right', fontSize: '0.8rem', color: '#c4a482' }}>{fmt(item.price)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, color: '#fbbf24', fontSize: '0.82rem' }}>
+                          <td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 700, color: '#FBBF24' }}>
                             {fmt(item.price * item.quantity)}
                           </td>
                         </tr>
@@ -1054,22 +907,22 @@ export default function PosOrder() {
                 </table>
               </div>
 
-              {/* CHỌN SIZE ĐỒ UỐNG TRONG PHẦN THANH TOÁN (Chỉ hiện khi có đồ uống nhiều size) */}
+              {/* 3. CHỌN SIZE ĐỒ UỐNG (Chỉ hiện khi có đồ uống nhiều size) */}
               {cart.some((it) => {
                 const prod = products.find((p) => p.id === it.product_id);
                 return prod?.sizes && prod.sizes.length > 1;
               }) && (
-                <div style={{ background: 'rgba(36, 22, 14, 0.85)', border: '1px dashed rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '8px 10px' }}>
-                  <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#fbbf24', marginBottom: '6px' }}>
+                <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '10px', padding: '9px 12px' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
                     ☕ CHỌN SIZE ĐỒ UỐNG:
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '120px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {cart.map((it, idx) => {
                       const prod = products.find((p) => p.id === it.product_id);
                       if (!prod?.sizes || prod.sizes.length <= 1) return null;
                       return (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1c120b', padding: '4px 8px', borderRadius: '6px', border: '1px solid #3d2618', fontSize: '0.78rem' }}>
-                          <span style={{ fontWeight: 600, color: '#fef3c7', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={it.name}>
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#18181B', padding: '5px 8px', borderRadius: '6px', border: '1px solid #2E2E35', fontSize: '0.78rem' }}>
+                          <span style={{ fontWeight: 600, color: '#F4F1EC', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={it.name}>
                             {it.name}
                           </span>
                           <div style={{ display: 'flex', gap: '4px' }}>
@@ -1087,9 +940,9 @@ export default function PosOrder() {
                                     fontSize: '0.72rem',
                                     fontWeight: 800,
                                     cursor: 'pointer',
-                                    border: active ? '1.5px solid #d97706' : '1px solid #4a2c18',
-                                    background: active ? '#d97706' : '#24160e',
-                                    color: active ? '#ffffff' : '#c4a482',
+                                    border: active ? '1.5px solid #F59E0B' : '1px solid #3F3F46',
+                                    background: active ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                                    color: active ? '#FFFFFF' : '#A1A1AA',
                                     transition: 'all 0.15s ease',
                                   }}
                                   title={`Chọn Size ${sz} (${fmt(szObj.price)})`}
@@ -1105,6 +958,165 @@ export default function PosOrder() {
                   </div>
                 </div>
               )}
+
+              {/* 4. HỘI VIÊN & TÍCH ĐIỂM */}
+              <div
+                style={{
+                  background: '#202024',
+                  border: '1px solid #2A2A30',
+                  borderRadius: '10px',
+                  padding: '9px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC', margin: 0 }}>
+                    👤 HỘI VIÊN &amp; TÍCH ĐIỂM:
+                  </label>
+                  {customerInfo && (
+                    <span style={{ fontSize: '0.7rem', color: '#34D399', fontWeight: 800, background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '1px 6px', borderRadius: '8px' }}>
+                      ⭐ Hạng {customerInfo.tier_name || 'Đồng'}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '6px' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="SĐT hội viên"
+                    value={customerPhone}
+                    onChange={(e) => {
+                      setCustomerPhone(e.target.value);
+                      lookupCustomerByPhone(e.target.value);
+                    }}
+                    style={{ padding: '5px 8px', fontSize: '0.8rem', background: '#18181B', border: '1px solid #2E2E35', color: '#F4F1EC', borderRadius: '6px' }}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Tên khách"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    style={{ padding: '5px 8px', fontSize: '0.8rem', background: '#18181B', border: '1px solid #2E2E35', color: '#F4F1EC', borderRadius: '6px' }}
+                  />
+                </div>
+
+                {customerInfo && (
+                  <div
+                    style={{
+                      background: '#18181B',
+                      borderRadius: '6px',
+                      padding: '6px 8px',
+                      border: '1px solid #2E2E35',
+                      fontSize: '0.74rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A1A1AA' }}>
+                      <span>Điểm tích lũy hiện có:</span>
+                      <strong style={{ color: '#34D399' }}>{customerInfo.points_balance || 0} điểm</strong>
+                    </div>
+
+                    {Number(customerInfo.points_balance || 0) > 0 && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#FBBF24', marginTop: '2px' }}>
+                        <input
+                          type="checkbox"
+                          checked={usePoints}
+                          onChange={(e) => setUsePoints(e.target.checked)}
+                        />
+                        <span>Đổi {effectivePointsRedeemed} điểm (giảm {fmt(pointsDiscount)})</span>
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 5. MÃ GIẢM GIÁ / VOUCHERS */}
+              <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '10px', padding: '9px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC', margin: 0 }}>
+                    🏷️ MÃ GIẢM GIÁ / VOUCHER:
+                  </label>
+                  {appliedCoupon && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      style={{ background: 'none', border: 'none', color: '#F87171', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      ✕ Hủy mã
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nhập mã (COFFEE10, GIAM20K...)"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    style={{ padding: '5px 8px', fontSize: '0.82rem', textTransform: 'uppercase', fontWeight: 700, background: '#18181B', border: '1px solid #2E2E35', color: '#F4F1EC', borderRadius: '6px' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', borderColor: '#D97706', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                    onClick={() => handleApplyCoupon()}
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+
+                {/* Quick Voucher Pills */}
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {availableCoupons.map((c) => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => handleApplyCoupon(c.code)}
+                      title={c.desc}
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: '4px',
+                        border: appliedCoupon?.code === c.code ? '1px solid #10B981' : '1px solid #2E2E35',
+                        background: appliedCoupon?.code === c.code ? 'rgba(16, 185, 129, 0.2)' : '#18181B',
+                        color: appliedCoupon?.code === c.code ? '#34D399' : '#FBBF24',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {appliedCoupon?.code === c.code ? '✅ ' : '🏷️ '}{c.code}
+                    </button>
+                  ))}
+                </div>
+
+                {appliedCoupon && (
+                  <div style={{ marginTop: '6px', fontSize: '0.74rem', color: '#34D399', fontWeight: 700 }}>
+                    🎉 Đã áp dụng: {appliedCoupon.name} (-{fmt(discount)})
+                  </div>
+                )}
+              </div>
+
+              {/* 6. Ghi chú đơn */}
+              <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '10px', padding: '9px 12px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC', display: 'block', marginBottom: '4px' }}>
+                  📝 Ghi chú đơn:
+                </label>
+                <textarea
+                  className="form-input"
+                  rows={1}
+                  placeholder="Ghi chú pha chế (ít đá, ít đường, không ngọt...)"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  style={{ fontSize: '0.82rem', padding: '6px', background: '#18181B', border: '1px solid #2E2E35', color: '#F4F1EC', borderRadius: '6px', width: '100%' }}
+                />
+              </div>
             </div>
 
             {/* PINNED FOOTER: TOTALS & ACTION BUTTONS */}
@@ -1112,45 +1124,45 @@ export default function PosOrder() {
               {/* Totals Summary */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.84rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#c4a482' }}>Tổng tiền hàng:</span>
-                  <span style={{ fontWeight: 700, color: '#fef3c7' }}>{fmt(totalAmount)}</span>
+                  <span style={{ color: '#A1A1AA' }}>Tổng tiền hàng:</span>
+                  <span style={{ fontWeight: 700, color: '#F4F1EC' }}>{fmt(totalAmount)}</span>
                 </div>
                 {tierDiscount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34D399' }}>
                     <span>Ưu đãi hạng {customerInfo?.tier_name} (-{customerInfo?.discount_pct}%):</span>
                     <span style={{ fontWeight: 700 }}>-{fmt(tierDiscount)}</span>
                   </div>
                 )}
                 {pointsDiscount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38BDF8' }}>
                     <span>Đổi điểm tích lũy ({effectivePointsRedeemed} điểm):</span>
                     <span style={{ fontWeight: 700 }}>-{fmt(pointsDiscount)}</span>
                   </div>
                 )}
                 {Number(discount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#F87171' }}>
                     <span>Giảm giá voucher:</span>
                     <span style={{ fontWeight: 700 }}>-{fmt(discount)}</span>
                   </div>
                 )}
                 {Number(tax) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#c4a482' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A1A1AA' }}>
                     <span>Thuế:</span>
-                    <span style={{ fontWeight: 700, color: '#fef3c7' }}>+{fmt(tax)}</span>
+                    <span style={{ fontWeight: 700, color: '#F4F1EC' }}>+{fmt(tax)}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed rgba(245, 158, 11, 0.3)', paddingTop: '5px', marginTop: '2px', fontSize: '1.1rem', fontWeight: 800, color: '#fbbf24' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #3F3F46', paddingTop: '6px', marginTop: '2px', fontSize: '1.22rem', fontWeight: 900, color: '#F59E0B' }}>
                   <span>Thành tiền:</span>
                   <span>{fmt(finalTotal)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: '#a88265', borderTop: '1px solid rgba(245, 158, 11, 0.1)', paddingTop: '3px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: '#A1A1AA', borderTop: '1px solid #27272B', paddingTop: '3px' }}>
                   <span>Tích lũy đơn này (10k = 1đ):</span>
-                  <span style={{ color: '#34d399', fontWeight: 800 }}>+{earnedPoints} điểm</span>
+                  <span style={{ color: '#34D399', fontWeight: 800 }}>+{earnedPoints} điểm</span>
                 </div>
 
                 {/* Quick Payment Method Selector */}
                 <div style={{ marginTop: '4px' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#c4a482', fontWeight: 600, marginBottom: '4px' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#A1A1AA', fontWeight: 600, marginBottom: '4px' }}>
                     Phương thức thanh toán:
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
@@ -1158,12 +1170,13 @@ export default function PosOrder() {
                       type="button"
                       className="btn btn-sm"
                       style={{
-                        background: paymentMethod === 'Tiền mặt' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#24160e',
-                        color: paymentMethod === 'Tiền mặt' ? '#ffffff' : '#c4a482',
-                        border: paymentMethod === 'Tiền mặt' ? '1.5px solid #fbbf24' : '1px solid #4a2c18',
+                        background: paymentMethod === 'Tiền mặt' ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                        color: paymentMethod === 'Tiền mặt' ? '#FFFFFF' : '#A1A1AA',
+                        border: paymentMethod === 'Tiền mặt' ? '1.5px solid #F59E0B' : '1px solid #3F3F46',
                         fontWeight: 800,
                         fontSize: '0.78rem',
-                        padding: '6px 4px',
+                        padding: '7px 4px',
+                        boxShadow: paymentMethod === 'Tiền mặt' ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
                       }}
                       onClick={() => setPaymentMethod('Tiền mặt')}
                     >
@@ -1173,12 +1186,13 @@ export default function PosOrder() {
                       type="button"
                       className="btn btn-sm"
                       style={{
-                        background: paymentMethod === 'QR Banking' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#24160e',
-                        color: paymentMethod === 'QR Banking' ? '#ffffff' : '#c4a482',
-                        border: paymentMethod === 'QR Banking' ? '1.5px solid #fbbf24' : '1px solid #4a2c18',
+                        background: paymentMethod === 'QR Banking' ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                        color: paymentMethod === 'QR Banking' ? '#FFFFFF' : '#A1A1AA',
+                        border: paymentMethod === 'QR Banking' ? '1.5px solid #F59E0B' : '1px solid #3F3F46',
                         fontWeight: 800,
                         fontSize: '0.78rem',
-                        padding: '6px 4px',
+                        padding: '7px 4px',
+                        boxShadow: paymentMethod === 'QR Banking' ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
                       }}
                       onClick={() => setPaymentMethod('QR Banking')}
                     >
@@ -1189,12 +1203,12 @@ export default function PosOrder() {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    style={{ flex: 1, borderColor: '#4a2c18', background: '#24160e', color: '#f3e8d8', fontWeight: 700, padding: '9px 6px', fontSize: '0.82rem' }}
+                    style={{ flex: 1, borderColor: '#3F3F46', background: '#27272B', color: '#F87171', fontWeight: 700, padding: '9px 6px', fontSize: '0.82rem' }}
                     onClick={clearCart}
                     disabled={cart.length === 0 || isSubmitting}
                   >
@@ -1205,12 +1219,14 @@ export default function PosOrder() {
                     className="btn btn-primary"
                     style={{
                       flex: 2,
-                      background: isSubmitting ? '#4b5563' : 'linear-gradient(135deg, #d97706, #b45309)',
-                      borderColor: '#d97706',
+                      background: isSubmitting ? '#4B5563' : 'linear-gradient(135deg, #D97706, #B45309)',
+                      borderColor: '#D97706',
+                      color: '#FFFFFF',
                       fontWeight: 800,
                       fontSize: '0.88rem',
                       padding: '9px 12px',
-                      cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 14px rgba(217, 119, 6, 0.4)',
                     }}
                     onClick={() => {
                       if (paymentMethod === 'QR Banking') {
@@ -1232,16 +1248,16 @@ export default function PosOrder() {
                 <button
                   type="button"
                   style={{
-                    background: 'rgba(245, 158, 11, 0.08)',
-                    border: '1px solid rgba(245, 158, 11, 0.25)',
-                    color: '#fbbf24',
+                    background: '#27272B',
+                    border: '1px solid #3F3F46',
+                    color: '#E4E4E7',
                     fontSize: '0.78rem',
                     fontWeight: 700,
                     padding: '8px',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     textAlign: 'center',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
                   }}
                   onClick={handleOpenPayment}
                   disabled={cart.length === 0 || isSubmitting}
@@ -1257,37 +1273,37 @@ export default function PosOrder() {
         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Top 4 Stats Boxes */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-            <div className="mockup-stat-card">
-              <span className="mockup-stat-icon">🛍️</span>
+            <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#F4F1EC' }}>
+              <span style={{ fontSize: '1.6rem', background: '#27272B', width: '44px', height: '44px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🛍️</span>
               <div>
-                <div className="mockup-stat-label">TỔNG TIỀN HÀNG</div>
-                <div className="mockup-stat-value">{fmt(totalAmount)}</div>
+                <div style={{ fontSize: '0.74rem', color: '#A1A1AA', fontWeight: 700, textTransform: 'uppercase' }}>TỔNG TIỀN HÀNG</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#F4F1EC' }}>{fmt(totalAmount)}</div>
               </div>
             </div>
 
-            <div className="mockup-stat-card">
-              <span className="mockup-stat-icon">🏷️</span>
+            <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#F4F1EC' }}>
+              <span style={{ fontSize: '1.6rem', background: '#27272B', width: '44px', height: '44px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🏷️</span>
               <div>
-                <div className="mockup-stat-label">GIẢM GIÁ {appliedCoupon ? `(${appliedCoupon.code})` : ''}</div>
-                <div className="mockup-stat-value" style={{ color: discount > 0 ? '#f87171' : undefined }}>{fmt(discount)}</div>
+                <div style={{ fontSize: '0.74rem', color: '#A1A1AA', fontWeight: 700, textTransform: 'uppercase' }}>GIẢM GIÁ {appliedCoupon ? `(${appliedCoupon.code})` : ''}</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: discount > 0 ? '#34D399' : '#F4F1EC' }}>{fmt(discount)}</div>
               </div>
             </div>
 
-            <div className="mockup-stat-card">
-              <span className="mockup-stat-icon">{orderType === 'takeaway' ? '🛍️' : '☕'}</span>
+            <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#F4F1EC' }}>
+              <span style={{ fontSize: '1.6rem', background: '#27272B', width: '44px', height: '44px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{orderType === 'takeaway' ? '🛍️' : '☕'}</span>
               <div>
-                <div className="mockup-stat-label">HÌNH THỨC</div>
-                <div className="mockup-stat-value" style={{ fontSize: '1rem', color: '#fef3c7' }}>
+                <div style={{ fontSize: '0.74rem', color: '#A1A1AA', fontWeight: 700, textTransform: 'uppercase' }}>HÌNH THỨC</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FBBF24' }}>
                   {orderType === 'takeaway' ? 'Mang về' : 'Tại quán'}
                 </div>
               </div>
             </div>
 
-            <div className="mockup-stat-card" style={{ background: 'linear-gradient(135deg, #b45309, #78350f)', color: '#ffffff' }}>
-              <span className="mockup-stat-icon" style={{ background: 'rgba(255,255,255,0.2)' }}>💵</span>
+            <div style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(217, 119, 6, 0.35)' }}>
+              <span style={{ fontSize: '1.6rem', background: 'rgba(255,255,255,0.2)', width: '44px', height: '44px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💵</span>
               <div>
-                <div className="mockup-stat-label" style={{ color: 'rgba(255,255,255,0.85)' }}>THÀNH TIỀN (PHẢI THU)</div>
-                <div className="mockup-stat-value" style={{ color: '#ffffff' }}>{fmt(finalTotal)}</div>
+                <div style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.85)', fontWeight: 700, textTransform: 'uppercase' }}>THÀNH TIỀN (PHẢI THU)</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#FFFFFF' }}>{fmt(finalTotal)}</div>
               </div>
             </div>
           </div>
@@ -1295,16 +1311,17 @@ export default function PosOrder() {
           {/* 3 Columns Layout */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr 1.2fr', gap: '16px' }}>
             {/* Column 1: Thông tin đơn & Danh sách món */}
-            <div className="mockup-panel" style={{ padding: '16px' }}>
-              <div style={{ borderBottom: '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: '12px', marginBottom: '12px' }}>
+            <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px', color: '#F4F1EC' }}>
+              <div style={{ borderBottom: '1px solid #27272B', paddingBottom: '12px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fef3c7' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F4F1EC' }}>
                     📋 THÔNG TIN ĐƠN HÀNG
                   </div>
                   <span style={{
                     fontSize: '0.72rem',
-                    background: orderType === 'takeaway' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                    color: '#fbbf24',
+                    background: 'rgba(217, 119, 6, 0.15)',
+                    color: '#FBBF24',
+                    border: '1px solid rgba(217, 119, 6, 0.3)',
                     padding: '2px 8px',
                     borderRadius: '10px',
                     fontWeight: 800,
@@ -1312,31 +1329,31 @@ export default function PosOrder() {
                     ☕ Trực tiếp tại quầy
                   </span>
                 </div>
-                <div style={{ fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px', color: '#c4a482' }}>
-                  <div><strong>Mã hóa đơn:</strong> DH-{new Date().toISOString().slice(2, 10).replace(/-/g, '')}-POS</div>
-                  <div><strong>Hình thức:</strong> ☕ Bán trực tiếp tại quầy (Direct POS)</div>
-                  <div><strong>Khách hàng:</strong> {customerName}</div>
-                  <div><strong>Số điện thoại:</strong> {customerPhone}</div>
+                <div style={{ fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px', color: '#A1A1AA' }}>
+                  <div><strong style={{ color: '#F4F1EC' }}>Mã hóa đơn:</strong> DH-{new Date().toISOString().slice(2, 10).replace(/-/g, '')}-POS</div>
+                  <div><strong style={{ color: '#F4F1EC' }}>Hình thức:</strong> ☕ Bán trực tiếp tại quầy (Direct POS)</div>
+                  <div><strong style={{ color: '#F4F1EC' }}>Khách hàng:</strong> {customerName}</div>
+                  <div><strong style={{ color: '#F4F1EC' }}>Số điện thoại:</strong> {customerPhone}</div>
                   {appliedCoupon && (
-                    <div style={{ color: '#4ade80' }}><strong>Mã giảm giá:</strong> {appliedCoupon.code} (-{fmt(discount)})</div>
+                    <div style={{ color: '#34D399' }}><strong>Mã giảm giá:</strong> {appliedCoupon.code} (-{fmt(discount)})</div>
                   )}
-                  <div><strong>Ngày lập:</strong> {new Date().toLocaleString('vi-VN')}</div>
-                  <div><strong>Nhân viên:</strong> {user?.full_name || 'Thu Ngân'}</div>
+                  <div><strong style={{ color: '#F4F1EC' }}>Ngày lập:</strong> {new Date().toLocaleString('vi-VN')}</div>
+                  <div><strong style={{ color: '#F4F1EC' }}>Nhân viên:</strong> {user?.full_name || 'Thu Ngân'}</div>
                 </div>
               </div>
 
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fef3c7', marginBottom: '8px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F4F1EC', marginBottom: '8px' }}>
                 ☕ DANH SÁCH SẢN PHẨM ({cart.length} món)
               </div>
-              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '6px', marginBottom: '12px' }}>
-                <table className="mockup-table">
+              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #2A2A30', borderRadius: '8px', marginBottom: '12px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                   <thead>
-                    <tr>
-                      <th style={{ width: '30px' }}>STT</th>
-                      <th>Sản phẩm</th>
-                      <th style={{ textAlign: 'center', width: '35px' }}>SL</th>
-                      <th style={{ textAlign: 'right' }}>Đơn giá</th>
-                      <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                    <tr style={{ background: '#202024', color: '#A1A1AA', borderBottom: '1px solid #27272B' }}>
+                      <th style={{ width: '30px', padding: '7px 8px', textAlign: 'center' }}>STT</th>
+                      <th style={{ padding: '7px 8px', textAlign: 'left' }}>Sản phẩm</th>
+                      <th style={{ textAlign: 'center', width: '35px', padding: '7px 4px' }}>SL</th>
+                      <th style={{ textAlign: 'right', padding: '7px 8px' }}>Đơn giá</th>
+                      <th style={{ textAlign: 'right', padding: '7px 8px' }}>Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1345,10 +1362,10 @@ export default function PosOrder() {
                       const hasMultiSizes = prod?.sizes && prod.sizes.length > 1;
 
                       return (
-                        <tr key={idx}>
-                          <td>{idx + 1}</td>
-                          <td style={{ fontWeight: 600 }}>
-                            <div style={{ fontSize: '0.82rem', color: '#fef3c7' }}>{item.name}</div>
+                        <tr key={idx} style={{ borderBottom: '1px solid #27272B', background: idx % 2 === 0 ? '#18181B' : '#1C1C20' }}>
+                          <td style={{ textAlign: 'center', color: '#71717A', padding: '7px 8px' }}>{idx + 1}</td>
+                          <td style={{ fontWeight: 600, padding: '7px 8px' }}>
+                            <div style={{ fontSize: '0.82rem', color: '#F4F1EC' }}>{item.name}</div>
                             {hasMultiSizes && (
                               <div style={{ display: 'inline-flex', gap: '3px', marginTop: '3px' }}>
                                 {prod.sizes.map((szObj) => {
@@ -1360,13 +1377,13 @@ export default function PosOrder() {
                                       type="button"
                                       onClick={() => updateCartItemSize(idx, sz)}
                                       style={{
-                                        padding: '1px 5px',
+                                        padding: '1px 6px',
                                         borderRadius: '4px',
                                         fontSize: '0.68rem',
                                         fontWeight: 800,
-                                        border: isCurrent ? '1.5px solid #d97706' : '1px solid #4a2c18',
-                                        background: isCurrent ? '#d97706' : '#24160e',
-                                        color: isCurrent ? '#ffffff' : '#c4a482',
+                                        border: isCurrent ? '1.5px solid #F59E0B' : '1px solid #3F3F46',
+                                        background: isCurrent ? 'linear-gradient(135deg, #D97706, #B45309)' : '#27272B',
+                                        color: isCurrent ? '#ffffff' : '#A1A1AA',
                                         cursor: 'pointer',
                                         transition: 'all 0.15s ease',
                                       }}
@@ -1379,9 +1396,9 @@ export default function PosOrder() {
                               </div>
                             )}
                           </td>
-                          <td style={{ textAlign: 'center', fontWeight: 700, color: '#fef3c7' }}>{item.quantity}</td>
-                          <td style={{ textAlign: 'right', color: '#c4a482' }}>{fmt(item.price)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, color: '#fbbf24' }}>{fmt(item.price * item.quantity)}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: '#F4F1EC', padding: '7px 4px' }}>{item.quantity}</td>
+                          <td style={{ textAlign: 'right', color: '#A1A1AA', padding: '7px 8px' }}>{fmt(item.price)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, color: '#FBBF24', padding: '7px 8px' }}>{fmt(item.price * item.quantity)}</td>
                         </tr>
                       );
                     })}
@@ -1392,7 +1409,7 @@ export default function PosOrder() {
               <button
                 type="button"
                 className="btn btn-outline"
-                style={{ width: '100%', borderColor: '#4a2c18', background: '#24160e', color: '#f3e8d8', fontWeight: 600, fontSize: '0.82rem' }}
+                style={{ width: '100%', borderColor: '#3F3F46', background: '#202024', color: '#E4E4E7', fontWeight: 600, fontSize: '0.82rem', padding: '9px' }}
                 onClick={() => setShowPayment(false)}
               >
                 ← QUAY LẠI ĐƠN HÀNG
@@ -1400,9 +1417,9 @@ export default function PosOrder() {
             </div>
 
             {/* Column 2: Tiền khách đưa & Phương thức thanh toán + VietQR Techcombank Card */}
-            <div className="mockup-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', color: '#F4F1EC' }}>
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F4F1EC', display: 'block', marginBottom: '4px' }}>
                   💵 KHÁCH ĐƯA:
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -1411,28 +1428,28 @@ export default function PosOrder() {
                     className="form-input"
                     value={cashGiven}
                     onChange={(e) => setCashGiven(e.target.value)}
-                    style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4ade80', padding: '8px 12px' }}
+                    style={{ fontSize: '1.25rem', fontWeight: 800, color: '#34D399', padding: '8px 12px', background: '#202024', border: '1px solid #2E2E35' }}
                   />
-                  <span style={{ position: 'absolute', right: '12px', top: '10px', fontWeight: 700, color: '#c4a482' }}>đ</span>
+                  <span style={{ position: 'absolute', right: '12px', top: '10px', fontWeight: 700, color: '#A1A1AA' }}>đ</span>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F4F1EC', display: 'block', marginBottom: '4px' }}>
                   💸 TIỀN THỪA TRẢ LẠI:
                 </label>
                 <div style={{
-                  padding: '10px', background: '#24160e', border: '1px solid #4a2c18', borderRadius: '8px',
+                  padding: '10px', background: '#202024', border: '1px solid #2E2E35', borderRadius: '8px',
                   fontSize: '1.15rem', fontWeight: 800,
-                  color: changeDue < 0 ? '#f87171' : '#4ade80'
+                  color: changeDue < 0 ? '#F87171' : '#34D399'
                 }}>
                   {changeDue < 0 ? `Thiếu: ${fmt(Math.abs(changeDue))}` : `Thừa: ${fmt(changeDue)}`}
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '6px' }}>
-                  💳 PHƯƠNG THỨC THANH TOÁN (CHỈ TIỀN MẶT HOẶC MÃ QR):
+                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F4F1EC', display: 'block', marginBottom: '6px' }}>
+                  💳 PHƯƠNG THỨC THANH TOÁN:
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {[
@@ -1444,9 +1461,9 @@ export default function PosOrder() {
                       type="button"
                       className="btn btn-sm"
                       style={{
-                        background: paymentMethod === m.id ? 'linear-gradient(135deg, #d97706, #b45309)' : '#24160e',
-                        color: paymentMethod === m.id ? '#ffffff' : '#f3e8d8',
-                        border: paymentMethod === m.id ? '1.5px solid #fbbf24' : '1px solid #4a2c18',
+                        background: paymentMethod === m.id ? 'linear-gradient(135deg, #D97706, #B45309)' : '#202024',
+                        color: paymentMethod === m.id ? '#FFFFFF' : '#A1A1AA',
+                        border: paymentMethod === m.id ? '1.5px solid #F59E0B' : '1px solid #2E2E35',
                         fontWeight: 700,
                         padding: '10px 8px',
                         display: 'flex',
@@ -1467,18 +1484,18 @@ export default function PosOrder() {
               {/* VietQR Techcombank Card matching Screenshot */}
               {(paymentMethod !== 'Tiền mặt' || showPayment) && (
                 <div style={{
-                  background: 'rgba(28, 17, 11, 0.95)',
-                  border: '1.5px solid rgba(225, 29, 72, 0.5)',
+                  background: '#202024',
+                  border: '1px solid #2E2E35',
                   borderRadius: '10px',
                   padding: '10px',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fb7185', fontWeight: 800, fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FB7185', fontWeight: 800, fontSize: '0.85rem' }}>
                       <span>💠</span>
                       <span>TECHCOMBANK</span>
                     </div>
-                    <span style={{ fontSize: '0.72rem', background: 'rgba(225, 29, 72, 0.2)', color: '#fb7185', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(225, 29, 72, 0.15)', color: '#FB7185', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid rgba(225, 29, 72, 0.3)' }}>
                       VietQR • Napas247
                     </span>
                   </div>
@@ -1487,23 +1504,23 @@ export default function PosOrder() {
                     <img
                       src={vietQrUrl}
                       alt="Techcombank VietQR"
-                      style={{ width: '90px', height: '90px', borderRadius: '6px', border: '1px solid #4a2c18', objectFit: 'contain', background: '#fff' }}
+                      style={{ width: '90px', height: '90px', borderRadius: '6px', border: '1px solid #3F3F46', objectFit: 'contain', background: '#fff' }}
                     />
                     <div style={{ fontSize: '0.78rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div style={{ color: '#c4a482', fontSize: '0.72rem' }}>Quét mã để chuyển tiền đến:</div>
-                      <div style={{ fontWeight: 800, color: '#fef3c7' }}>{BANK_CONFIG.accountHolder}</div>
+                      <div style={{ color: '#A1A1AA', fontSize: '0.72rem' }}>Quét mã để chuyển tiền đến:</div>
+                      <div style={{ fontWeight: 800, color: '#F4F1EC' }}>{BANK_CONFIG.accountHolder}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 700, color: '#fb7185', fontSize: '0.88rem' }}>{BANK_CONFIG.accountNumber}</span>
+                        <span style={{ fontWeight: 700, color: '#FB7185', fontSize: '0.88rem' }}>{BANK_CONFIG.accountNumber}</span>
                         <button
                           type="button"
                           onClick={copyAccountNumber}
-                          style={{ border: 'none', background: '#3b2314', color: '#fef3c7', borderRadius: '4px', padding: '2px 6px', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}
+                          style={{ border: 'none', background: '#27272B', color: '#F4F1EC', borderRadius: '4px', padding: '2px 6px', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}
                         >
                           📋 Copy
                         </button>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#c4a482' }}>
-                        Số tiền: <strong style={{ color: '#fbbf24' }}>{fmt(finalTotal)}</strong>
+                      <div style={{ fontSize: '0.75rem', color: '#A1A1AA' }}>
+                        Số tiền: <strong style={{ color: '#F59E0B' }}>{fmt(finalTotal)}</strong>
                       </div>
                     </div>
                   </div>
@@ -1511,7 +1528,7 @@ export default function PosOrder() {
               )}
 
               <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '2px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC', display: 'block', marginBottom: '2px' }}>
                   📝 GHI CHÚ:
                 </label>
                 <textarea
@@ -1520,15 +1537,16 @@ export default function PosOrder() {
                   placeholder="Ghi chú đơn hàng (nếu có)..."
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
+                  style={{ background: '#202024', border: '1px solid #2E2E35', color: '#F4F1EC', borderRadius: '6px' }}
                 />
               </div>
             </div>
 
             {/* Column 3: Virtual Numpad & Submit Buttons */}
-            <div className="mockup-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#F4F1EC' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fef3c7' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#F4F1EC' }}>
                     🔢 NHẬP SỐ TIỀN KHÁCH ĐƯA:
                   </div>
                 </div>
@@ -1538,7 +1556,7 @@ export default function PosOrder() {
                   <button
                     type="button"
                     className="btn btn-sm"
-                    style={{ background: '#d97706', color: '#ffffff', fontWeight: 700, padding: '5px 8px', fontSize: '0.78rem' }}
+                    style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', color: '#ffffff', fontWeight: 700, padding: '6px 10px', fontSize: '0.78rem', border: 'none', borderRadius: '6px' }}
                     onClick={() => setCashGiven(String(finalTotal))}
                   >
                     Đúng tiền
@@ -1548,7 +1566,7 @@ export default function PosOrder() {
                       key={amt}
                       type="button"
                       className="btn btn-sm"
-                      style={{ background: '#24160e', color: '#f3e8d8', border: '1px solid #4a2c18', fontWeight: 600, padding: '5px 8px', fontSize: '0.78rem' }}
+                      style={{ background: '#202024', color: '#E4E4E7', border: '1px solid #2E2E35', fontWeight: 600, padding: '6px 10px', fontSize: '0.78rem', borderRadius: '6px' }}
                       onClick={() => setCashGiven(String(amt))}
                     >
                       {fmt(amt)}
@@ -1564,6 +1582,7 @@ export default function PosOrder() {
                       className="pos-numpad-btn"
                       onClick={() => handleNumpad(k)}
                       title={k === 'x' ? 'Xóa 1 số (Backspace)' : k === 'C' ? 'Xóa hết' : ''}
+                      style={{ background: '#202024', border: '1px solid #2E2E35', color: '#F4F1EC' }}
                     >
                       {k === 'x' ? '⌫' : k}
                     </button>
@@ -1575,7 +1594,7 @@ export default function PosOrder() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  style={{ borderColor: '#8c674b', color: '#543310', fontWeight: 700, padding: '12px' }}
+                  style={{ borderColor: 'rgba(217, 119, 6, 0.4)', color: '#FBBF24', background: 'rgba(217, 119, 6, 0.1)', fontWeight: 700, padding: '12px', borderRadius: '8px' }}
                   onClick={() => window.print()}
                 >
                   <span>🖨️</span>
@@ -1583,7 +1602,7 @@ export default function PosOrder() {
                 </button>
 
                 {paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal && (
-                  <div style={{ color: '#ef4444', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <div style={{ color: '#F87171', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>
                     ⚠️ Tiền khách đưa chưa đủ (còn thiếu {fmt(finalTotal - Number(cashGiven))})
                   </div>
                 )}
@@ -1591,14 +1610,15 @@ export default function PosOrder() {
                   type="button"
                   className="btn btn-primary"
                   style={{
-                    background: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : 'linear-gradient(135deg, #D97706, #B45309)',
-                    borderColor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4b5563' : '#D97706',
+                    background: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4B5563' : 'linear-gradient(135deg, #D97706, #B45309)',
+                    borderColor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? '#4B5563' : '#D97706',
                     color: '#ffffff',
                     fontWeight: 800,
                     fontSize: '1.05rem',
                     padding: '14px',
                     boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)',
                     cursor: (isSubmitting || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)) ? 'not-allowed' : 'pointer',
+                    borderRadius: '8px',
                   }}
                   disabled={isSubmitting || cart.length === 0 || (paymentMethod === 'Tiền mặt' && cashGiven !== '' && Number(cashGiven) < finalTotal)}
                   onClick={() => handleCompletePayment()}
