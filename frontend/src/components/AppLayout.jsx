@@ -43,7 +43,8 @@ const NAV_GROUPS = [
 
 const ROUTE_TITLES = {
   '/': 'Sơ đồ bàn phục vụ',
-  '/pos': 'Bán hàng tại quầy (POS)',
+  '/pos': 'Chọn món — Bán hàng (POS)',
+  '/pos/checkout': 'Thanh toán đơn hàng',
   '/orders': 'Quản lý đơn hàng',
   '/barista': 'Màn hình pha chế (KDS)',
   '/menu': 'Thực đơn & Định lượng công thức',

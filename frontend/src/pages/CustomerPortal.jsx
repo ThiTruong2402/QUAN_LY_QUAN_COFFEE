@@ -795,7 +795,8 @@ export default function CustomerPortal() {
           overflowX: 'auto'
         }}>
           {[
-            { id: 'menu', label: '☕ Thực Đơn & Đặt Món', count: filteredProducts.length },
+            { id: 'menu', label: '☕ Thực Đơn', count: filteredProducts.length },
+            ...(cartTotalCount > 0 ? [{ id: 'checkout', label: '🛒 Giỏ Hàng', count: cartTotalCount }] : []),
             { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: voucherList.length },
             { id: 'history', label: '📜 Lịch Sử Đơn Hàng', count: historyList.length },
             { id: 'about', label: '📍 Thông Tin Quán' }
@@ -838,15 +839,10 @@ export default function CustomerPortal() {
       {/* 3. MAIN CONTENT */}
       <div style={{ maxWidth: '1440px', margin: '20px auto 0', padding: '0 24px' }}>
         <div key={activeTab} className="page-unfold-transition">
-          {/* TAB 1: THỰC ĐƠN & BANNER THANH TOÁN BÊN PHẢI (CHUẨN POS ADMIN) */}
+          {/* TAB 1: THỰC ĐƠN TOÀN MÀN HÌNH 100% CHIỀU NGANG */}
           {activeTab === 'menu' && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 440px',
-              gap: '24px',
-              alignItems: 'start'
-            }}>
-              {/* CỘT TRÁI: DANH SÁCH MÓN */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* DANH SÁCH MÓN */}
               <div className="mockup-panel">
                 <div className="mockup-panel-header">
                   <div className="mockup-panel-title">
@@ -1074,17 +1070,51 @@ export default function CustomerPortal() {
                 </div>
               </div>
 
-              {/* CỘT PHẢI: BANNER THANH TOÁN & THÔNG TIN ĐƠN HÀNG (STICKY GIỐNG ADMIN POS) */}
+              {cartTotalCount > 0 && (
+                <div className="pos-floating-cart" style={{ width: 'calc(100% - 32px)', maxWidth: '760px' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#FFFFFF' }}>{cartTotalCount} món trong giỏ hàng</div>
+                    <div style={{ fontSize: '0.78rem', color: '#D6C7B8' }}>Tạm tính: {fmt(finalTotal)}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('checkout'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ background: '#D97706', color: '#FFFFFF', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Xem giỏ &amp; Thanh toán →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB THANH TOÁN CHUYÊN DỤNG RIÊNG BIỆT DÀNH CHO KHÁCH */}
+          {activeTab === 'checkout' && (
+            <div style={{ maxWidth: '820px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('menu')}
+                  style={{
+                    background: '#1f130b', border: '1px solid #3d2314', color: '#d4b094',
+                    padding: '9px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700,
+                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px'
+                  }}
+                >
+                  ← Quay lại thực đơn chọn thêm món
+                </button>
+                <div style={{ fontSize: '0.82rem', color: '#d4b094' }}>
+                  Kiểm tra đơn hàng và hoàn tất đặt món
+                </div>
+              </div>
+
+              {/* BANNER THANH TOÁN & THÔNG TIN ĐƠN HÀNG */}
               <div
                 className="mockup-panel pos-sticky-cart"
                 style={{
-                  position: 'sticky',
-                  top: '16px',
-                  maxHeight: 'calc(100vh - 32px)',
                   display: 'flex',
                   flexDirection: 'column',
                   boxShadow: '0 6px 25px rgba(0,0,0,0.5)',
-                  zIndex: 10,
                 }}
               >
                 <div className="mockup-panel-header" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '8px' }}>

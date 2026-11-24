@@ -2,11 +2,13 @@ import { Component } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PosCartProvider } from './context/PosCartContext';
 import AppLayout from './components/AppLayout';
 
 import Login from './pages/Login';
 import Tables from './pages/Tables';
 import PosOrder from './pages/PosOrder';
+import PosCheckout from './pages/PosCheckout';
 import MenuManage from './pages/MenuManage';
 import Accounts from './pages/Accounts';
 import Shifts from './pages/Shifts';
@@ -136,33 +138,42 @@ export default function App() {
     <AppErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-          <Routes>
-            <Route path="/login" element={<Login />} />
+          <PosCartProvider>
+            <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
-            {/* Cổng Khách Hàng: Mở cho mọi Khách Hàng và ban quản lý (hỗ trợ cả Khách Hàng và thành viên) */}
-            <Route path="/customer" element={<CustomerPortal />} />
+              {/* Cổng Khách Hàng: Mở cho mọi Khách Hàng và ban quản lý (hỗ trợ cả Khách Hàng và thành viên) */}
+              <Route path="/customer" element={<CustomerPortal />} />
 
-            <Route path="/" element={<AppLayout />}>
-              {/* 1. Trang Chủ: Sơ đồ 20 bàn trực quan */}
-              <Route
-                index
-                element={
-                  <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter', 'barista']}>
-                    <Tables />
-                  </RoleRoute>
-                }
-              />
+              <Route path="/" element={<AppLayout />}>
+                {/* 1. Trang Chủ: Sơ đồ 20 bàn trực quan */}
+                <Route
+                  index
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter', 'barista']}>
+                      <Tables />
+                    </RoleRoute>
+                  }
+                />
 
-              {/* 2. Điểm bán POS: Admin, Quản lý, Thu ngân & Phục vụ */}
-              <Route
-                path="pos"
-                element={
-                  <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter']}>
-                    <PosOrder />
-                  </RoleRoute>
-                }
-              />
+                {/* 2. Điểm bán POS: Admin, Quản lý, Thu ngân & Phục vụ */}
+                <Route
+                  path="pos"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter']}>
+                      <PosOrder />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="pos/checkout"
+                  element={
+                    <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter']}>
+                      <PosCheckout />
+                    </RoleRoute>
+                  }
+                />
 
               {/* 3. Danh sách đơn hàng: Admin, Quản lý, Thu ngân, Pha chế & Phục vụ */}
               <Route
@@ -267,6 +278,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </PosCartProvider>
         </AuthProvider>
       </BrowserRouter>
     </AppErrorBoundary>
