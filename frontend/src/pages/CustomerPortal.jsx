@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
+import api, { resolveProductImage } from '../api/axios';
 import socket from '../api/socket';
 import toast from 'react-hot-toast';
 import {
@@ -10,7 +10,7 @@ import {
 import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
-const FALLBACK_DRINK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&auto=format&fit=crop&q=80';
+const FALLBACK_DRINK_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%2318181B'/><circle cx='200' cy='150' r='44' fill='%2327272A'/><path d='M182 142h28v18a14 14 0 0 1-28 0v-18zm28 4h5a6 6 0 0 1 0 12h-5' fill='none' stroke='%23D97706' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>";
 
 const getCategoryIcon = (catId) => {
   switch (Number(catId)) {
@@ -613,8 +613,9 @@ export default function CustomerPortal() {
         }
         .customer-product-card .card-img {
           width: 100%;
-          height: 140px;
+          height: 100%;
           object-fit: cover;
+          object-position: center center;
           transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .customer-product-card:hover .card-img {
@@ -899,10 +900,10 @@ export default function CustomerPortal() {
                             className="product-card customer-product-card"
                             onClick={() => handleOpenSizeModal(p)}
                           >
-                            {/* Ảnh món */}
-                            <div style={{ position: 'relative', overflow: 'hidden', height: '168px', background: '#150d08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {/* Ảnh món căn giữa chuẩn khung 4:3 */}
+                            <div style={{ position: 'relative', overflow: 'hidden', width: '100%', aspectRatio: '4 / 3', background: '#150d08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <img
-                                src={p.image_url || FALLBACK_DRINK_IMG}
+                                src={resolveProductImage(p.image_url, FALLBACK_DRINK_IMG)}
                                 alt={p.name}
                                 onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
                                 className="card-img"
@@ -2192,11 +2193,12 @@ export default function CustomerPortal() {
             flexDirection: 'column'
           }}>
             {/* Ảnh & Header Modal */}
-            <div style={{ position: 'relative', width: '100%', height: '170px', background: '#2a160b' }}>
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3', maxHeight: '260px', background: '#121214', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               <img
-                src={selectedProductForSize.image_url || FALLBACK_DRINK_IMG}
+                src={resolveProductImage(selectedProductForSize.image_url, FALLBACK_DRINK_IMG)}
                 alt={selectedProductForSize.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
               />
               <button
                 onClick={handleCloseSizeModal}

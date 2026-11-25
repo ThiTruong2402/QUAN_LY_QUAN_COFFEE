@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Minus, Trash2, Banknote, QrCode, Tag, UserCheck, Printer, CheckCircle2,
 } from 'lucide-react';
-import api from '../api/axios';
+import api, { resolveProductImage } from '../api/axios';
 import toast from 'react-hot-toast';
 import { usePosCart } from '../context/PosCartContext';
 import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
- 
+
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
-const FALLBACK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&auto=format&fit=crop&q=80';
+const FALLBACK_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%2318181B'/><path d='M75 88h38v26a19 19 0 0 1-38 0V88zm38 5h7a8 8 0 0 1 0 16h-7' fill='none' stroke='%23D97706' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>";
 const QUICK_CASH_NOTES = [50000, 100000, 200000, 500000];
  
 export default function PosCheckout() {
@@ -295,9 +295,10 @@ export default function PosCheckout() {
                   background: '#202024', border: '1px solid #2A2A30', alignItems: 'center'
                 }}>
                   <img
-                    src={item.image_url || FALLBACK_IMG}
+                    src={resolveProductImage(item.image_url, FALLBACK_IMG)}
                     alt={item.name}
-                    style={{ width: '62px', height: '62px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
+                    style={{ width: '62px', height: '62px', borderRadius: '10px', objectFit: 'cover', objectPosition: 'center center', flexShrink: 0 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>

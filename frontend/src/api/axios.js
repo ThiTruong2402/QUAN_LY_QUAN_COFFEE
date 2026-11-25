@@ -11,6 +11,19 @@ const cleanBackendUrl = envBackend
 export const API_BASE_URL = cleanBackendUrl ? `${cleanBackendUrl}/api` : '/api';
 export const BACKEND_URL = cleanBackendUrl || 'http://localhost:5000';
 
+/**
+ * Chuẩn hóa URL ảnh món ăn (tự động gắn host Render cho ảnh upload khi chạy bản Vercel production).
+ */
+export const resolveProductImage = (imageUrl, fallbackUrl = '') => {
+  if (!imageUrl) return fallbackUrl;
+  const trimmed = String(imageUrl).trim();
+  if (!trimmed) return fallbackUrl;
+  if (trimmed.startsWith('/api/') && import.meta.env.PROD && cleanBackendUrl) {
+    return `${cleanBackendUrl}${trimmed}`;
+  }
+  return trimmed;
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },

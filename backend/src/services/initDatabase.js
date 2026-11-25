@@ -110,6 +110,62 @@ async function autoMigrate() {
       console.warn('Could not auto-seed users:', e.message);
     }
 
+    // 5. Ensure uploaded images table & heal broken/duplicate product images cleanly
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS \`product_uploaded_images\` (
+          \`id\` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          \`mime_type\` VARCHAR(60) NOT NULL,
+          \`image_data\` LONGBLOB NOT NULL,
+          \`created_by\` BIGINT DEFAULT NULL,
+          \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      try {
+        await db.query('ALTER TABLE `products` MODIFY COLUMN `image_url` VARCHAR(1000) DEFAULT NULL');
+      } catch (e) { /* ignore if already wide enough */ }
+
+      const imageFixes = [
+        { code: 'CF01', target: '/images/drinks/ca_phe_den_da.jpg', badPrefixes: ['https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd'] },
+        { code: 'CF05', target: '/images/drinks/ca_phe_trung.jpg', badPrefixes: ['https://images.unsplash.com/photo-1517256064527-09c73fc73e38'] },
+        { code: 'CF10', target: '/images/drinks/cold_brew_cam.jpg', badPrefixes: ['https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5'] },
+        { code: 'CF12', target: '/images/drinks/affogato.jpg', badPrefixes: ['https://images.unsplash.com/photo-1592663527359-cf6642f54cff'] },
+        { code: 'TR06', target: '/images/drinks/tra_sua_tran_chau_duong_den.jpg', badPrefixes: ['https://images.unsplash.com/photo-1558857563-b37fe8402db0'] },
+        { code: 'TR08', target: '/images/drinks/tra_nhai_dac_thom.jpg', badPrefixes: ['https://images.unsplash.com/photo-1544787219-7f47ccb76574'] },
+        { code: 'BM02', target: '/images/cakes/croissant_pho_mai.jpg', badPrefixes: ['https://images.unsplash.com/photo-1509440159596-0249088772ff'] },
+        { code: 'BM05', target: '/images/cakes/mousse_chanh_day.jpg', badPrefixes: ['https://images.unsplash.com/photo-1579372786545-d24232daf58c'] },
+        { code: 'NE03', target: '/images/drinks/nuoc_ep_oi_hong.jpg', badPrefixes: ['https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38'] },
+        { code: 'AV04', target: '/images/snacks/hat_de_cuoi.jpg', badPrefixes: ['https://images.unsplash.com/photo-1509912760195-4f6cfd900695'] },
+        { code: 'AV05', target: '/images/snacks/hat_dieu_rang_cui.jpg', badPrefixes: ['https://images.unsplash.com/photo-1543168256-418811576931'] },
+        { code: 'AV06', target: '/images/snacks/rong_bien_kep_hat.jpg', badPrefixes: ['https://images.unsplash.com/photo-1599490659213-e2b9527bd087'] },
+        { code: 'AV09', target: '/images/snacks/bap_bo_say_gion.jpg', badPrefixes: ['https://images.unsplash.com/photo-1544025162-d76694265947'] },
+        { code: 'AV11', target: '/images/snacks/banh_trang_nuong.jpg', badPrefixes: [] },
+      ];
+
+      for (const fix of imageFixes) {
+        const [rows] = await db.query('SELECT id, image_url FROM products WHERE code = ? LIMIT 1', [fix.code]);
+        if (!rows.length) continue;
+        const cur = String(rows[0].image_url || '').trim();
+        const isBrokenOrLegacy = !cur || fix.badPrefixes.some((pref) => cur.startsWith(pref));
+        if (isBrokenOrLegacy) {
+          await db.query('UPDATE products SET image_url = ? WHERE id = ?', [fix.target, rows[0].id]);
+        }
+      }
+
+      // Chuẩn hóa khung hình 4:3 lấy tâm cho các ảnh Unsplash mặc định đang thiếu h=450
+      const [unsplashRows] = await db.query(
+        "SELECT id, image_url FROM products WHERE image_url LIKE 'https://images.unsplash.com/photo-%' AND image_url NOT LIKE '%h=450%'"
+      );
+      for (const row of unsplashRows) {
+        if (row.image_url.includes('auto=format&fit=crop') && !row.image_url.includes('h=')) {
+          const centeredUrl = `${row.image_url.split('?')[0]}?w=600&h=450&fit=crop&crop=center&q=80`;
+          await db.query('UPDATE products SET image_url = ? WHERE id = ?', [centeredUrl, row.id]);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not run product image self-healing:', e.message);
+    }
+
     console.log('✅ Database auto-migration & staff check finished!');
   } catch (err) {
     console.error('Auto-migration error:', err.message);

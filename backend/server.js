@@ -56,7 +56,7 @@ const io = new Server(server, {
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '6mb' }));
 app.use(morgan('dev'));
 
 // Share io with controllers
@@ -84,6 +84,9 @@ app.get('/api/health', (_, res) => res.json({ status: 'ok', version: 'v2-auto-se
 
 // Global error handler
 app.use((err, req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ success: false, message: 'Dữ liệu ảnh tải lên quá lớn (tối đa 5MB).' });
+  }
   console.error(err.stack);
   res.status(500).json({ success: false, message: 'Lỗi server' });
 });

@@ -1,14 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Search, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Coffee, X, MapPin,
+  Search, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Coffee, X, MapPin, Maximize2,
 } from 'lucide-react';
-import api from '../api/axios';
+import api, { resolveProductImage } from '../api/axios';
 import toast from 'react-hot-toast';
 import { usePosCart } from '../context/PosCartContext';
- 
+
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
-const FALLBACK_IMG = 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80';
+const FALLBACK_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%2318181B'/><circle cx='200' cy='150' r='44' fill='%2327272A'/><path d='M182 142h28v18a14 14 0 0 1-28 0v-18zm28 4h5a6 6 0 0 1 0 12h-5' fill='none' stroke='%23D97706' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>";
  
 // Xóa emoji đầu tên danh mục nếu DB còn lưu emoji
 const cleanLabel = (str) => String(str || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
@@ -31,6 +31,8 @@ export default function PosOrder() {
   const [selectedSizes, setSelectedSizes] = useState({});
   // Ngăn kéo xem nhanh giỏ hàng trước khi chuyển trang thanh toán
   const [quickCartOpen, setQuickCartOpen] = useState(false);
+  // Xem phóng to ảnh món ăn ở chính giữa màn hình
+  const [previewProduct, setPreviewProduct] = useState(null);
  
   // Nhận tham số bàn từ Sơ đồ bàn (?table_id=...&table_code=...)
   useEffect(() => {
@@ -208,18 +210,43 @@ export default function PosOrder() {
         .pos-item-thumb-wrap {
           position: relative;
           width: 100%;
-          height: 156px;
+          aspect-ratio: 4 / 3;
           overflow: hidden;
           background: #121214;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           flex-shrink: 0;
         }
         .pos-item-thumb {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          object-position: center center;
           display: block;
           transition: transform 0.32s ease;
         }
+        .pos-item-zoom-btn {
+          position: absolute;
+          bottom: 8px;
+          right: 8px;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          background: rgba(18, 18, 20, 0.72);
+          backdrop-filter: blur(6px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          color: #F4F1EC;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.16s ease, background 0.16s ease;
+          z-index: 3;
+        }
+        .pos-item-thumb-wrap:hover .pos-item-zoom-btn { opacity: 1; }
+        .pos-item-zoom-btn:hover { background: #D97706; border-color: #D97706; }
         .pos-item-card:hover .pos-item-thumb { transform: scale(1.05); }
  
         .pos-size-pill {
@@ -368,11 +395,19 @@ export default function PosOrder() {
               <article key={p.id} className="pos-item-card">
                 <div className="pos-item-thumb-wrap" onClick={() => handleQuickAdd(p)} style={{ cursor: 'pointer' }}>
                   <img
-                    src={p.image_url || FALLBACK_IMG}
+                    src={resolveProductImage(p.image_url, FALLBACK_IMG)}
                     alt={p.name}
                     className="pos-item-thumb"
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
                   />
+                  <button
+                    type="button"
+                    className="pos-item-zoom-btn"
+                    title="Xem ảnh món ở giữa màn hình"
+                    onClick={(e) => { e.stopPropagation(); setPreviewProduct(p); }}
+                  >
+                    <Maximize2 size={13} />
+                  </button>
                   {p.code && (
                     <span style={{
                       position: 'absolute', top: '10px', left: '10px',
@@ -577,6 +612,66 @@ export default function PosOrder() {
               >
                 Chuyển sang trang Thanh toán →
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. LIGHTBOX XEM ẢNH MÓN CĂN GIỮA MÀN HÌNH */}
+      {previewProduct && (
+        <div
+          className="ui-modal-backdrop"
+          onClick={() => setPreviewProduct(null)}
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className="ui-modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '520px', overflow: 'hidden' }}
+          >
+            <div className="ui-modal-header">
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#F59E0B', marginRight: '8px' }}>
+                  {previewProduct.code}
+                </span>
+                <span className="ui-modal-title">{previewProduct.name}</span>
+              </div>
+              <button type="button" className="ui-btn-icon" onClick={() => setPreviewProduct(null)}>
+                <X size={15} />
+              </button>
+            </div>
+            <div style={{
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              background: '#121214',
+            }}>
+              <div style={{
+                width: '100%',
+                aspectRatio: '4 / 3',
+                borderRadius: '14px',
+                overflow: 'hidden',
+                background: '#18181B',
+                border: '1px solid #2A2A30',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <img
+                  src={resolveProductImage(previewProduct.image_url, FALLBACK_IMG)}
+                  alt={previewProduct.name}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
+                />
+              </div>
+              {previewProduct.description && (
+                <p style={{ margin: 0, fontSize: '0.84rem', color: '#A1A1AA', textAlign: 'center', lineHeight: 1.5 }}>
+                  {previewProduct.description}
+                </p>
+              )}
             </div>
           </div>
         </div>
