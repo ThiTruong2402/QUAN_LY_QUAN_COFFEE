@@ -82,6 +82,7 @@ export default function CustomerPortal() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
   const [savingPw, setSavingPw] = useState(false);
+  const [showPwForm, setShowPwForm] = useState(false); // ẩn form đổi mật khẩu mặc định
 
   useEffect(() => {
     if (user) {
@@ -110,6 +111,11 @@ export default function CustomerPortal() {
     }
   };
 
+  const closePwForm = () => {
+    setShowPwForm(false);
+    setPwForm({ current_password: '', new_password: '', confirm_password: '' });
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (pwForm.new_password.length < 6) {
@@ -125,7 +131,7 @@ export default function CustomerPortal() {
         new_password: pwForm.new_password,
       });
       toast.success(res.data?.message || 'Đổi mật khẩu thành công!');
-      setPwForm({ current_password: '', new_password: '', confirm_password: '' });
+      closePwForm();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi đổi mật khẩu');
     } finally {
@@ -1982,12 +1988,12 @@ export default function CustomerPortal() {
                   </div>
                 </div>
 
-                {/* 2 CỘT: CẬP NHẬT THÔNG TIN CÁ NHÂN & ĐỔI MẬT KHẨU */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                  <form onSubmit={handleSaveProfile} style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <User size={16} color="#F59E0B" /> Thông tin cá nhân
-                    </h3>
+                {/* THÔNG TIN CÁ NHÂN */}
+                <form onSubmit={handleSaveProfile} style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <User size={16} color="#F59E0B" /> Thông tin cá nhân
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                     <div>
                       <label className="ui-modal-label">Số điện thoại (tên đăng nhập)</label>
                       <input className="ui-input" style={{ width: '100%', opacity: 0.65 }} value={user.phone || user.username || ''} disabled />
@@ -1996,41 +2002,71 @@ export default function CustomerPortal() {
                       <label className="ui-modal-label">Họ và tên *</label>
                       <input className="ui-input" style={{ width: '100%' }} required value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
-                        <label className="ui-modal-label">Email</label>
-                        <input type="email" className="ui-input" style={{ width: '100%' }} placeholder="email@domain.com" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} />
-                      </div>
-                      <div>
-                        <label className="ui-modal-label">Ngày sinh</label>
-                        <input type="date" className="ui-input" style={{ width: '100%' }} value={profileForm.birthday} onChange={(e) => setProfileForm({ ...profileForm, birthday: e.target.value })} />
-                      </div>
+                    <div>
+                      <label className="ui-modal-label">Email</label>
+                      <input type="email" className="ui-input" style={{ width: '100%' }} placeholder="email@domain.com" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} />
                     </div>
-                    <button type="submit" disabled={savingProfile} className="ui-btn ui-btn-brand" style={{ marginTop: '4px', width: '100%' }}>
+                    <div>
+                      <label className="ui-modal-label">Ngày sinh</label>
+                      <input type="date" className="ui-input" style={{ width: '100%' }} value={profileForm.birthday} onChange={(e) => setProfileForm({ ...profileForm, birthday: e.target.value })} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                    <button type="submit" disabled={savingProfile} className="ui-btn ui-btn-brand">
                       {savingProfile ? 'Đang lưu...' : 'Lưu thông tin cá nhân'}
                     </button>
-                  </form>
+                  </div>
+                </form>
 
-                  <form onSubmit={handleChangePassword} style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <KeyRound size={16} color="#F59E0B" /> Bảo mật &amp; Đổi mật khẩu
-                    </h3>
-                    <div>
-                      <label className="ui-modal-label">Mật khẩu hiện tại *</label>
-                      <input type="password" className="ui-input" style={{ width: '100%' }} required value={pwForm.current_password} onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })} />
+                {/* BẢO MẬT & ĐỔI MẬT KHẨU – ẩn form mặc định, chỉ mở khi bấm "Thay đổi mật khẩu" */}
+                <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <KeyRound size={16} color="#F59E0B" /> Bảo mật &amp; Đổi mật khẩu
+                      </h3>
+                      {!showPwForm && (
+                        <span style={{ fontSize: '0.8rem', color: '#A1A1AA' }}>
+                          Bảo vệ tài khoản và điểm thưởng bằng mật khẩu riêng tư.
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <label className="ui-modal-label">Mật khẩu mới (tối thiểu 6 ký tự) *</label>
-                      <input type="password" className="ui-input" style={{ width: '100%' }} required value={pwForm.new_password} onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="ui-modal-label">Nhập lại mật khẩu mới *</label>
-                      <input type="password" className="ui-input" style={{ width: '100%' }} required value={pwForm.confirm_password} onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })} />
-                    </div>
-                    <button type="submit" disabled={savingPw} className="ui-btn ui-btn-outline" style={{ marginTop: '4px', width: '100%' }}>
-                      {savingPw ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
+                    <button
+                      type="button"
+                      aria-expanded={showPwForm}
+                      className={`ui-btn ${showPwForm ? 'ui-btn-outline btn-sm' : 'ui-btn-outline'}`}
+                      onClick={() => (showPwForm ? closePwForm() : setShowPwForm(true))}
+                    >
+                      {showPwForm ? <><X size={14} /> Đóng</> : <><KeyRound size={14} color="#F59E0B" /> Thay đổi mật khẩu</>}
                     </button>
-                  </form>
+                  </div>
+
+                  {showPwForm && (
+                    <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px', borderTop: '1px solid #26262B' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        <div>
+                          <label className="ui-modal-label">Mật khẩu hiện tại *</label>
+                          <input type="password" autoComplete="current-password" className="ui-input" style={{ width: '100%' }} required value={pwForm.current_password} onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="ui-modal-label">Mật khẩu mới (tối thiểu 6 ký tự) *</label>
+                          <input type="password" autoComplete="new-password" minLength={6} className="ui-input" style={{ width: '100%' }} required value={pwForm.new_password} onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="ui-modal-label">Nhập lại mật khẩu mới *</label>
+                          <input type="password" autoComplete="new-password" minLength={6} className="ui-input" style={{ width: '100%' }} required value={pwForm.confirm_password} onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                        <button type="button" className="ui-btn ui-btn-outline" onClick={closePwForm}>
+                          Hủy
+                        </button>
+                        <button type="submit" disabled={savingPw} className="ui-btn ui-btn-brand">
+                          {savingPw ? 'Đang cập nhật...' : 'Xác nhận đổi mật khẩu'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
 
                 {/* LỊCH SỬ BIẾN ĐỘNG ĐIỂM THƯỞNG GẦN NHẤT */}
