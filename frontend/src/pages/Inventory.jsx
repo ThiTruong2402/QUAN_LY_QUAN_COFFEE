@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
 const todayVN = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+const STANDARD_UNITS = ['kg', 'g', 'L', 'ml', 'hộp', 'lon', 'gói', 'bịch', 'hũ', 'cái', 'quả', 'chai'];
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -129,6 +130,9 @@ export default function Inventory() {
   const lowStockCount = ingredients.filter((i) => Number(i.current_stock) > 0 && Number(i.current_stock) <= Number(i.min_stock)).length;
   const outOfStockCount = ingredients.filter((i) => Number(i.current_stock) <= 0).length;
 
+  const allUnits = Array.from(new Set([...STANDARD_UNITS, ...ingredients.map((i) => i.unit).filter(Boolean)]));
+  const formUnits = form.unit && !allUnits.includes(form.unit) ? [form.unit, ...allUnits] : allUnits;
+
   const filteredIngredients = ingredients.filter((i) => {
     if (unitFilter !== 'all' && i.unit !== unitFilter) return false;
     if (!search) return true;
@@ -217,10 +221,9 @@ export default function Inventory() {
                 style={{ width: '120px', padding: '6px 8px', fontSize: '0.85rem' }}
               >
                 <option value="all">Tất cả đơn vị</option>
-                <option value="kg">kg</option>
-                <option value="L">L</option>
-                <option value="hộp">hộp</option>
-                <option value="lon">lon</option>
+                {allUnits.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -340,11 +343,9 @@ export default function Inventory() {
                 value={form.unit}
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
               >
-                <option value="kg">kg</option>
-                <option value="L">L</option>
-                <option value="hộp">hộp</option>
-                <option value="lon">lon</option>
-                <option value="g">g</option>
+                {formUnits.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
               </select>
             </div>
 

@@ -414,7 +414,7 @@ const getAllOrders = async (req, res) => {
              (SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.type = 'payment' ORDER BY p.id DESC LIMIT 1) AS payment_method,
              inv.invoice_no,
              (SELECT GROUP_CONCAT(CONCAT(oi.product_name, ' (', oi.size_name, ') x', oi.quantity) SEPARATOR ', ') 
-              FROM order_items oi WHERE oi.order_id = o.id AND oi.status != 'cancelled') AS items_summary
+              FROM order_items oi WHERE oi.order_id = o.id AND (o.status = 'cancelled' OR oi.status != 'cancelled')) AS items_summary
       FROM orders o
       LEFT JOIN tables t ON t.id = o.table_id
       LEFT JOIN areas a ON a.id = t.area_id
