@@ -5,7 +5,7 @@ import api, { resolveProductImage } from '../api/axios';
 import socket from '../api/socket';
 import toast from 'react-hot-toast';
 import {
-  Coffee, Ticket, Clock, MapPin, Wifi, Phone, Copy, ExternalLink, Lock, ArrowRight, User, Award, KeyRound, LogOut, RefreshCw
+  Coffee, Ticket, Clock, MapPin, Wifi, Phone, Copy, ExternalLink, Lock, ArrowRight, User, Award, KeyRound, LogOut, RefreshCw, ClipboardList, ChevronLeft, ChevronRight, Menu, X
 } from 'lucide-react';
 import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
 
@@ -74,6 +74,8 @@ export default function CustomerPortal() {
   const [customerRedirectCountdown, setCustomerRedirectCountdown] = useState(4);
   const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // --- STATE HỒ SƠ CÁ NHÂN & ĐỔI MẬT KHẨU ---
   const [profileForm, setProfileForm] = useState({ full_name: '', email: '', birthday: '' });
@@ -663,63 +665,179 @@ export default function CustomerPortal() {
     memo: `CF ${customerPhone || 'KHACH'} DH`
   });
 
+  const portalNavGroups = [
+    {
+      title: 'ĐẶT MÓN & ƯU ĐÃI',
+      items: [
+        { id: 'menu', label: 'Thực Đơn', title: 'Thực đơn đặt món', icon: <Coffee size={18} />, count: filteredProducts.length },
+        { id: 'vouchers', label: 'Mã Khuyến Mãi', title: 'Ưu đãi & Mã khuyến mãi', icon: <Ticket size={18} />, count: availableVouchers.length },
+        { id: 'history', label: 'Lịch Sử Đơn Hàng', title: 'Lịch sử đơn hàng', icon: <ClipboardList size={18} />, count: historyList.length },
+      ],
+    },
+    {
+      title: 'CỬA HÀNG & TÀI KHOẢN',
+      items: [
+        { id: 'about', label: 'Thông Tin Quán', title: 'Thông tin quán', icon: <MapPin size={18} /> },
+        ...(user ? [{ id: 'profile', label: 'Thông Tin Cá Nhân', title: 'Thông Tin Cá Nhân', icon: <User size={18} /> }] : []),
+      ],
+    },
+  ];
+
+  const currentTabMeta =
+    portalNavGroups.flatMap((g) => g.items).find((it) => it.id === activeTab) ||
+    { title: 'Thực đơn đặt món' };
+
   return (
-    <div className="animate-fade-in cp-portal-page">
-      {/* 1. TOP HEADER ĐỒNG BỘ HOÀN TOÀN VỚI BANNER ADMIN */}
-      <header style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 40,
-        minHeight: '58px',
-        background: '#18181B',
-        borderBottom: '1px solid #27272B',
-        padding: '8px 24px',
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.25)',
-        display: 'flex',
-        alignItems: 'center',
-      }}>
-        <div style={{
-          maxWidth: '1440px',
-          width: '100%',
-          margin: '0 auto',
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '12px',
-        }}>
-          {/* Brand Lockup đồng bộ Sidebar Admin */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+    <div className={`mch-shell cp-portal-shell ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
+      {mobileMenuOpen && (
+        <div className="cp-sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* 1. SIDEBAR DỌC BÊN TRÁI ĐỒNG BỘ HOÀN TOÀN VỚI ADMIN */}
+      <aside className={`mch-sidebar ${mobileMenuOpen ? 'is-mobile-open' : ''}`}>
+        <div className="mch-brand">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
             <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '9px',
-              background: 'linear-gradient(135deg, #F59E0B, #B45309)',
-              color: '#FFFFFF',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '0.92rem',
-              boxShadow: '0 2px 8px rgba(217, 119, 6, 0.28)',
+              width: '32px', height: '32px', borderRadius: '9px',
+              background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#FFFFFF',
+              flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 800, fontSize: '0.85rem'
             }}>
               ☕
             </div>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '0.96rem', color: '#F4F1EC', fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.01em' }}>
-                My Coffee House
-              </h1>
-              <div style={{ fontSize: '0.7rem', color: '#B09884', marginTop: '1px' }}>
-                Cổng đặt món trực tuyến
+            {!sidebarCollapsed && (
+              <div style={{ whiteSpace: 'nowrap' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#FFFFFF', lineHeight: 1.15 }}>My Coffee House</div>
+                <div style={{ fontSize: '0.67rem', color: '#B09884' }}>Cổng đặt món trực tuyến</div>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="cp-collapse-btn"
+            onClick={() => setSidebarCollapsed((c) => !c)}
+            style={{ background: 'transparent', border: 'none', color: '#B09884', cursor: 'pointer', padding: '4px', display: 'flex' }}
+            title={sidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+          <button
+            type="button"
+            className="cp-mobile-sidebar-close"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Đóng menu"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <nav className="mch-nav-scroll">
+          {portalNavGroups.map((group) => (
+            <div key={group.title}>
+              {!sidebarCollapsed && <div className="mch-group-label">{group.title}</div>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={sidebarCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`mch-nav-link ${activeTab === item.id ? 'active' : ''}`}
+                    style={{
+                      justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                    }}
+                  >
+                    <span style={{ flexShrink: 0, display: 'flex' }}>{item.icon}</span>
+                    {!sidebarCollapsed && (
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.label}
+                      </span>
+                    )}
+                    {!sidebarCollapsed && typeof item.count === 'number' && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        background: activeTab === item.id ? 'rgba(0, 0, 0, 0.28)' : 'rgba(255, 255, 255, 0.1)',
+                        color: activeTab === item.id ? '#FFFFFF' : '#D6C7B8',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '1px 7px',
+                        borderRadius: '10px',
+                      }}>
+                        {item.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {!sidebarCollapsed && (
+          <div style={{
+            padding: '14px 14px 16px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+            background: 'rgba(0, 0, 0, 0.18)',
+            flexShrink: 0,
+          }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '11px 12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#F4F1EC' }}>Chi nhánh Cầu Giấy</span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  fontSize: '0.68rem', fontWeight: 600, color: '#34D399',
+                }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                  Trực tuyến
+                </span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#A38B78', lineHeight: 1.4 }}>
+                100 Cầu Giấy, Q. Cầu Giấy, Hà Nội
               </div>
             </div>
           </div>
+        )}
+      </aside>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      {/* 2. KHUNG CHÍNH BÊN PHẢI: TOPBAR + NỘI DUNG */}
+      <div className="mch-main">
+        <header className="mch-topbar" style={{
+          background: '#18181B',
+          borderBottom: '1px solid #27272B',
+          padding: '0 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          zIndex: 30,
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.25)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <button
+              type="button"
+              className="cp-mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Mở menu điều hướng"
+            >
+              <Menu size={18} />
+            </button>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#F4F1EC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {currentTabMeta.title}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             {/* Live Store Opening Hours Badge */}
             {storeHours.isOpen ? (
-              <div style={{
+              <div className="cp-topbar-hide-sm" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
@@ -730,12 +848,13 @@ export default function CustomerPortal() {
                 fontWeight: 600,
                 padding: '5px 10px',
                 borderRadius: '8px',
+                whiteSpace: 'nowrap',
               }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981' }} />
                 <span>Đang mở cửa ({storeHours.open_time} – {storeHours.close_time})</span>
               </div>
             ) : (
-              <div style={{
+              <div className="cp-topbar-hide-sm" style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
@@ -746,6 +865,7 @@ export default function CustomerPortal() {
                 fontWeight: 600,
                 padding: '5px 10px',
                 borderRadius: '8px',
+                whiteSpace: 'nowrap',
               }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#EF4444' }} />
                 <span>Quán đóng cửa • Hẹn giờ ({storeHours.open_time} – {storeHours.close_time})</span>
@@ -768,18 +888,20 @@ export default function CustomerPortal() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Quay lại POS
               </button>
             )}
 
-            <div style={{ width: '1px', height: '22px', background: '#2E2E35' }} />
+            <div className="cp-topbar-hide-sm" style={{ width: '1px', height: '22px', background: '#2E2E35' }} />
 
             {user ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
                   type="button"
+                  className="cp-topbar-hide-sm"
                   onClick={() => { refreshUser(); loadOrderHistory(); toast.success('Đã cập nhật số điểm & đơn hàng!'); }}
                   style={{
                     background: '#202024',
@@ -830,7 +952,7 @@ export default function CustomerPortal() {
                   }}>
                     {(user.full_name || user.username || 'K').charAt(0).toUpperCase()}
                   </div>
-                  <div style={{ lineHeight: 1.2 }}>
+                  <div className="cp-topbar-hide-sm" style={{ lineHeight: 1.2 }}>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC' }}>
                       {user.full_name || user.username}
                     </div>
@@ -850,19 +972,16 @@ export default function CustomerPortal() {
                     background: 'rgba(220, 38, 38, 0.15)',
                     border: '1px solid rgba(220, 38, 38, 0.3)',
                     color: '#F87171',
+                    width: '30px',
                     height: '30px',
-                    padding: '0 10px',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '0.76rem',
-                    fontWeight: 600,
-                    display: 'inline-flex',
+                    display: 'flex',
                     alignItems: 'center',
-                    gap: '5px',
+                    justifyContent: 'center',
                   }}
                 >
-                  <LogOut size={13} />
-                  <span>Đăng xuất</span>
+                  <LogOut size={14} />
                 </button>
               </div>
             ) : (
@@ -884,63 +1003,11 @@ export default function CustomerPortal() {
               </button>
             )}
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* 2. NAVIGATION TABS */}
-      <div style={{ maxWidth: '1440px', margin: '16px auto 0', padding: '0 24px' }}>
-        <div style={{
-          display: 'flex',
-          gap: '10px',
-          borderBottom: '1px solid #2A2A30',
-          paddingBottom: '10px',
-          overflowX: 'auto'
-        }}>
-          {[
-            { id: 'menu', label: '☕ Thực Đơn', count: filteredProducts.length },
-            { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: availableVouchers.length },
-            { id: 'history', label: '📜 Lịch Sử Đơn Hàng', count: historyList.length },
-            { id: 'about', label: '📍 Thông Tin Quán' },
-            ...(user ? [{ id: 'profile', label: '👤 Thông Tin Cá Nhân' }] : []),
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: activeTab === tab.id ? '#D97706' : '#18181B',
-                color: activeTab === tab.id ? '#FFFFFF' : '#A1A1AA',
-                border: activeTab === tab.id ? '1px solid #D97706' : '1px solid #2A2A30',
-                padding: '9px 18px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: activeTab === tab.id ? 700 : 500,
-                fontSize: '0.86rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>{tab.label}</span>
-              {typeof tab.count === 'number' && (
-                <span style={{
-                  background: activeTab === tab.id ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.1)',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '0.72rem'
-                }}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 3. MAIN CONTENT */}
-      <div style={{ maxWidth: '1440px', margin: '20px auto 0', padding: '0 24px' }}>
-        <div key={activeTab} className="page-unfold-transition">
+        {/* 3. MAIN CONTENT */}
+        <main className="mch-content">
+          <div key={activeTab} className="page-unfold-transition">
           {/* TAB 1: THỰC ĐƠN + GIỎ HÀNG STICKY BÊN CẠNH MÀN HÌNH */}
           {activeTab === 'menu' && (
             <div className={`cp-menu-layout ${cart.length > 0 ? 'has-cart' : ''}`}>
@@ -1999,7 +2066,8 @@ export default function CustomerPortal() {
               </div>
             );
           })()}
-        </div>
+          </div>
+        </main>
       </div>
 
       {/* ========================================================================= */}

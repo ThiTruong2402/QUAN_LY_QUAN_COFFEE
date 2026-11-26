@@ -355,12 +355,76 @@ textarea.form-input, textarea.ui-input {
 .ui-modal-label { display: block; font-size: 0.8rem; font-weight: 600; color: #A1A1AA; margin-bottom: 6px; }
 .ui-modal-footer { padding: 14px 22px; background: #141417; border-top: 1px solid #2A2A30; display: flex; justify-content: flex-end; gap: 10px; }
 
-/* 8. CỔNG KHÁCH HÀNG: KHUNG ẢNH 4:3 & GIỎ HÀNG STICKY CỐ ĐỊNH BÊN CẠNH */
+/* 8. CỔNG KHÁCH HÀNG: SIDEBAR DỌC ĐỒNG BỘ ADMIN, KHUNG ẢNH 4:3 & GIỎ HÀNG STICKY BÊN PHẢI */
+.cp-portal-shell .mch-sidebar {
+  width: 268px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #1E130D 0%, #140C08 100%);
+  border-right: 1px solid #2C1E16;
+  transition: width 0.2s ease, transform 0.2s ease;
+  z-index: 40;
+  color: #EFE6DC;
+}
+.cp-portal-shell.is-collapsed .mch-sidebar { width: 72px; }
+.cp-portal-shell .mch-brand {
+  height: 58px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+.cp-portal-shell .mch-nav-scroll {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.cp-portal-shell .mch-group-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8C7463;
+  padding: 0 12px 6px;
+}
+.cp-portal-shell .mch-nav-link {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #D6C7B8;
+  font-size: 0.86rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.cp-portal-shell .mch-nav-link:hover { background: rgba(255, 255, 255, 0.07); color: #FFFFFF; }
+.cp-portal-shell .mch-nav-link.active {
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+}
+.cp-mobile-menu-btn, .cp-mobile-sidebar-close {
+  display: none;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: #202024; border: 1px solid #2E2E35; color: #F4F1EC;
+  align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+}
+.cp-sidebar-backdrop { display: none; }
 .cp-portal-page { min-height: 100vh; background: #121214; color: #F4F1EC; padding-bottom: 48px; }
 .cp-menu-layout { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; width: 100%; }
 .cp-menu-layout.has-cart { grid-template-columns: minmax(0, 1fr) clamp(310px, 31vw, 390px); }
 .mch-content .cp-menu-layout.has-cart { grid-template-columns: minmax(0, 1fr) clamp(295px, 28vw, 370px); }
 .cp-products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); grid-auto-rows: max-content; gap: 16px; }
+.mch-content .cp-products-grid { grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); }
 .cp-product-card {
   background: #18181B; border: 1px solid #2A2A30; border-radius: 16px;
   overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;
@@ -408,8 +472,23 @@ textarea.form-input, textarea.ui-input {
   align-items: center; justify-content: center; cursor: pointer; font-weight: 700;
 }
 
-/* Mobile: Ẩn giỏ mặc định dưới 820px, hiện thanh thu gọn ~56px; Desktop/Laptop giữ cố định cột phải */
+@media (max-width: 1120px) {
+  .cp-portal-shell .mch-sidebar { width: 232px; }
+}
+
+/* Mobile: Ẩn giỏ mặc định dưới 820px, sidebar trượt ngăn kéo; Desktop/Laptop giữ sidebar trái & giỏ cột phải */
 @media (max-width: 820px) {
+  .cp-portal-shell .mch-topbar { padding: 0 14px !important; }
+  .cp-portal-shell .mch-content { padding: 14px !important; }
+  .cp-portal-shell .mch-sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 268px !important;
+    transform: translateX(-100%); z-index: 95;
+  }
+  .cp-portal-shell .mch-sidebar.is-mobile-open { transform: translateX(0); }
+  .cp-sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 90; }
+  .cp-collapse-btn { display: none !important; }
+  .cp-mobile-menu-btn, .cp-mobile-sidebar-close { display: inline-flex !important; }
+  .cp-topbar-hide-sm { display: none !important; }
   .cp-menu-layout.has-cart,
   .mch-content .cp-menu-layout.has-cart { grid-template-columns: 1fr; padding-bottom: 84px; }
   .cp-side-cart { display: none; }

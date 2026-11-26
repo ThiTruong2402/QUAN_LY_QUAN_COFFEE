@@ -135,11 +135,39 @@ export default function Reports() {
     : 0;
 
   // 1. Xu hướng doanh thu & số đơn theo ngày
-  const dailyChart = useMemo(() => (revData.daily || []).map((d) => ({
-    date: String(d.date).slice(5, 10).split('-').reverse().join('/'),
-    revenue: Number(d.revenue || 0),
-    orders: Number(d.orders || 0),
-  })), [revData.daily]);
+  // Fill đủ mọi ngày trong khoảng fromDate..toDate (kể cả ngày 0 đơn)
+  // để X-axis hiển thị liên tục, không bị "1 cột" khi dữ liệu sparse
+  const dailyChart = useMemo(() => {
+    const dataMap = new Map(
+      (revData.daily || []).map((d) => [
+        String(d.date).slice(0, 10), // key: yyyy-mm-dd
+        { revenue: Number(d.revenue || 0), orders: Number(d.orders || 0) },
+      ])
+    );
+    // Nếu không có fromDate/toDate, fallback về map thuần
+    if (!fromDate || !toDate) {
+      return (revData.daily || []).map((d) => ({
+        date: String(d.date).slice(5, 10).split('-').reverse().join('/'),
+        revenue: Number(d.revenue || 0),
+        orders: Number(d.orders || 0),
+      }));
+    }
+    const result = [];
+    const cur = new Date(`${fromDate}T12:00:00+07:00`);
+    const end = new Date(`${toDate}T12:00:00+07:00`);
+    while (cur <= end) {
+      const key = cur.toISOString().slice(0, 10); // yyyy-mm-dd UTC (đủ dùng vì +07:00 offset cố định)
+      // key theo VN: dùng toLocaleDateString
+      const keyVN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(cur);
+      const val = dataMap.get(keyVN) || { revenue: 0, orders: 0 };
+      result.push({
+        date: keyVN.slice(5, 10).split('-').reverse().join('/'), // dd/mm
+        ...val,
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+    return result;
+  }, [revData.daily, fromDate, toDate]);
 
   // 2. Donut Thanh toán / Kênh phục vụ
   const donutList = useMemo(() => {
