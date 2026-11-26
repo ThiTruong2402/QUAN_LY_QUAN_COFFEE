@@ -73,19 +73,19 @@ export default function AuditLogs() {
         </div>
         <div className="ui-kpi-card">
           <span className="ui-kpi-label">Phát sinh hôm nay</span>
-          <span className="ui-kpi-value" style={{ color: '#15803D' }}>{stats.today_count || 0}</span>
+          <span className="ui-kpi-value" style={{ color: '#34D399' }}>{stats.today_count || 0}</span>
         </div>
         <div className="ui-kpi-card">
           <span className="ui-kpi-label">Thao tác đơn hàng</span>
-          <span className="ui-kpi-value" style={{ color: '#0369A1' }}>{stats.order_actions || 0}</span>
+          <span className="ui-kpi-value" style={{ color: '#38BDF8' }}>{stats.order_actions || 0}</span>
         </div>
         <div className="ui-kpi-card">
-          <span className="ui-kpi-label">Phân quyền & Nhân sự</span>
-          <span className="ui-kpi-value" style={{ color: '#6D28D9' }}>{stats.staff_actions || 0}</span>
+          <span className="ui-kpi-label">Phân quyền &amp; Nhân sự</span>
+          <span className="ui-kpi-value" style={{ color: '#C084FC' }}>{stats.staff_actions || 0}</span>
         </div>
         <div className="ui-kpi-card">
           <span className="ui-kpi-label">Lượt đăng nhập</span>
-          <span className="ui-kpi-value" style={{ color: '#C25E1A' }}>{stats.login_actions || 0}</span>
+          <span className="ui-kpi-value" style={{ color: '#F59E0B' }}>{stats.login_actions || 0}</span>
         </div>
       </div>
  
@@ -131,19 +131,19 @@ export default function AuditLogs() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#8C7E74' }}>Đang tải nhật ký...</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#A1A1AA' }}>Đang tải nhật ký...</td></tr>
               ) : logs.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#8C7E74' }}>Không tìm thấy bản ghi nhật ký phù hợp.</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#A1A1AA' }}>Không tìm thấy bản ghi nhật ký phù hợp.</td></tr>
               ) : logs.map((row) => {
                 const badge = ACTION_BADGES[row.action] || { label: row.action, cls: 'ui-badge-gray' };
                 return (
                   <tr key={row.id}>
-                    <td className="ui-nowrap" style={{ fontSize: '0.8rem', color: '#5E534B' }}>
+                    <td className="ui-nowrap" style={{ fontSize: '0.8rem', color: '#A1A1AA' }}>
                       {new Date(row.created_at).toLocaleString('vi-VN')}
                     </td>
                     <td className="ui-nowrap">
-                      <div style={{ fontWeight: 700, color: '#1E1815' }}>{row.full_name || row.username || 'Hệ thống'}</div>
-                      <div style={{ fontSize: '0.73rem', color: '#8C7E74' }}>
+                      <div style={{ fontWeight: 700, color: '#F4F1EC' }}>{row.full_name || row.username || 'Hệ thống'}</div>
+                      <div style={{ fontSize: '0.73rem', color: '#A1A1AA' }}>
                         @{row.username || 'system'} • {row.role_label || row.role_name || '—'}
                       </div>
                     </td>
@@ -151,14 +151,14 @@ export default function AuditLogs() {
                       <span className={`ui-badge ${badge.cls}`}>{badge.label}</span>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 500, color: '#1E1815' }}>{row.reason || '—'}</div>
+                      <div style={{ fontWeight: 500, color: '#F4F1EC' }}>{row.reason || '—'}</div>
                       {row.entity_type && (
-                        <div style={{ fontSize: '0.73rem', color: '#8C7E74', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.73rem', color: '#A1A1AA', marginTop: '2px' }}>
                           Đối tượng: {row.entity_type} #{row.entity_id}
                         </div>
                       )}
                     </td>
-                    <td className="ui-nowrap" style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.8rem', color: '#5E534B' }}>
+                    <td className="ui-nowrap" style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.8rem', color: '#A1A1AA' }}>
                       {(row.ip_address || '—').replace('::ffff:', '')}
                     </td>
                   </tr>
@@ -170,7 +170,7 @@ export default function AuditLogs() {
  
         {/* Phân trang */}
         {pagination.totalPages > 1 && (
-          <div style={{ padding: '12px 18px', borderTop: '1px solid #F1ECE4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#73675E' }}>
+          <div style={{ padding: '12px 18px', borderTop: '1px solid #2A2A30', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#A1A1AA' }}>
             <span>Trang {pagination.page} / {pagination.totalPages} ({pagination.total} bản ghi)</span>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button type="button" className="ui-btn ui-btn-outline" style={{ height: '32px' }} disabled={pagination.page <= 1} onClick={() => fetchLogs(pagination.page - 1)}>Trước</button>

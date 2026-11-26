@@ -470,14 +470,23 @@ const directCheckout = async (req, res) => {
     const result = await orderService.createDirectOrder(conn, {
       orderData: req.body,
       reqUser: req.user,
-      io: req.app?.get('io')
     });
 
     await conn.commit();
+
+    const io = req.app?.get('io');
+    if (io && result.socketEvents) {
+      const { orderCreated, cashierNewOrder, baristaNewOrder } = result.socketEvents;
+      if (orderCreated) io.emit('order:created', orderCreated);
+      if (cashierNewOrder) io.to('cashier').emit('cashier:new_order', cashierNewOrder);
+      if (baristaNewOrder) io.to('barista').emit('barista:new_order', baristaNewOrder);
+    }
+
+    const { socketEvents, ...responseData } = result;
     res.json({
       success: true,
       message: result.message,
-      data: result
+      data: responseData
     });
   } catch (err) {
     await conn.rollback();
@@ -782,16 +791,18 @@ const cancelOrder = async (req, res) => {
         // BIZ-04: Cập nhật lại hạng hội viên tương ứng với total_spent mới sau khi trừ tiền
         await loyaltyService.recalculateCustomerTier(conn, order.customer_id);
       }
-      // Ghi nhận bản ghi hoàn tiền (refund) tương ứng đúng phương thức thanh toán gốc
-      const [origPayments] = await conn.query(
-        'SELECT method FROM payments WHERE order_id = ? AND type = "payment" ORDER BY id DESC LIMIT 1',
-        [id]
-      );
-      const refundMethod = origPayments.length ? origPayments[0].method : 'cash';
-      await conn.query(
-        'INSERT INTO payments (order_id, method, type, amount, created_by) VALUES (?, ?, "refund", ?, ?)',
-        [id, refundMethod, Number(order.total), req.user?.id || 1]
-      );
+      // Ghi nhận bản ghi hoàn tiền (refund) tương ứng đúng phương thức thanh toán gốc (tránh vi phạm CHECK amount > 0 với đơn 0đ)
+      if (Number(order.total) > 0) {
+        const [origPayments] = await conn.query(
+          'SELECT method FROM payments WHERE order_id = ? AND type = "payment" ORDER BY id DESC LIMIT 1',
+          [id]
+        );
+        const refundMethod = origPayments.length ? origPayments[0].method : 'cash';
+        await conn.query(
+          'INSERT INTO payments (order_id, method, type, amount, created_by) VALUES (?, ?, "refund", ?, ?)',
+          [id, refundMethod, Number(order.total), req.user?.id || 1]
+        );
+      }
     }
 
     await conn.commit();

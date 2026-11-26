@@ -6,6 +6,7 @@ import {
 import api, { resolveProductImage } from '../api/axios';
 import toast from 'react-hot-toast';
 import { usePosCart } from '../context/PosCartContext';
+import { useAuth } from '../context/AuthContext';
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
 const FALLBACK_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%2318181B'/><circle cx='200' cy='150' r='44' fill='%2327272A'/><path d='M182 142h28v18a14 14 0 0 1-28 0v-18zm28 4h5a6 6 0 0 1 0 12h-5' fill='none' stroke='%23D97706' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>";
@@ -16,9 +17,10 @@ const cleanLabel = (str) => String(str || '').replace(/^[^\p{L}\p{N}]+/u, '').tr
 export default function PosOrder() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const {
     cart, orderMeta, summary,
-    addItem, updateQty, removeItem, clearCart, updateMeta, getProductQty,
+    addItem, updateQty, updateItemNote, removeItem, clearCart, updateMeta, getProductQty,
   } = usePosCart();
  
   const [products, setProducts] = useState([]);
@@ -29,8 +31,8 @@ export default function PosOrder() {
  
   // Lưu size đang chọn trên từng thẻ sản phẩm: { [productId]: sizeObject }
   const [selectedSizes, setSelectedSizes] = useState({});
-  // Ngăn kéo xem nhanh giỏ hàng trước khi chuyển trang thanh toán
-  const [quickCartOpen, setQuickCartOpen] = useState(false);
+  // Ngăn kéo xem giỏ hàng trên Mobile (<= 1024px)
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   // Xem phóng to ảnh món ăn ở chính giữa màn hình
   const [previewProduct, setPreviewProduct] = useState(null);
  
@@ -265,29 +267,6 @@ export default function PosOrder() {
           border-color: #D97706;
           color: #FBBF24;
         }
- 
-        /* THANH GIỎ HÀNG NỔI PHÍA DƯỚI CHUẨN APP F&B HIỆN ĐẠI */
-        .pos-floating-cart {
-          position: fixed;
-          bottom: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: calc(100% - 280px);
-          max-width: 820px;
-          background: #1E140E;
-          border: 1px solid rgba(217, 119, 6, 0.55);
-          border-radius: 18px;
-          padding: 12px 18px;
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          z-index: 60;
-        }
-        @media (max-width: 1024px) {
-          .pos-floating-cart { width: calc(100% - 32px); left: 50%; }
-        }
       `}</style>
  
       {/* 1. THANH CÔNG CỤ TÌM KIẾM, BÀN ĐANG CHỌN & NÚT GIỎ HÀNG */}
@@ -315,11 +294,11 @@ export default function PosOrder() {
             )}
           </div>
  
-          {/* Nút Giỏ hàng trên góc phải luôn sẵn sàng */}
+          {/* Nút Giỏ hàng / Thanh toán trên góc phải */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              onClick={() => setQuickCartOpen(true)}
+              onClick={() => setMobileCartOpen(true)}
               style={{
                 height: '40px', padding: '0 14px', borderRadius: '11px',
                 background: '#202024', border: '1px solid #2E2E35', color: '#F4F1EC',
@@ -344,7 +323,7 @@ export default function PosOrder() {
                 display: 'inline-flex', alignItems: 'center', gap: '7px'
               }}
             >
-              <span>Thanh toán</span>
+              <span>Thanh toán (F9)</span>
               <ArrowRight size={15} />
             </button>
           </div>
@@ -372,248 +351,289 @@ export default function PosOrder() {
         </div>
       </div>
  
-      {/* 2. LƯỚI SẢN PHẨM TOÀN MÀN HÌNH (4 - 5 CỘT RỘNG THOÁNG) */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '64px 0', color: '#A1A1AA' }}>Đang tải thực đơn quán...</div>
-      ) : filteredProducts.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '64px 20px', background: '#18181B',
-          borderRadius: '16px', border: '1px solid #2A2A30', color: '#A1A1AA'
-        }}>
-          <Coffee size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
-          <div>Không tìm thấy đồ uống phù hợp với từ khóa "{search}".</div>
-        </div>
-      ) : (
-        <div className="pos-full-grid">
-          {filteredProducts.map((p) => {
-            const sizes = p.sizes || [];
-            const activeSize = selectedSizes[p.id] || sizes[0] || { id: null, name: 'M', price: p.price || 0 };
-            const qtyInCart = getProductQty(p.id);
-            const hasMultiSizes = sizes.length > 1;
- 
-            return (
-              <article key={p.id} className="pos-item-card">
-                <div className="pos-item-thumb-wrap" onClick={() => handleQuickAdd(p)} style={{ cursor: 'pointer' }}>
-                  <img
-                    src={resolveProductImage(p.image_url, FALLBACK_IMG)}
-                    alt={p.name}
-                    className="pos-item-thumb"
-                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
-                  />
-                  <button
-                    type="button"
-                    className="pos-item-zoom-btn"
-                    title="Xem ảnh món ở giữa màn hình"
-                    onClick={(e) => { e.stopPropagation(); setPreviewProduct(p); }}
-                  >
-                    <Maximize2 size={13} />
-                  </button>
-                  {p.code && (
-                    <span style={{
-                      position: 'absolute', top: '10px', left: '10px',
-                      background: 'rgba(18, 18, 20, 0.78)', backdropFilter: 'blur(6px)',
-                      color: '#F4F1EC', fontSize: '0.7rem', fontWeight: 700,
-                      padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)'
-                    }}>
-                      {p.code}
-                    </span>
-                  )}
-                  {qtyInCart > 0 && (
-                    <span style={{
-                      position: 'absolute', top: '10px', right: '10px',
-                      background: '#D97706', color: '#FFFFFF',
-                      fontSize: '0.74rem', fontWeight: 800,
-                      padding: '3px 10px', borderRadius: '999px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
-                    }}>
-                      {qtyInCart} trong giỏ
-                    </span>
-                  )}
-                </div>
- 
-                <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: '10px' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 4px', fontSize: '0.94rem', fontWeight: 700, color: '#F4F1EC', lineHeight: 1.3 }}>
-                      {p.name}
-                    </h3>
-                    <p style={{
-                      margin: 0, fontSize: '0.76rem', color: '#A1A1AA', lineHeight: 1.4,
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '32px'
-                    }}>
-                      {p.description || 'Pha chế chuẩn vị tại My Coffee House'}
-                    </p>
-                  </div>
- 
-                  {/* Chọn nhanh Size (chỉ hiển thị khi món có từ 2 size trở lên) */}
-                  {hasMultiSizes && (
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {sizes.map((s) => {
-                        const isSelected = activeSize?.id === s.id;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            className={`pos-size-pill ${isSelected ? 'active' : ''}`}
-                            onClick={() => setSelectedSizes((prev) => ({ ...prev, [p.id]: s }))}
-                          >
-                            Size {s.name || s.size}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
- 
-                  {/* Giá bán & Nút Thêm vào giỏ */}
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    paddingTop: '10px', borderTop: '1px solid #26262B'
-                  }}>
-                    <span style={{ fontSize: '1rem', fontWeight: 800, color: '#F59E0B' }}>
-                      {fmt(activeSize?.price || 0)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickAdd(p)}
-                      style={{
-                        background: '#D97706', color: '#FFFFFF', border: 'none',
-                        padding: '7px 14px', borderRadius: '9px', fontSize: '0.8rem', fontWeight: 700,
-                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px'
-                      }}
-                    >
-                      <Plus size={15} /> Thêm
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
- 
-      {/* 3. THANH GIỎ HÀNG NỔI CẠNH DƯỚI (HIỆN KHI CÓ MÓN TRONG GIỎ) */}
-      {summary.totalItems > 0 && (
-        <div className="pos-floating-cart">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setQuickCartOpen(true)}>
+      {/* 2. BỐ CỤC THỰC ĐƠN + GIỎ HÀNG CỐ ĐỊNH BÊN CẠNH (ĐỒNG BỘ VỚI CỔNG KHÁCH HÀNG) */}
+      <div className={`cp-menu-layout ${cart.length > 0 ? 'has-cart' : ''}`}>
+        <div>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '64px 0', color: '#A1A1AA' }}>Đang tải thực đơn quán...</div>
+          ) : filteredProducts.length === 0 ? (
             <div style={{
-              width: '40px', height: '40px', borderRadius: '12px',
-              background: 'rgba(217, 119, 6, 0.2)', border: '1px solid rgba(217, 119, 6, 0.45)',
-              color: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              textAlign: 'center', padding: '64px 20px', background: '#18181B',
+              borderRadius: '16px', border: '1px solid #2A2A30', color: '#A1A1AA'
             }}>
-              <ShoppingBag size={19} />
+              <Coffee size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+              <div>Không tìm thấy đồ uống phù hợp với từ khóa "{search}".</div>
             </div>
-            <div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#FFFFFF' }}>
-                {summary.totalItems} món trong giỏ hàng
-                {orderMeta.tableCode && orderMeta.orderType === 'dine_in' ? ` • ${orderMeta.tableCode}` : ''}
-              </div>
-            </div>
-          </div>
+          ) : (
+            <div className="pos-full-grid">
+              {filteredProducts.map((p) => {
+                const sizes = p.sizes || [];
+                const activeSize = selectedSizes[p.id] || sizes[0] || { id: null, name: 'M', price: p.price || 0 };
+                const qtyInCart = getProductQty(p.id);
+                const hasMultiSizes = sizes.length > 1;
  
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.7rem', color: '#B09884' }}>Tạm tính</div>
-              <div style={{ fontSize: '1.12rem', fontWeight: 800, color: '#FBBF24' }}>{fmt(summary.subtotal)}</div>
-            </div>
+                return (
+                  <article key={p.id} className="pos-item-card">
+                    <div className="pos-item-thumb-wrap" onClick={() => handleQuickAdd(p)} style={{ cursor: 'pointer' }}>
+                      <img
+                        src={resolveProductImage(p.image_url, FALLBACK_IMG)}
+                        alt={p.name}
+                        className="pos-item-thumb"
+                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG; }}
+                      />
+                      <button
+                        type="button"
+                        className="pos-item-zoom-btn"
+                        title="Xem ảnh món ở giữa màn hình"
+                        onClick={(e) => { e.stopPropagation(); setPreviewProduct(p); }}
+                      >
+                        <Maximize2 size={13} />
+                      </button>
+                      {p.code && (
+                        <span style={{
+                          position: 'absolute', top: '10px', left: '10px',
+                          background: 'rgba(18, 18, 20, 0.78)', backdropFilter: 'blur(6px)',
+                          color: '#F4F1EC', fontSize: '0.7rem', fontWeight: 700,
+                          padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)'
+                        }}>
+                          {p.code}
+                        </span>
+                      )}
+                      {qtyInCart > 0 && (
+                        <span style={{
+                          position: 'absolute', top: '10px', right: '10px',
+                          background: '#D97706', color: '#FFFFFF',
+                          fontSize: '0.74rem', fontWeight: 800,
+                          padding: '3px 10px', borderRadius: '999px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                        }}>
+                          {qtyInCart} trong giỏ
+                        </span>
+                      )}
+                    </div>
  
-            <button
-              type="button"
-              onClick={() => navigate('/pos/checkout')}
-              style={{
-                background: '#D97706', color: '#FFFFFF', border: 'none',
-                height: '42px', padding: '0 20px', borderRadius: '12px',
-                fontSize: '0.86rem', fontWeight: 800, cursor: 'pointer',
-                display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap'
-              }}
-            >
-              <span>Thanh toán (F9)</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
+                    <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: '10px' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 4px', fontSize: '0.94rem', fontWeight: 700, color: '#F4F1EC', lineHeight: 1.3 }}>
+                          {p.name}
+                        </h3>
+                        <p style={{
+                          margin: 0, fontSize: '0.76rem', color: '#A1A1AA', lineHeight: 1.4,
+                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '32px'
+                        }}>
+                          {p.description || 'Pha chế chuẩn vị tại My Coffee House'}
+                        </p>
+                      </div>
+ 
+                      {/* Chọn nhanh Size (chỉ hiển thị khi món có từ 2 size trở lên) */}
+                      {hasMultiSizes && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {sizes.map((s) => {
+                            const isSelected = activeSize?.id === s.id;
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                className={`pos-size-pill ${isSelected ? 'active' : ''}`}
+                                onClick={() => setSelectedSizes((prev) => ({ ...prev, [p.id]: s }))}
+                              >
+                                Size {s.name || s.size}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+ 
+                      {/* Giá bán & Nút Thêm vào giỏ */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        paddingTop: '10px', borderTop: '1px solid #26262B'
+                      }}>
+                        <span style={{ fontSize: '1rem', fontWeight: 800, color: '#F59E0B' }}>
+                          {fmt(activeSize?.price || 0)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickAdd(p)}
+                          style={{
+                            background: '#D97706', color: '#FFFFFF', border: 'none',
+                            padding: '7px 14px', borderRadius: '9px', fontSize: '0.8rem', fontWeight: 700,
+                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px'
+                          }}
+                        >
+                          <Plus size={15} /> Thêm
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
- 
-      {/* 4. NGĂN KÉO XEM NHANH GIỎ HÀNG (SLIDE-OVER MINI CART) */}
-      {quickCartOpen && (
-        <div
-          onClick={() => setQuickCartOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.62)',
-            backdropFilter: 'blur(4px)', zIndex: 999, display: 'flex', justifyContent: 'flex-end'
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%', maxWidth: '420px', height: '100vh',
-              background: '#18181B', borderLeft: '1px solid #2A2A30',
-              display: 'flex', flexDirection: 'column', color: '#F4F1EC'
-            }}
-          >
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #27272B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 800, fontSize: '1rem' }}>Giỏ hàng đã chọn ({summary.totalItems})</div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {cart.length > 0 && (
-                  <button type="button" onClick={clearCart} style={{ background: 'none', border: 'none', color: '#F87171', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
-                    Xóa hết
-                  </button>
-                )}
-                <button type="button" onClick={() => setQuickCartOpen(false)} style={{ background: '#26262B', border: 'none', color: '#F4F1EC', width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <X size={16} />
+
+        {/* PANEL GIỎ HÀNG CỐ ĐỊNH BÊN CẠNH TRÊN PC & DRAWER TRÊN MOBILE */}
+        {cart.length > 0 && (
+          <aside className={`cp-side-cart ${mobileCartOpen ? 'is-mobile-open' : ''}`}>
+            <div className="cp-side-cart-header">
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.96rem', color: '#F4F1EC' }}>
+                  Giỏ hàng POS ({summary.totalItems} món)
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#A1A1AA', marginTop: '2px' }}>
+                  {user?.full_name || 'Nhân viên quầy'}
+                  {orderMeta.orderType === 'dine_in' && orderMeta.tableCode ? ` · ${orderMeta.tableCode}` : ' · Mang về'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => { clearCart(); setMobileCartOpen(false); }}
+                  style={{ background: 'none', border: 'none', color: '#F87171', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Xóa hết
+                </button>
+                <button
+                  type="button"
+                  className="cp-mobile-close-btn"
+                  onClick={() => setMobileCartOpen(false)}
+                  aria-label="Đóng giỏ hàng"
+                >
+                  ✕
                 </button>
               </div>
             </div>
- 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {cart.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '48px 10px', color: '#71717A', fontSize: '0.86rem' }}>
-                  Chưa có món nào trong giỏ hàng.
-                </div>
-              ) : cart.map((item) => (
-                <div key={item.key} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
-                  padding: '12px', borderRadius: '12px', background: '#202024', border: '1px solid #2A2A30'
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#F4F1EC' }}>{item.name}</div>
-                    <div style={{ fontSize: '0.74rem', color: '#A1A1AA', marginTop: '2px' }}>
-                      {item.size_name && item.size_name !== 'Tiêu chuẩn' ? `Size ${item.size_name} • ` : ''}{fmt(item.price)}
+
+            <div className="cp-side-cart-body">
+              {cart.map((item) => (
+                <div
+                  key={item.key}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: '8px',
+                    padding: '10px 12px', borderRadius: '12px',
+                    background: '#202024', border: '1px solid #2A2A30',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#F4F1EC' }}>{item.name}</div>
+                      <div style={{ fontSize: '0.74rem', color: '#FBBF24', fontWeight: 600, marginTop: '2px' }}>
+                        {item.size_name && item.size_name !== 'Tiêu chuẩn' ? `Size ${item.size_name} · ` : ''}{fmt(item.price * item.quantity)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.key, -1)}
+                        style={{
+                          width: '26px', height: '26px', borderRadius: '7px',
+                          background: '#121214', border: '1px solid #32323A', color: '#F4F1EC',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <span style={{ minWidth: '18px', textAlign: 'center', fontWeight: 700, fontSize: '0.84rem' }}>
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.key, 1)}
+                        style={{
+                          width: '26px', height: '26px', borderRadius: '7px',
+                          background: '#121214', border: '1px solid #32323A', color: '#F4F1EC',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <Plus size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.key)}
+                        style={{ background: 'none', border: 'none', color: '#71717A', cursor: 'pointer', padding: '4px' }}
+                        title="Xóa món"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button type="button" onClick={() => updateQty(item.key, -1)} style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#121214', border: '1px solid #32323A', color: '#F4F1EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Minus size={13} />
-                    </button>
-                    <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem' }}>{item.quantity}</span>
-                    <button type="button" onClick={() => updateQty(item.key, 1)} style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#121214', border: '1px solid #32323A', color: '#F4F1EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Plus size={13} />
-                    </button>
-                    <button type="button" onClick={() => removeItem(item.key)} style={{ background: 'none', border: 'none', color: '#71717A', cursor: 'pointer', padding: '4px' }}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    className="ui-input"
+                    style={{ height: '30px', fontSize: '0.76rem', padding: '0 10px', borderRadius: '8px' }}
+                    placeholder="Ghi chú pha chế (ít đường, nhiều đá...)"
+                    value={item.note || ''}
+                    onChange={(e) => updateItemNote(item.key, e.target.value)}
+                  />
                 </div>
               ))}
             </div>
- 
-            <div style={{ padding: '16px 20px', borderTop: '1px solid #27272B', background: '#141417' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'baseline' }}>
-                <span style={{ color: '#A1A1AA', fontSize: '0.86rem' }}>Tạm tính</span>
-                <span style={{ color: '#F59E0B', fontSize: '1.18rem', fontWeight: 800 }}>{fmt(summary.subtotal)}</span>
+
+            <div className="cp-side-cart-footer">
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { id: 'dine_in', label: 'Tại bàn' },
+                  { id: 'takeaway', label: 'Mang về' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => updateMeta({ orderType: opt.id })}
+                    style={{
+                      flex: 1, height: '32px', borderRadius: '8px', cursor: 'pointer',
+                      fontSize: '0.76rem', fontWeight: 700,
+                      background: orderMeta.orderType === opt.id ? 'rgba(217, 119, 6, 0.16)' : '#202024',
+                      border: orderMeta.orderType === opt.id ? '1.5px solid #D97706' : '1px solid #2E2E35',
+                      color: orderMeta.orderType === opt.id ? '#FBBF24' : '#A1A1AA',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ color: '#A1A1AA', fontSize: '0.84rem' }}>Tạm tính</span>
+                <span className="ui-money" style={{ color: '#F59E0B', fontSize: '1.16rem', fontWeight: 800 }}>
+                  {fmt(summary.subtotal)}
+                </span>
               </div>
               <button
                 type="button"
-                disabled={cart.length === 0}
-                onClick={() => { setQuickCartOpen(false); navigate('/pos/checkout'); }}
+                onClick={() => { setMobileCartOpen(false); navigate('/pos/checkout'); }}
                 style={{
-                  width: '100%', height: '44px', borderRadius: '11px', border: 'none',
-                  background: cart.length > 0 ? '#D97706' : '#27272B',
-                  color: '#FFFFFF', fontWeight: 800, fontSize: '0.9rem', cursor: cart.length > 0 ? 'pointer' : 'not-allowed'
+                  width: '100%', height: '42px', borderRadius: '11px', border: 'none',
+                  background: '#D97706', color: '#FFFFFF', fontWeight: 800, fontSize: '0.88rem',
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                 }}
               >
-                Chuyển sang trang Thanh toán →
+                <span>Thanh toán &amp; Thu tiền (F9)</span>
+                <ArrowRight size={16} />
               </button>
             </div>
+          </aside>
+        )}
+      </div>
+
+      {/* THANH GIỎ HÀNG THU GỌN CHO MOBILE (<= 820PX) */}
+      {cart.length > 0 && !mobileCartOpen && (
+        <div className="cp-mobile-cart-bar" onClick={() => setMobileCartOpen(true)}>
+          <div>
+            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#F4F1EC' }}>
+              {summary.totalItems} món trong giỏ POS
+            </div>
+            <div className="ui-money" style={{ fontSize: '0.78rem', color: '#FBBF24', fontWeight: 700 }}>
+              {fmt(summary.subtotal)}
+            </div>
           </div>
+          <button
+            type="button"
+            style={{
+              background: '#D97706', color: '#FFFFFF', border: 'none',
+              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            Xem giỏ &amp; Thanh toán
+          </button>
         </div>
       )}
 

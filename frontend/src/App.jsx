@@ -40,8 +40,8 @@ class AppErrorBoundary extends Component {
       return (
         <div style={{
           minHeight: '100vh',
-          background: '#130c08',
-          color: '#fef3c7',
+          background: '#121214',
+          color: '#F4F1EC',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -51,10 +51,10 @@ class AppErrorBoundary extends Component {
           fontFamily: "'Inter', sans-serif"
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>☕</div>
-          <h2 style={{ fontSize: '1.4rem', color: '#f59e0b', marginBottom: '8px' }}>
+          <h2 style={{ fontSize: '1.4rem', color: '#F59E0B', marginBottom: '8px' }}>
             MY COFFEE HOUSE • HỆ THỐNG ĐANG TẢI LẠI
           </h2>
-          <p style={{ color: '#d4b094', maxWidth: '480px', lineHeight: 1.5, fontSize: '0.9rem', marginBottom: '20px' }}>
+          <p style={{ color: '#A1A1AA', maxWidth: '480px', lineHeight: 1.5, fontSize: '0.9rem', marginBottom: '20px' }}>
             Hệ thống phát hiện cập nhật mới hoặc kết nối mạng bị gián đoạn. Vui lòng nhấn nút bên dưới để làm mới trang.
           </p>
           <button
@@ -89,7 +89,7 @@ export const getDefaultRouteByRole = (role) => {
     case 'manager':
     case 'cashier':
     case 'waiter':
-      return '/';              // Sơ đồ bàn phục vụ
+      return '/tables';       // Sơ đồ bàn phục vụ
     case 'barista':
       return '/barista';       // Màn hình pha chế KDS
     case 'warehouse':
@@ -107,16 +107,16 @@ export function RoleRoute({ allowedRoles, allowRoles, children }) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#F6F3EE',
+        background: '#121214',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#2C1A12',
-        fontFamily: "'Be Vietnam Pro', sans-serif"
+        color: '#F4F1EC',
+        fontFamily: "'Inter', sans-serif"
       }}>
         <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>☕</div>
-        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#6E5D52' }}>
+        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#A1A1AA' }}>
           Đang kết nối hệ thống My Coffee House...
         </div>
       </div>
@@ -141,15 +141,30 @@ export default function App() {
           <PosCartProvider>
             <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
             <Routes>
+              {/* Truy cập đường dẫn gốc luôn bắt đầu tại trang Đăng nhập */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
 
-              {/* Cổng Khách Hàng: Mở cho mọi Khách Hàng và ban quản lý (hỗ trợ cả Khách Hàng và thành viên) */}
-              <Route path="/customer" element={<CustomerPortal />} />
+              {/* Cổng Khách Hàng: Bắt buộc đăng nhập mới được truy cập */}
+              <Route
+                path="/customer"
+                element={
+                  <RoleRoute allowedRoles={['customer', 'admin', 'manager', 'cashier']}>
+                    <CustomerPortal />
+                  </RoleRoute>
+                }
+              />
 
-              <Route path="/" element={<AppLayout />}>
-                {/* 1. Trang Chủ: Sơ đồ 20 bàn trực quan */}
+              <Route
+                element={
+                  <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter', 'barista', 'warehouse']}>
+                    <AppLayout />
+                  </RoleRoute>
+                }
+              >
+                {/* 1. Sơ đồ 20 bàn trực quan */}
                 <Route
-                  index
+                  path="tables"
                   element={
                     <RoleRoute allowedRoles={['admin', 'manager', 'cashier', 'waiter', 'barista']}>
                       <Tables />
@@ -266,7 +281,6 @@ export default function App() {
               />
 
               {/* Điều hướng đường dẫn tương thích & chuyển hướng gộp */}
-              <Route path="tables" element={<Navigate to="/" replace />} />
               <Route path="dashboard" element={<Navigate to="/reports" replace />} />
               <Route path="recipes" element={<Navigate to="/menu" replace />} />
               <Route path="products" element={<Navigate to="/menu" replace />} />
@@ -276,7 +290,7 @@ export default function App() {
               <Route path="promotions" element={<Navigate to="/accounts" replace />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
           </PosCartProvider>
         </AuthProvider>

@@ -30,9 +30,9 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Auto attach token
+// Auto attach token (sessionStorage để mỗi lần mở link/tab mới luôn yêu cầu đăng nhập)
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = sessionStorage.getItem('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -46,16 +46,18 @@ api.interceptors.response.use(
     if (err.response?.status === 401 && !original._retry && !isAuthRoute) {
       original._retry = true;
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = sessionStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('Missing refreshToken');
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-        localStorage.setItem('accessToken', data.data.accessToken);
+        sessionStorage.setItem('accessToken', data.data.accessToken);
         original.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(original);
       } catch {
-        localStorage.clear();
-        // FE-02: Không chuyển hướng cưỡng bức về /login nếu đang ở cổng khách hàng công khai
-        const path = window.location.pathname;
-        if (!path.startsWith('/customer') && !path.startsWith('/login') && !path.startsWith('/register')) {
+        sessionStorage.clear();
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
       }

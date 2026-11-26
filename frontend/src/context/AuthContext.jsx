@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../api/axios';
+import socket, { reconnectSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
 
@@ -20,27 +21,36 @@ export const AuthProvider = ({ children }) => {
   const refreshUser = async () => {
     try {
       const res = await api.get('/auth/me');
-      setUser(res.data.data);
-      return res.data.data;
+      if (res.data?.data) {
+        setUser(res.data.data);
+        sessionStorage.setItem('user', JSON.stringify(res.data.data));
+        return res.data.data;
+      }
+      return null;
     } catch {
       return null;
     }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    // Dọn token tồn đọng trong localStorage (nếu có) để mọi phiên mở link mới luôn qua Đăng nhập
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+
+    const token = sessionStorage.getItem('accessToken');
     if (token) {
       api.get('/auth/me')
         .then((res) => {
           if (res.data?.success && res.data?.data) {
             setUser(res.data.data);
           } else {
-            localStorage.clear();
+            sessionStorage.clear();
             setUser(null);
           }
         })
         .catch(() => {
-          localStorage.clear();
+          sessionStorage.clear();
           setUser(null);
         })
         .finally(() => setLoading(false));
@@ -52,24 +62,31 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
     const { accessToken, refreshToken, user: u } = res.data.data;
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    sessionStorage.setItem('accessToken', accessToken);
+    if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
+    sessionStorage.setItem('user', JSON.stringify(u));
     setUser(u);
+    reconnectSocket();
     return u;
   };
 
   const register = async (registerData) => {
     const res = await api.post('/auth/register', registerData);
     const { accessToken, refreshToken, user: u } = res.data.data;
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    sessionStorage.setItem('accessToken', accessToken);
+    if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
+    sessionStorage.setItem('user', JSON.stringify(u));
     setUser(u);
+    reconnectSocket();
     return u;
   };
 
   const logout = () => {
-    localStorage.clear();
+    socket.disconnect();
     sessionStorage.clear();
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     setUser(null);
     window.location.href = '/login';
   };

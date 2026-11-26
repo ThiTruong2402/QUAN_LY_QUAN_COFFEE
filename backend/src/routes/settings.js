@@ -28,6 +28,19 @@ router.get('/store-hours', async (req, res) => {
 // PUT /api/settings/store-hours (Chỉ Quản trị viên Admin mới có quyền cấu hình hệ thống)
 router.put('/store-hours', authenticate, authorize('admin'), async (req, res) => {
   try {
+    const current = await storeService.getStoreSettings();
+    const nextOpen = req.body.open_time ?? req.body.openTime ?? current.open_time;
+    const nextClose = req.body.close_time ?? req.body.closeTime ?? current.close_time;
+    const nextLead = Number(req.body.min_lead_time_minutes ?? req.body.minLeadTimeMinutes ?? current.min_lead_time_minutes);
+    const nextDispatch = Number(req.body.auto_dispatch_before_minutes ?? current.auto_dispatch_before_minutes);
+
+    if (!nextOpen || !nextClose || nextOpen === nextClose) {
+      return res.status(400).json({ success: false, message: 'Giờ mở cửa và giờ đóng cửa phải hợp lệ và không được trùng nhau!' });
+    }
+    if (!Number.isFinite(nextLead) || !Number.isFinite(nextDispatch) || nextDispatch >= nextLead) {
+      return res.status(400).json({ success: false, message: 'Thời gian tự động chuyển Barista phải nhỏ hơn thời gian đặt trước tối thiểu!' });
+    }
+
     const updated = await storeService.updateStoreSettings(req.body);
     const vnNow = storeService.getVietnamNow();
     const isOpen = storeService.isStoreOpen(updated, vnNow);

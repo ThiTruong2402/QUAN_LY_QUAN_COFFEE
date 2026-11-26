@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { getVietnamDateString } = require('../utils/date');
 
 // GET /api/audit-logs
 const getLogs = async (req, res) => {
@@ -82,15 +83,17 @@ const getLogs = async (req, res) => {
     );
 
     // Summary statistics for cards
-    const [statsRows] = await db.query(`
-      SELECT
-        COUNT(*) AS total_all,
-        SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) AS today_count,
-        SUM(CASE WHEN action IN ('CREATE_ORDER', 'UPDATE_ORDER_STATUS', 'CANCEL_ORDER', 'PAY_ORDER') THEN 1 ELSE 0 END) AS order_actions,
-        SUM(CASE WHEN action IN ('CREATE_STAFF', 'UPDATE_STAFF', 'DELETE_STAFF', 'RESET_PASSWORD', 'ASSIGN_ROLE') THEN 1 ELSE 0 END) AS staff_actions,
-        SUM(CASE WHEN action = 'LOGIN' THEN 1 ELSE 0 END) AS login_actions
-      FROM audit_logs
-    `);
+    const todayVN = getVietnamDateString();
+    const [statsRows] = await db.query(
+      `SELECT
+         COUNT(*) AS total_all,
+         SUM(CASE WHEN DATE(created_at) = ? THEN 1 ELSE 0 END) AS today_count,
+         SUM(CASE WHEN action IN ('CREATE_ORDER', 'UPDATE_ORDER_STATUS', 'CANCEL_ORDER', 'PAY_ORDER') THEN 1 ELSE 0 END) AS order_actions,
+         SUM(CASE WHEN action IN ('CREATE_STAFF', 'UPDATE_STAFF', 'DELETE_STAFF', 'RESET_PASSWORD', 'ASSIGN_ROLE') THEN 1 ELSE 0 END) AS staff_actions,
+         SUM(CASE WHEN action = 'LOGIN' THEN 1 ELSE 0 END) AS login_actions
+       FROM audit_logs`,
+      [todayVN]
+    );
 
     res.json({
       success: true,

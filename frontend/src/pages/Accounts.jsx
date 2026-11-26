@@ -77,8 +77,8 @@ export default function Accounts() {
     value: 10,
     min_order_value: 0,
     max_discount: 50000,
-    start_date: new Date().toISOString().slice(0, 10),
-    end_date: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+    start_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date()),
+    end_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(Date.now() + 30 * 86400000)),
   });
 
   // Load Data based on active tab
@@ -252,11 +252,11 @@ export default function Accounts() {
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* 1. TOP TABS CONTROLLER (Underline Tabs chuẩn SaaS F&B) */}
+      {/* 1. TOP TABS CONTROLLER (Underline Tabs chuẩn Matte Dark) */}
       <div
         style={{
-          background: '#FFFFFF',
-          border: '1px solid #EAE3DA',
+          background: '#18181B',
+          border: '1px solid #2A2A30',
           borderRadius: '14px',
           padding: '6px 18px',
           display: 'flex',
@@ -370,11 +370,11 @@ export default function Accounts() {
                     padding: '5px 12px',
                     borderRadius: '6px',
                     fontSize: '0.78rem',
-                    fontWeight: 800,
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    background: accountRoleFilter === 'all' ? '#d97706' : 'rgba(255,255,255,0.06)',
-                    color: accountRoleFilter === 'all' ? '#ffffff' : '#c4a482',
-                    border: accountRoleFilter === 'all' ? '1px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)'
+                    background: accountRoleFilter === 'all' ? '#D97706' : '#202024',
+                    color: accountRoleFilter === 'all' ? '#FFFFFF' : '#A1A1AA',
+                    border: accountRoleFilter === 'all' ? '1px solid #D97706' : '1px solid #2A2A30'
                   }}
                 >
                   Tất cả ({users.length})
@@ -386,11 +386,11 @@ export default function Accounts() {
                     padding: '5px 12px',
                     borderRadius: '6px',
                     fontSize: '0.78rem',
-                    fontWeight: 800,
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    background: accountRoleFilter === 'customer' ? '#0d9488' : 'rgba(255,255,255,0.06)',
-                    color: accountRoleFilter === 'customer' ? '#ffffff' : '#c4a482',
-                    border: accountRoleFilter === 'customer' ? '1px solid #2dd4bf' : '1px solid rgba(255,255,255,0.1)'
+                    background: accountRoleFilter === 'customer' ? '#0D9488' : '#202024',
+                    color: accountRoleFilter === 'customer' ? '#FFFFFF' : '#A1A1AA',
+                    border: accountRoleFilter === 'customer' ? '1px solid #14B8A6' : '1px solid #2A2A30'
                   }}
                 >
                   🌟 Khách hàng đăng ký mới ({customerUsers.length})
@@ -402,11 +402,11 @@ export default function Accounts() {
                     padding: '5px 12px',
                     borderRadius: '6px',
                     fontSize: '0.78rem',
-                    fontWeight: 800,
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    background: accountRoleFilter === 'staff' ? '#2563eb' : 'rgba(255,255,255,0.06)',
-                    color: accountRoleFilter === 'staff' ? '#ffffff' : '#c4a482',
-                    border: accountRoleFilter === 'staff' ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.1)'
+                    background: accountRoleFilter === 'staff' ? '#2563EB' : '#202024',
+                    color: accountRoleFilter === 'staff' ? '#FFFFFF' : '#A1A1AA',
+                    border: accountRoleFilter === 'staff' ? '1px solid #3B82F6' : '1px solid #2A2A30'
                   }}
                 >
                   👔 Nhân sự nội bộ ({staffUsers.length})
@@ -437,25 +437,25 @@ export default function Accounts() {
                           onClick={() => selectStaffRow(u)}
                           style={{
                             cursor: 'pointer',
-                            background: isSelected ? 'rgba(217, 119, 6, 0.22)' : undefined,
-                            borderLeft: isSelected ? '3px solid #fbbf24' : '3px solid transparent',
+                            background: isSelected ? 'rgba(217, 119, 6, 0.16)' : undefined,
+                            borderLeft: isSelected ? '3px solid #D97706' : '3px solid transparent',
                           }}
                         >
-                          <td style={{ fontWeight: 700, color: isCust ? '#2dd4bf' : '#fbbf24' }}>
+                          <td style={{ fontWeight: 700, color: isCust ? '#2DD4BF' : '#FBBF24' }}>
                             {u.code || (isCust ? `KH00${u.id}` : `NV00${u.id}`)}
                           </td>
-                          <td style={{ fontWeight: 600, color: '#fef3c7' }}>{u.full_name}</td>
-                          <td style={{ color: '#d5bba2' }}>{u.username}</td>
+                          <td style={{ fontWeight: 600, color: '#F4F1EC' }}>{u.full_name}</td>
+                          <td style={{ color: '#A1A1AA' }}>{u.username}</td>
                           <td>
                             <span className={`ui-badge ${badge.cls}`}>
                               {badge.label}
                             </span>
                           </td>
-                          <td style={{ fontSize: '0.78rem', color: '#c4a482' }}>
+                          <td style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>
                             {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : '---'}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <span style={{ color: u.is_active ? '#34d399' : '#f87171', fontWeight: 700, fontSize: '0.78rem' }}>
+                            <span style={{ color: u.is_active ? '#34D399' : '#F87171', fontWeight: 700, fontSize: '0.78rem' }}>
                               {u.is_active ? '● Hoạt động' : '○ Tạm khóa'}
                             </span>
                           </td>
@@ -515,7 +515,7 @@ export default function Accounts() {
                     })}
                     {filteredUsers.length === 0 && (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#c4a482' }}>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#A1A1AA' }}>
                           Không tìm thấy tài khoản nào phù hợp
                         </td>
                       </tr>
@@ -660,7 +660,7 @@ export default function Accounts() {
                           type="button"
                           className="btn btn-outline"
                           disabled
-                          style={{ flex: 1, opacity: 0.5, cursor: 'not-allowed', color: '#c4a482', fontWeight: 700 }}
+                          style={{ flex: 1, opacity: 0.5, cursor: 'not-allowed', color: '#A1A1AA', borderColor: '#2A2A30', fontWeight: 700 }}
                           title="Chỉ Admin mới có quyền sửa thông tin tài khoản Admin"
                         >
                           🔒 CHỈ ADMIN ĐƯỢC SỬA
@@ -669,7 +669,7 @@ export default function Accounts() {
                         <button
                           type="button"
                           className="btn btn-primary"
-                          style={{ flex: 1, background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#d97706', fontWeight: 800 }}
+                          style={{ flex: 1, background: '#D97706', borderColor: '#D97706', fontWeight: 700 }}
                           onClick={() => handleSaveStaff(false)}
                         >
                           💾 LƯU THAY ĐỔI
@@ -690,7 +690,7 @@ export default function Accounts() {
                     <button
                       type="button"
                       className="btn btn-primary"
-                      style={{ flex: 1, background: 'linear-gradient(135deg, #D97706, #B45309)', borderColor: '#D97706', fontWeight: 800, boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)' }}
+                      style={{ flex: 1, background: '#D97706', borderColor: '#D97706', fontWeight: 700 }}
                       onClick={() => handleSaveStaff(true)}
                     >
                       + THÊM TÀI KHOẢN
@@ -708,40 +708,40 @@ export default function Accounts() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* 4 Membership Tiers Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-            <div className="mockup-panel" style={{ padding: '14px 18px', borderLeft: '4px solid #d97706' }}>
+            <div className="mockup-panel" style={{ padding: '14px 18px', borderLeft: '4px solid #D97706' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '1.8rem' }}>🥉</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(217, 119, 6, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>TÍCH 10K = 1 ĐIỂM</span>
+                <span style={{ fontSize: '0.72rem', background: 'rgba(217, 119, 6, 0.16)', color: '#FBBF24', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>TÍCH 10K = 1 ĐIỂM</span>
               </div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fef3c7', marginTop: '6px' }}>HẠNG ĐỒNG</div>
-              <div style={{ fontSize: '0.78rem', color: '#c4a482' }}>Chi tiêu: Dưới 500.000 đ • Tiêu chuẩn</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#F4F1EC', marginTop: '6px' }}>HẠNG ĐỒNG</div>
+              <div style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>Chi tiêu: Dưới 500.000 đ • Tiêu chuẩn</div>
             </div>
 
             <div className="mockup-panel" style={{ padding: '14px 18px', borderLeft: '4px solid #94a3b8' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '1.8rem' }}>🥈</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(148, 163, 184, 0.2)', color: '#cbd5e1', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>GIẢM 5% MỌI ĐƠN</span>
+                <span style={{ fontSize: '0.72rem', background: 'rgba(148, 163, 184, 0.16)', color: '#CBD5E1', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>GIẢM 5% MỌI ĐƠN</span>
               </div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fef3c7', marginTop: '6px' }}>HẠNG BẠC</div>
-              <div style={{ fontSize: '0.78rem', color: '#c4a482' }}>Chi tiêu: Từ 500.000 đ ➔ 2.000.000 đ</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#F4F1EC', marginTop: '6px' }}>HẠNG BẠC</div>
+              <div style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>Chi tiêu: Từ 500.000 đ ➔ 2.000.000 đ</div>
             </div>
 
             <div className="mockup-panel" style={{ padding: '14px 18px', borderLeft: '4px solid #f59e0b' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '1.8rem' }}>👑</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>GIẢM 10% MỌI ĐƠN</span>
+                <span style={{ fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.16)', color: '#FBBF24', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>GIẢM 10% MỌI ĐƠN</span>
               </div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fef3c7', marginTop: '6px' }}>HẠNG VÀNG</div>
-              <div style={{ fontSize: '0.78rem', color: '#c4a482' }}>Chi tiêu: Từ 2.000.000 đ ➔ 5.000.000 đ</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#F4F1EC', marginTop: '6px' }}>HẠNG VÀNG</div>
+              <div style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>Chi tiêu: Từ 2.000.000 đ ➔ 5.000.000 đ</div>
             </div>
 
             <div className="mockup-panel" style={{ padding: '14px 18px', borderLeft: '4px solid #38bdf8' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '1.8rem' }}>💎</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>GIẢM 15% VIP</span>
+                <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.16)', color: '#38BDF8', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>GIẢM 15% VIP</span>
               </div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fef3c7', marginTop: '6px' }}>KIM CƯƠNG</div>
-              <div style={{ fontSize: '0.78rem', color: '#c4a482' }}>Chi tiêu: Từ 5.000.000 đ trở lên</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#F4F1EC', marginTop: '6px' }}>KIM CƯƠNG</div>
+              <div style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>Chi tiêu: Từ 5.000.000 đ trở lên</div>
             </div>
           </div>
 
@@ -794,8 +794,8 @@ export default function Accounts() {
                     .map((c, idx) => (
                       <tr key={c.id}>
                         <td>{idx + 1}</td>
-                        <td style={{ fontWeight: 800, color: '#fbbf24' }}>{c.phone}</td>
-                        <td style={{ fontWeight: 700, color: '#fef3c7' }}>{c.name || 'Khách'}</td>
+                        <td style={{ fontWeight: 800, color: '#FBBF24' }}>{c.phone}</td>
+                        <td style={{ fontWeight: 700, color: '#F4F1EC' }}>{c.name || 'Khách'}</td>
                         <td>
                           <span
                             style={{
@@ -804,24 +804,24 @@ export default function Accounts() {
                               fontSize: '0.75rem',
                               fontWeight: 800,
                               background: c.tier_id === 4 ? 'rgba(56, 189, 248, 0.2)' : c.tier_id === 3 ? 'rgba(245, 158, 11, 0.2)' : c.tier_id === 2 ? 'rgba(148, 163, 184, 0.2)' : 'rgba(217, 119, 6, 0.2)',
-                              color: c.tier_id === 4 ? '#38bdf8' : c.tier_id === 3 ? '#fbbf24' : c.tier_id === 2 ? '#cbd5e1' : '#d97706',
-                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              color: c.tier_id === 4 ? '#38BDF8' : c.tier_id === 3 ? '#FBBF24' : c.tier_id === 2 ? '#CBD5E1' : '#D97706',
+                              border: '1px solid #2A2A30',
                             }}
                           >
                             {c.tier_id === 4 ? '💎 Kim Cương (-15%)' : c.tier_id === 3 ? '👑 Vàng (-10%)' : c.tier_id === 2 ? '🥈 Bạc (-5%)' : '🥉 Đồng (Chuẩn)'}
                           </span>
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#34d399' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#34D399' }}>
                           {c.points_balance || 0} điểm ({fmt((c.points_balance || 0) * 1000)})
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#fef3c7' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#F4F1EC' }}>
                           {fmt(c.total_spent)}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
                             type="button"
                             className="btn btn-sm btn-outline"
-                            style={{ borderColor: '#4a2c18', color: '#fbbf24', padding: '3px 8px', fontSize: '0.76rem' }}
+                            style={{ borderColor: '#2A2A30', color: '#FBBF24', padding: '3px 8px', fontSize: '0.76rem' }}
                             onClick={() => {
                               setCustomerForm({
                                 id: c.id,
@@ -898,12 +898,12 @@ export default function Accounts() {
                           🏷️ {p.code}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 700, color: '#fef3c7' }}>{p.name}</td>
-                      <td style={{ color: '#4ade80', fontWeight: 800 }}>
+                      <td style={{ fontWeight: 700, color: '#F4F1EC' }}>{p.name}</td>
+                      <td style={{ color: '#4ADE80', fontWeight: 800 }}>
                         {isPct ? `Giảm ${p.value}%` : `Giảm ${fmt(p.value)}`}
                       </td>
-                      <td style={{ color: '#d5bba2' }}>{fmt(p.min_order_value)}</td>
-                      <td style={{ color: '#d5bba2', fontSize: '0.78rem' }}>
+                      <td style={{ color: '#A1A1AA' }}>{fmt(p.min_order_value)}</td>
+                      <td style={{ color: '#A1A1AA', fontSize: '0.78rem' }}>
                         {p.start_date?.slice(0, 10)} ➔ {p.end_date?.slice(0, 10)}
                       </td>
                       <td style={{ textAlign: 'center' }}>

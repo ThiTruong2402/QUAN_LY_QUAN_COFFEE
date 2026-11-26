@@ -36,6 +36,15 @@ export default function Settings() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!config.open_time || !config.close_time) {
+      return toast.error('Vui lòng nhập đầy đủ giờ mở cửa và giờ đóng cửa!');
+    }
+    if (config.open_time === config.close_time) {
+      return toast.error('Giờ mở cửa và giờ đóng cửa không được trùng nhau!');
+    }
+    if (Number(config.auto_dispatch_before_minutes) >= Number(config.min_lead_time_minutes)) {
+      return toast.error('Thời gian tự động chuyển Barista phải nhỏ hơn thời gian đặt trước tối thiểu!');
+    }
     try {
       setSaving(true);
       const res = await api.put('/settings/store-hours', config);
@@ -50,7 +59,7 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '60px 0', color: '#8C5E3C' }}>
+      <div style={{ textAlign: 'center', padding: '60px 0', color: '#A1A1AA' }}>
         <div style={{ fontSize: '2rem' }}>⚙️</div>
         <div style={{ marginTop: '8px', fontWeight: 600 }}>Đang tải cấu hình hệ thống...</div>
       </div>
@@ -58,69 +67,62 @@ export default function Settings() {
   }
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '880px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* 1. HEADER CARD */}
+    <div className="animate-fade-in" style={{ maxWidth: '880px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* 1. TRẠNG THÁI CỬA HÀNG GỌN GÀNG (Bỏ tiêu đề lặp TopBar) */}
       <div style={{
-        background: '#FFFFFF',
-        border: '1px solid #E7DFD5',
+        background: '#18181B',
+        border: '1px solid #2A2A30',
         borderRadius: '14px',
-        padding: '18px 24px',
+        padding: '14px 20px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '14px',
-        boxShadow: '0 2px 8px rgba(44, 26, 18, 0.04)'
+        gap: '12px',
       }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#1E1815' }}>
-            Cấu hình hệ thống & Giờ phục vụ
-          </h1>
-          <div style={{ fontSize: '0.82rem', color: '#73675E', marginTop: '2px' }}>
-            Kiểm soát giờ mở/đóng cửa và thông số lập lịch nhận đồ uống toàn hệ thống
-          </div>
+        <div style={{ fontSize: '0.84rem', color: '#A1A1AA' }}>
+          Giờ mở/đóng cửa &amp; thông số đặt hẹn toàn hệ thống
         </div>
 
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
-          background: config.isOpen ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          border: config.isOpen ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-          color: config.isOpen ? '#059669' : '#dc2626',
-          padding: '8px 16px',
-          borderRadius: '10px',
+          gap: '8px',
+          background: config.isOpen ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)',
+          border: config.isOpen ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(248, 113, 113, 0.3)',
+          color: config.isOpen ? '#34D399' : '#F87171',
+          padding: '6px 14px',
+          borderRadius: '999px',
           fontWeight: 700,
-          fontSize: '0.86rem'
+          fontSize: '0.82rem'
         }}>
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: config.isOpen ? '#10b981' : '#ef4444' }} />
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: config.isOpen ? '#10B981' : '#EF4444' }} />
           <span>{config.isOpen ? 'Quán đang mở cửa' : 'Quán đang đóng cửa'}</span>
-          <span style={{ color: '#6B5E55', fontWeight: 500, fontSize: '0.8rem' }}>({config.currentVietnamTime || 'GMT+7'})</span>
+          <span style={{ color: '#A1A1AA', fontWeight: 500, fontSize: '0.78rem' }}>({config.currentVietnamTime || 'GMT+7'})</span>
         </div>
       </div>
 
       {/* 2. FORM CONFIGURATION */}
       <form onSubmit={handleSave} style={{
-        background: '#FFFFFF',
-        border: '1px solid #E7DFD5',
-        borderRadius: '14px',
-        padding: '24px 28px',
+        background: '#18181B',
+        border: '1px solid #2A2A30',
+        borderRadius: '16px',
+        padding: '22px 24px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '22px',
-        boxShadow: '0 2px 8px rgba(44, 26, 18, 0.04)'
+        gap: '20px',
       }}>
         {/* Section 1: Store Hours */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #E7DFD5', paddingBottom: '10px', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#1E1815', fontWeight: 800 }}>
-              1. Khung giờ mở cửa & phục vụ
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #2A2A30', paddingBottom: '10px', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '0.96rem', color: '#F4F1EC', fontWeight: 700 }}>
+              1. Khung giờ mở cửa &amp; phục vụ
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
                 Giờ mở cửa đón khách
               </label>
               <input
@@ -129,15 +131,12 @@ export default function Settings() {
                 value={config.open_time}
                 onChange={(e) => setConfig({ ...config, open_time: e.target.value })}
                 required
-                style={{ fontSize: '0.95rem', fontWeight: 700 }}
+                style={{ width: '100%', fontSize: '0.92rem', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
-                Hệ thống bắt đầu nhận đơn tại quầy &amp; trực tuyến
-              </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
                 Giờ đóng cửa ngừng phục vụ
               </label>
               <input
@@ -146,45 +145,39 @@ export default function Settings() {
                 value={config.close_time}
                 onChange={(e) => setConfig({ ...config, close_time: e.target.value })}
                 required
-                style={{ fontSize: '0.95rem', fontWeight: 700 }}
+                style={{ width: '100%', fontSize: '0.92rem', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
-                Các đơn hàng sau giờ này sẽ tự động chuyển sang hẹn lịch hôm sau
-              </span>
             </div>
           </div>
         </div>
 
         {/* Section 2: Advance Order Parameters */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #E7DFD5', paddingBottom: '10px', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#1E1815', fontWeight: 800 }}>
-              2. Thông số đặt trước & hẹn giờ lấy món
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #2A2A30', paddingBottom: '10px', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '0.96rem', color: '#F4F1EC', fontWeight: 700 }}>
+              2. Thông số đặt trước &amp; hẹn giờ lấy món
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
                 Bước chọn khung giờ (phút)
               </label>
               <select
                 className="form-select"
                 value={config.slot_step_minutes}
                 onChange={(e) => setConfig({ ...config, slot_step_minutes: Number(e.target.value) })}
-                style={{ fontWeight: 700 }}
+                style={{ width: '100%', fontWeight: 600 }}
               >
                 <option value={10}>10 phút / slot</option>
                 <option value={15}>15 phút / slot (Khuyến nghị)</option>
                 <option value={30}>30 phút / slot</option>
               </select>
-              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
-                Khoảng giãn cách giữa các mốc giờ khách có thể chọn
-              </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
                 Đặt trước tối thiểu (phút)
               </label>
               <input
@@ -195,15 +188,12 @@ export default function Settings() {
                 value={config.min_lead_time_minutes}
                 onChange={(e) => setConfig({ ...config, min_lead_time_minutes: Number(e.target.value) })}
                 required
-                style={{ fontWeight: 700 }}
+                style={{ width: '100%', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
-                Thời gian tối thiểu Barista cần chuẩn bị món hẹn giờ
-              </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
                 Tự động chuyển Barista trước (phút)
               </label>
               <input
@@ -214,15 +204,12 @@ export default function Settings() {
                 value={config.auto_dispatch_before_minutes}
                 onChange={(e) => setConfig({ ...config, auto_dispatch_before_minutes: Number(e.target.value) })}
                 required
-                style={{ fontWeight: 700 }}
+                style={{ width: '100%', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
-                Hệ thống tự động kích hoạt vé pha chế trước giờ hẹn lấy
-              </span>
             </div>
 
             <div>
-              <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1E1815', marginBottom: '6px', display: 'block' }}>
+              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
                 Cho phép đặt trước tối đa (ngày)
               </label>
               <input
@@ -233,11 +220,8 @@ export default function Settings() {
                 value={config.max_advance_days}
                 onChange={(e) => setConfig({ ...config, max_advance_days: Number(e.target.value) })}
                 required
-                style={{ fontWeight: 700 }}
+                style={{ width: '100%', fontWeight: 700 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#73675E', marginTop: '4px', display: 'block' }}>
-                Số ngày tới tối đa khách hàng có thể lên lịch đơn
-              </span>
             </div>
           </div>
         </div>
@@ -248,31 +232,23 @@ export default function Settings() {
           justifyContent: 'flex-end',
           alignItems: 'center',
           gap: '12px',
-          marginTop: '10px',
-          borderTop: '1px solid #E7DFD5',
-          paddingTop: '18px'
+          marginTop: '6px',
+          borderTop: '1px solid #2A2A30',
+          paddingTop: '16px'
         }}>
           <button
             type="button"
-            className="btn btn-outline"
+            className="ui-btn ui-btn-outline"
             onClick={loadSettings}
             disabled={saving}
-            style={{ fontWeight: 600, padding: '8px 18px' }}
           >
             Hoàn tác
           </button>
           <button
             type="submit"
-            className="btn btn-primary"
+            className="ui-btn ui-btn-brand"
             disabled={saving}
-            style={{
-              minWidth: '160px',
-              background: 'linear-gradient(135deg, #C86A28 0%, #A85318 100%)',
-              borderColor: '#C86A28',
-              fontWeight: 800,
-              padding: '9px 22px',
-              boxShadow: '0 4px 12px rgba(200, 106, 40, 0.25)'
-            }}
+            style={{ minWidth: '150px', fontWeight: 700 }}
           >
             {saving ? 'Đang lưu...' : 'Lưu cấu hình'}
           </button>

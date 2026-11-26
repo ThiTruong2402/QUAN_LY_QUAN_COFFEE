@@ -6,6 +6,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 router.get('/ingredients', authenticate, authorize('admin', 'manager', 'warehouse', 'barista', 'cashier'), c.getIngredients);
 router.post('/ingredients', authenticate, authorize('admin', 'manager'), c.createIngredient);
 router.put('/ingredients/:id', authenticate, authorize('admin', 'manager'), c.updateIngredient);
+router.delete('/ingredients/:id', authenticate, authorize('admin', 'manager'), c.deleteIngredient);
 router.post('/adjust', authenticate, authorize('admin', 'manager', 'warehouse'), c.adjustStock);
 router.get('/suppliers', authenticate, authorize('admin', 'manager', 'warehouse'), c.getSuppliers);
 router.get('/movements', authenticate, authorize('admin', 'manager', 'warehouse'), c.getMovements);

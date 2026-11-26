@@ -148,6 +148,7 @@ export default function PosCheckout() {
         coupon_code: appliedCoupon ? appliedCoupon.code : null,
         points_to_redeem: pointsToRedeem,
         payment_method: paymentMethod,
+        payment_status: 'paid',
         note: (orderMeta.note || '').trim() || null,
         status: 'pending',
       };

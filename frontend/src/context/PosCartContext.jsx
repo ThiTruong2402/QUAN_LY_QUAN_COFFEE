@@ -1,50 +1,54 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import { useAuth } from './AuthContext';
 
 const PosCartContext = createContext(null);
-const STORAGE_KEY = 'mch_pos_cart_v2';
+const EMPTY_META = {
+  orderType: 'dine_in',
+  tableId: '',
+  tableCode: '',
+  customerName: '',
+  customerPhone: '',
+  note: '',
+};
+
+const readStoredCart = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return {
+      cart: Array.isArray(parsed?.cart) ? parsed.cart : [],
+      orderMeta: parsed?.orderMeta ? { ...EMPTY_META, ...parsed.orderMeta } : { ...EMPTY_META },
+    };
+  } catch {
+    return { cart: [], orderMeta: { ...EMPTY_META } };
+  }
+};
 
 export function PosCartProvider({ children }) {
-  const [cart, setCart] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return Array.isArray(parsed?.cart) ? parsed.cart : [];
-    } catch {
-      return [];
-    }
-  });
+  const { user } = useAuth();
+  const storageKey = user?.id ? `mch_pos_cart_u${user.id}` : 'mch_pos_cart_guest';
+  const loadedKeyRef = useRef(storageKey);
 
-  const [orderMeta, setOrderMeta] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return parsed?.orderMeta || {
-        orderType: 'dine_in',
-        tableId: '',
-        tableCode: '',
-        customerName: '',
-        customerPhone: '',
-        note: '',
-      };
-    } catch {
-      return {
-        orderType: 'dine_in',
-        tableId: '',
-        tableCode: '',
-        customerName: '',
-        customerPhone: '',
-        note: '',
-      };
-    }
-  });
+  const [cart, setCart] = useState(() => readStoredCart(storageKey).cart);
+  const [orderMeta, setOrderMeta] = useState(() => readStoredCart(storageKey).orderMeta);
 
+  // Nạp lại giỏ hàng cô lập mỗi khi đổi tài khoản nhân sự
   useEffect(() => {
+    const nextState = readStoredCart(storageKey);
+    loadedKeyRef.current = storageKey;
+    setCart(nextState.cart);
+    setOrderMeta(nextState.orderMeta);
+  }, [storageKey]);
+
+  // Chỉ ghi localStorage sau khi đã hydrate đúng key hiện tại (tránh ghi đè giỏ khi chuyển tài khoản)
+  useEffect(() => {
+    if (loadedKeyRef.current !== storageKey) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, orderMeta }));
+      localStorage.setItem(storageKey, JSON.stringify({ cart, orderMeta }));
     } catch {
       // ignore storage quota errors
     }
-  }, [cart, orderMeta]);
+  }, [cart, orderMeta, storageKey]);
 
   // Thêm món vào giỏ hàng (gom chung nếu trùng sản phẩm + size + ghi chú)
   const addItem = (product, sizeObj, quantity = 1, note = '') => {

@@ -34,7 +34,9 @@ export default function Barista() {
     };
     const onSync = () => fetchQueue();
 
-    socket.emit('join_barista');
+    const handleJoinBarista = () => socket.emit('join_barista');
+    if (socket.connected) handleJoinBarista();
+    socket.on('connect', handleJoinBarista);
     // FE-05: Chỉ lắng nghe barista:new_order để chống chuông báo và thông báo bị nhân đôi
     socket.on('barista:new_order', onNewOrder);
     socket.on('barista:item_updated', onSync);
@@ -44,6 +46,7 @@ export default function Barista() {
 
     return () => {
       clearInterval(interval);
+      socket.off('connect', handleJoinBarista);
       socket.off('barista:new_order', onNewOrder);
       socket.off('barista:item_updated', onSync);
       socket.off('order:status_updated', onSync);
@@ -202,24 +205,24 @@ export default function Barista() {
 
       {/* Modal xem nhanh công thức định lượng chuẩn (g / ml) */}
       {selectedRecipeItem && (
-        <div onClick={() => setSelectedRecipeItem(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '16px' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '16px', padding: '22px', width: '100%', maxWidth: '420px', border: '1px solid #E7DFD5', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 12px', color: '#2C1A12', fontSize: '1.08rem', fontWeight: 800 }}>
+        <div className="ui-modal-backdrop" onClick={() => setSelectedRecipeItem(null)}>
+          <div className="ui-modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '430px', padding: '22px' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#F4F1EC', fontSize: '1.08rem', fontWeight: 700 }}>
               Định lượng: {selectedRecipeItem.product_name} ({selectedRecipeItem.size_name || 'Tiêu chuẩn'})
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
               {(selectedRecipeItem.recipe || []).map((r, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 10px', background: '#FAF7F2', borderRadius: '8px', fontSize: '0.84rem' }}>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#202024', border: '1px solid #2A2A30', borderRadius: '9px', fontSize: '0.84rem', color: '#F4F1EC' }}>
                   <span>{r.ingredient}</span>
-                  <strong style={{ color: '#C86A28' }}>{r.display}</strong>
+                  <strong style={{ color: '#F59E0B' }}>{r.display}</strong>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2C1A12', marginBottom: '6px' }}>Quy trình thực hiện:</div>
-            <ol style={{ margin: '0 0 16px', paddingLeft: '18px', fontSize: '0.8rem', color: '#57534E', lineHeight: 1.5 }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC', marginBottom: '6px' }}>Quy trình thực hiện:</div>
+            <ol style={{ margin: '0 0 16px', paddingLeft: '18px', fontSize: '0.8rem', color: '#A1A1AA', lineHeight: 1.55 }}>
               {(selectedRecipeItem.workflow_steps || []).map((s, i) => <li key={i}>{s}</li>)}
             </ol>
-            <button type="button" className="mch-btn mch-btn-primary" style={{ width: '100%' }} onClick={() => setSelectedRecipeItem(null)}>Đóng</button>
+            <button type="button" className="ui-btn ui-btn-brand" style={{ width: '100%' }} onClick={() => setSelectedRecipeItem(null)}>Đóng</button>
           </div>
         </div>
       )}

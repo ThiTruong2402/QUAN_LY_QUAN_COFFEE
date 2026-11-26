@@ -7,14 +7,14 @@ import { useAuth } from '../context/AuthContext';
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
  
 const STATUS_META = {
-  awaiting_payment: { label: 'Chờ xác nhận CK', bg: '#FEF3C7', color: '#B45309', dot: '#F59E0B', step: 0 },
-  scheduled:        { label: 'Hẹn giờ nhận',     bg: '#F3E8FF', color: '#7E22CE', dot: '#9333EA', step: 1 },
-  pending:          { label: 'Chờ pha chế',      bg: '#FEF3C7', color: '#B45309', dot: '#D97706', step: 1 },
-  preparing:        { label: 'Đang pha chế',     bg: '#E0F2FE', color: '#0369A1', dot: '#0284C7', step: 2 },
-  done:             { label: 'Đã pha xong',      bg: '#DCFCE7', color: '#15803D', dot: '#16A34A', step: 3 },
-  served:           { label: 'Hoàn tất',         bg: '#ECFDF5', color: '#047857', dot: '#10B981', step: 3 },
-  paid:             { label: 'Hoàn tất',         bg: '#ECFDF5', color: '#047857', dot: '#10B981', step: 3 },
-  cancelled:        { label: 'Đã hủy',           bg: '#FEE2E2', color: '#B91C1C', dot: '#DC2626', step: -1 },
+  awaiting_payment: { label: 'Chờ xác nhận CK', bg: 'rgba(245,158,11,0.14)', color: '#FBBF24', dot: '#F59E0B', step: 0 },
+  scheduled:        { label: 'Hẹn giờ nhận',     bg: 'rgba(168,85,247,0.14)', color: '#C084FC', dot: '#A855F7', step: 1 },
+  pending:          { label: 'Chờ pha chế',      bg: 'rgba(245,158,11,0.14)', color: '#FBBF24', dot: '#D97706', step: 1 },
+  preparing:        { label: 'Đang pha chế',     bg: 'rgba(56,189,248,0.14)', color: '#38BDF8', dot: '#38BDF8', step: 2 },
+  done:             { label: 'Đã pha xong',      bg: 'rgba(16,185,129,0.14)', color: '#34D399', dot: '#10B981', step: 3 },
+  served:           { label: 'Hoàn tất',         bg: 'rgba(16,185,129,0.14)', color: '#34D399', dot: '#10B981', step: 3 },
+  paid:             { label: 'Hoàn tất',         bg: 'rgba(16,185,129,0.14)', color: '#34D399', dot: '#10B981', step: 3 },
+  cancelled:        { label: 'Đã hủy',           bg: 'rgba(239,68,68,0.14)',  color: '#F87171', dot: '#EF4444', step: -1 },
 };
  
 const FILTER_TABS = [
@@ -168,47 +168,47 @@ export default function Orders() {
   return (
     <div className="ord-page">
       <style>{`
-        .ord-page { display: flex; flex-direction: column; gap: 16px; color: #1F1611; }
+        .ord-page { display: flex; flex-direction: column; gap: 16px; color: #F4F1EC; }
         .ord-card {
-          background: #FFFFFF; border: 1px solid #E7DFD5; border-radius: 16px;
-          box-shadow: 0 2px 8px rgba(44, 26, 18, 0.04); overflow: hidden;
+          background: #18181B; border: 1px solid #2A2A30; border-radius: 16px;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32); overflow: hidden;
         }
         .ord-toolbar {
-          padding: 14px 18px; border-bottom: 1px solid #F0EAE1;
+          padding: 14px 18px; border-bottom: 1px solid #2A2A30;
           display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
         }
         .ord-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
         .ord-tab {
           padding: 6px 13px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
-          border: 1px solid transparent; background: #F6F3EE; color: #6E5D52; cursor: pointer;
+          border: 1px solid #2A2A30; background: #202024; color: #A1A1AA; cursor: pointer;
           display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: all 0.15s ease;
         }
-        .ord-tab:hover { background: #EDE6DC; color: #1F1611; }
-        .ord-tab.active { background: #2C1A12; color: #FFFFFF; }
+        .ord-tab:hover { background: #2A2A32; color: #F4F1EC; }
+        .ord-tab.active { background: #D97706; border-color: #D97706; color: #FFFFFF; }
         .ord-input {
-          background: #F6F3EE; border: 1px solid #E7DFD5; border-radius: 9px;
-          padding: 7px 12px; font-size: 0.82rem; color: #1F1611; outline: none;
+          background: #121214; border: 1px solid #2E2E35; border-radius: 9px;
+          padding: 7px 12px; font-size: 0.82rem; color: #F4F1EC; color-scheme: dark; outline: none;
         }
-        .ord-input:focus { background: #FFFFFF; border-color: #C86A28; }
+        .ord-input:focus { background: #18181B; border-color: #D97706; }
         .ord-table-wrap { width: 100%; overflow-x: auto; }
         .ord-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
         .ord-table th {
-          text-align: left; padding: 11px 14px; font-size: 0.74rem; font-weight: 700;
-          text-transform: uppercase; letter-spacing: 0.04em; color: #78716C;
-          background: #FAF7F2; border-bottom: 1px solid #E7DFD5; white-space: nowrap;
+          text-align: left; padding: 11px 14px; font-size: 0.72rem; font-weight: 700;
+          text-transform: uppercase; letter-spacing: 0.04em; color: #A1A1AA;
+          background: #141417; border-bottom: 1px solid #2A2A30; white-space: nowrap;
         }
         .ord-table td {
-          padding: 12px 14px; border-bottom: 1px solid #F2ECE4; vertical-align: middle;
+          padding: 12px 14px; border-bottom: 1px solid #242429; vertical-align: middle; color: #F4F1EC;
         }
         .ord-table tbody tr { cursor: pointer; transition: background 0.12s ease; }
-        .ord-table tbody tr:hover { background: #FDF9F3; }
+        .ord-table tbody tr:hover { background: #202024; }
         .ord-drawer-backdrop {
-          position: fixed; inset: 0; background: rgba(28, 25, 23, 0.42);
-          backdrop-filter: blur(3px); z-index: 999; display: flex; justify-content: flex-end;
+          position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px); z-index: 999; display: flex; justify-content: flex-end;
         }
         .ord-drawer {
-          width: 100%; max-width: 480px; height: 100vh; background: #FFFFFF;
-          box-shadow: -12px 0 36px rgba(0, 0, 0, 0.16); display: flex; flex-direction: column;
+          width: 100%; max-width: 480px; height: 100vh; background: #18181B; color: #F4F1EC;
+          border-left: 1px solid #2A2A30; box-shadow: -12px 0 36px rgba(0, 0, 0, 0.55); display: flex; flex-direction: column;
         }
       `}</style>
  
@@ -225,8 +225,8 @@ export default function Orders() {
                 <span>{t.label}</span>
                 <span style={{
                   fontSize: '0.72rem', padding: '1px 6px', borderRadius: '999px',
-                  background: activeTab === t.id ? 'rgba(255,255,255,0.2)' : '#E7DFD5',
-                  color: activeTab === t.id ? '#FFFFFF' : '#4A3225'
+                  background: activeTab === t.id ? 'rgba(255,255,255,0.2)' : '#141417',
+                  color: activeTab === t.id ? '#FFFFFF' : '#A1A1AA'
                 }}>
                   {counts[t.id]}
                 </span>
@@ -263,46 +263,47 @@ export default function Orders() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#78716C' }}>Đang tải danh sách đơn hàng...</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#A1A1AA' }}>Đang tải danh sách đơn hàng...</td></tr>
               ) : filteredOrders.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#78716C' }}>Không có đơn hàng nào trong mục này.</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#A1A1AA' }}>Không có đơn hàng nào trong mục này.</td></tr>
               ) : (
                 filteredOrders.map((o, idx) => {
                   const st = STATUS_META[o.status] || STATUS_META.pending;
                   return (
                     <tr key={o.id} onClick={() => openOrderDrawer(o)}>
-                      <td style={{ color: '#A8A29E', fontWeight: 600 }}>{idx + 1}</td>
+                      <td style={{ color: '#A1A1AA', fontWeight: 600 }}>{idx + 1}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 800, color: '#2C1A12' }}>{o.code}</div>
+                        <div style={{ fontWeight: 700, color: '#F4F1EC' }}>{o.code}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
                           <span style={{
                             fontSize: '0.7rem', fontWeight: 700, padding: '1px 7px', borderRadius: '6px',
-                            background: o.table_code ? '#EFF6FF' : '#F3F4F6', color: o.table_code ? '#1D4ED8' : '#4B5563'
+                            background: o.table_code ? 'rgba(56,189,248,0.14)' : '#26262B',
+                            color: o.table_code ? '#38BDF8' : '#A1A1AA'
                           }}>
                             {o.table_code || 'Mang về'}
                           </span>
                           <span style={{
                             fontSize: '0.7rem', fontWeight: 700, padding: '1px 7px', borderRadius: '6px',
-                            background: o.payment_status === 'paid' ? '#ECFDF5' : '#FEF3C7',
-                            color: o.payment_status === 'paid' ? '#047857' : '#B45309'
+                            background: o.payment_status === 'paid' ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.14)',
+                            color: o.payment_status === 'paid' ? '#34D399' : '#FBBF24'
                           }}>
                             {o.payment_status === 'paid' ? 'Đã TT' : 'Chưa TT'}
                           </span>
                         </div>
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 600, color: '#1F1611' }}>{o.customer_name || 'Khách lẻ'}</div>
-                        <div style={{ fontSize: '0.74rem', color: '#78716C' }}>{o.customer_phone || '—'}</div>
+                        <div style={{ fontWeight: 600, color: '#F4F1EC' }}>{o.customer_name || 'Khách lẻ'}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#A1A1AA' }}>{o.customer_phone || '—'}</div>
                       </td>
                       <td style={{ maxWidth: '300px' }}>
-                        <div style={{ fontWeight: 500, color: '#1F1611', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.items_summary}>
+                        <div style={{ fontWeight: 500, color: '#F4F1EC', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.items_summary}>
                           {o.items_summary || 'Không có chi tiết món'}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#78716C', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#A1A1AA', marginTop: '2px' }}>
                           {new Date(o.opened_at).toLocaleString('vi-VN')}
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 800, color: '#C86A28', fontSize: '0.92rem' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: '#F59E0B', fontSize: '0.92rem' }}>
                         {fmt(o.total)}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
@@ -320,8 +321,8 @@ export default function Orders() {
                           type="button"
                           onClick={() => openOrderDrawer(o)}
                           style={{
-                            background: '#F6F3EE', border: '1px solid #E7DFD5', color: '#2C1A12',
-                            padding: '5px 11px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer'
+                            background: '#202024', border: '1px solid #32323A', color: '#F4F1EC',
+                            padding: '5px 11px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer'
                           }}
                         >
                           Chi tiết →
@@ -341,12 +342,12 @@ export default function Orders() {
         <div className="ord-drawer-backdrop" onClick={() => setSelectedOrder(null)}>
           <div className="ord-drawer" onClick={(e) => e.stopPropagation()}>
             <div style={{
-              padding: '16px 20px', borderBottom: '1px solid #E7DFD5',
+              padding: '16px 20px', borderBottom: '1px solid #2A2A30',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#2C1A12' }}>{detail.code}</span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F4F1EC' }}>{detail.code}</span>
                   <span style={{
                     background: detailMeta.bg, color: detailMeta.color,
                     padding: '2px 9px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700
@@ -354,7 +355,7 @@ export default function Orders() {
                     {detailMeta.label}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#78716C', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.75rem', color: '#A1A1AA', marginTop: '2px' }}>
                   Tạo lúc {new Date(detail.opened_at).toLocaleString('vi-VN')}
                 </div>
               </div>
@@ -362,8 +363,8 @@ export default function Orders() {
                 type="button"
                 onClick={() => setSelectedOrder(null)}
                 style={{
-                  width: '32px', height: '32px', borderRadius: '8px', border: '1px solid #E7DFD5',
-                  background: '#FAF7F2', color: '#57534E', fontWeight: 700, cursor: 'pointer'
+                  width: '32px', height: '32px', borderRadius: '8px', border: '1px solid #32323A',
+                  background: '#202024', color: '#F4F1EC', fontWeight: 700, cursor: 'pointer'
                 }}
               >
                 ✕
@@ -373,7 +374,7 @@ export default function Orders() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {detail.status !== 'cancelled' && (
                 <div style={{
-                  background: '#FAF7F2', border: '1px solid #E7DFD5', borderRadius: '12px',
+                  background: '#141417', border: '1px solid #2A2A30', borderRadius: '12px',
                   padding: '12px 14px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px'
                 }}>
                   {[
@@ -385,11 +386,11 @@ export default function Orders() {
                     return (
                       <div key={s.step} style={{
                         padding: '8px', borderRadius: '8px',
-                        background: done ? '#ECFDF5' : '#FFFFFF',
-                        border: `1px solid ${done ? '#86EFAC' : '#E7DFD5'}`
+                        background: done ? 'rgba(16,185,129,0.14)' : '#202024',
+                        border: `1px solid ${done ? 'rgba(52,211,153,0.3)' : '#2A2A30'}`
                       }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: done ? '#15803D' : '#57534E' }}>{s.title}</div>
-                        <div style={{ fontSize: '0.68rem', color: done ? '#047857' : '#A8A29E', marginTop: '2px' }}>{s.sub}</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: done ? '#34D399' : '#D4D4D8' }}>{s.title}</div>
+                        <div style={{ fontSize: '0.68rem', color: done ? '#34D399' : '#A1A1AA', marginTop: '2px' }}>{s.sub}</div>
                       </div>
                     );
                   })}
@@ -398,40 +399,40 @@ export default function Orders() {
  
               <div style={{
                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px',
-                background: '#FAF7F2', padding: '12px 14px', borderRadius: '12px', fontSize: '0.8rem'
+                background: '#141417', border: '1px solid #2A2A30', padding: '12px 14px', borderRadius: '12px', fontSize: '0.8rem'
               }}>
-                <div><span style={{ color: '#78716C' }}>Vị trí:</span> <strong>{detail.table_code || 'Mang về'}</strong></div>
-                <div><span style={{ color: '#78716C' }}>Thanh toán:</span> <strong>{detail.payment_method || 'Tiền mặt'}</strong></div>
-                <div><span style={{ color: '#78716C' }}>Khách hàng:</span> <strong>{detail.customer_name || 'Khách lẻ'}</strong></div>
-                <div><span style={{ color: '#78716C' }}>SĐT:</span> <strong>{detail.customer_phone || '—'}</strong></div>
+                <div><span style={{ color: '#A1A1AA' }}>Vị trí:</span> <strong>{detail.table_code || 'Mang về'}</strong></div>
+                <div><span style={{ color: '#A1A1AA' }}>Thanh toán:</span> <strong>{detail.payment_method || 'Tiền mặt'}</strong></div>
+                <div><span style={{ color: '#A1A1AA' }}>Khách hàng:</span> <strong>{detail.customer_name || 'Khách lẻ'}</strong></div>
+                <div><span style={{ color: '#A1A1AA' }}>SĐT:</span> <strong>{detail.customer_phone || '—'}</strong></div>
                 {detail.coupon_code && (
-                  <div style={{ gridColumn: '1 / -1', color: '#15803D' }}>
+                  <div style={{ gridColumn: '1 / -1', color: '#34D399' }}>
                     Mã ưu đãi: <strong>{detail.coupon_code}</strong> (-{fmt(detail.discount_total)})
                   </div>
                 )}
               </div>
  
               <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#2C1A12', marginBottom: '8px' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#F4F1EC', marginBottom: '8px' }}>
                   Danh sách đồ uống ({detail.items?.length || 0} dòng)
                 </div>
                 {loadingDetail ? (
-                  <div style={{ fontSize: '0.82rem', color: '#78716C' }}>Đang tải chi tiết món...</div>
+                  <div style={{ fontSize: '0.82rem', color: '#A1A1AA' }}>Đang tải chi tiết món...</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {(detail.items || []).map((it) => (
                       <div key={it.id} style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '10px 12px', borderRadius: '10px', border: '1px solid #F0EAE1', background: '#FFFFFF'
+                        padding: '10px 12px', borderRadius: '10px', border: '1px solid #2A2A30', background: '#202024'
                       }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#1F1611' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.86rem', color: '#F4F1EC' }}>
                             {it.product_name} {it.size_name && it.size_name !== 'Tiêu chuẩn' ? `(${it.size_name})` : ''} × {it.quantity}
                           </div>
-                          {it.toppings_summary && <div style={{ fontSize: '0.74rem', color: '#C86A28' }}>+ {it.toppings_summary}</div>}
-                          {it.note && <div style={{ fontSize: '0.74rem', color: '#78716C' }}>Ghi chú: {it.note}</div>}
+                          {it.toppings_summary && <div style={{ fontSize: '0.74rem', color: '#F59E0B' }}>+ {it.toppings_summary}</div>}
+                          {it.note && <div style={{ fontSize: '0.74rem', color: '#A1A1AA' }}>Ghi chú: {it.note}</div>}
                         </div>
-                        <div style={{ fontWeight: 800, fontSize: '0.86rem', color: '#2C1A12', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#F59E0B', whiteSpace: 'nowrap' }}>
                           {fmt(it.line_total)}
                         </div>
                       </div>
@@ -440,52 +441,52 @@ export default function Orders() {
                 )}
               </div>
  
-              <div style={{ borderTop: '1px dashed #E7DFD5', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.84rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#78716C' }}>
+              <div style={{ borderTop: '1px dashed #2A2A30', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.84rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A1A1AA' }}>
                   <span>Tạm tính</span><span>{fmt(detail.subtotal)}</span>
                 </div>
                 {Number(detail.discount_total) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803D' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34D399' }}>
                     <span>Giảm giá</span><span>-{fmt(detail.discount_total)}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.08rem', fontWeight: 800, color: '#C86A28', marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.08rem', fontWeight: 700, color: '#F59E0B', marginTop: '4px' }}>
                   <span>Tổng cộng</span><span>{fmt(detail.total)}</span>
                 </div>
               </div>
             </div>
  
             <div style={{
-              padding: '14px 20px', borderTop: '1px solid #E7DFD5', background: '#FAF7F2',
+              padding: '14px 20px', borderTop: '1px solid #2A2A30', background: '#141417',
               display: 'flex', gap: '8px', flexWrap: 'wrap'
             }}>
-              {detail.payment_status !== 'paid' && detail.status !== 'cancelled' && (
+              {detail.payment_status !== 'paid' && detail.status !== 'cancelled' && ['admin', 'manager', 'cashier'].includes(user?.role) && (
                 <button type="button" onClick={() => handleConfirmPayment(detail.id)}
-                  style={{ flex: 1, background: 'linear-gradient(135deg, #D97706, #B45309)', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}>
+                  style={{ flex: 1, background: '#D97706', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}>
                   Xác nhận đã nhận tiền
                 </button>
               )}
-              {detail.status === 'pending' && detail.payment_status === 'paid' && (
+              {detail.status === 'pending' && detail.payment_status === 'paid' && ['admin', 'manager', 'barista'].includes(user?.role) && (
                 <button type="button" onClick={() => handleUpdateStatus(detail.id, 'preparing')}
                   style={{ flex: 1, background: '#0284C7', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}>
                   Chuyển sang Pha chế
                 </button>
               )}
-              {detail.status === 'preparing' && (
+              {detail.status === 'preparing' && ['admin', 'manager', 'barista'].includes(user?.role) && (
                 <button type="button" onClick={() => handleUpdateStatus(detail.id, 'done')}
                   style={{ flex: 1, background: '#D97706', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}>
                   Báo đã pha xong
                 </button>
               )}
-              {detail.status === 'done' && (
+              {detail.status === 'done' && ['admin', 'manager', 'cashier', 'barista', 'waiter'].includes(user?.role) && (
                 <button type="button" onClick={() => handleUpdateStatus(detail.id, 'served')}
-                  style={{ flex: 1, background: '#10B981', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+                  style={{ flex: 1, background: '#10B981', color: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem', cursor: 'pointer' }}>
                   Xác nhận đã trả món
                 </button>
               )}
               {detail.status !== 'cancelled' && ['admin', 'manager', 'cashier'].includes(user?.role) && (
                 <button type="button" onClick={() => handleCancelOrder(detail.id)}
-                  style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '10px 14px', borderRadius: '10px', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                  style={{ background: 'rgba(239,68,68,0.14)', color: '#F87171', border: '1px solid rgba(248,113,113,0.3)', padding: '10px 14px', borderRadius: '10px', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
                   Hủy đơn
                 </button>
               )}

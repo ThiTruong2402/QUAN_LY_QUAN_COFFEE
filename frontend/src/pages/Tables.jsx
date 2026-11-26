@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import socket from '../api/socket';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
  
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
  
@@ -63,6 +64,8 @@ const Icon = {
 const shortAreaName = (name = "") => name.split(" - ")[0].trim();
 
 export default function Tables() {
+  const { user } = useAuth();
+  const canOperateTable = ['admin', 'manager', 'cashier', 'waiter'].includes(user?.role);
   const navigate = useNavigate();
   const [tables, setTables] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -171,6 +174,7 @@ export default function Tables() {
   }, [areas, filteredTables, tables, selectedArea]);
  
   const handleOpenTablePos = (table) => {
+    if (!canOperateTable) return;
     const params = new URLSearchParams({ table_id: String(table.id), table_code: table.code });
     if (table.reservation_name) params.set('customer_name', table.reservation_name);
     if (table.reservation_phone) params.set('customer_phone', table.reservation_phone);
@@ -256,7 +260,7 @@ export default function Tables() {
     <div className="pos-floor-page">
       <style>{`
         .pos-floor-page {
-          color: #1C1917;
+          color: #F4F1EC;
           display: flex;
           flex-direction: column;
           gap: 18px;
@@ -273,7 +277,7 @@ export default function Tables() {
           font-size: 1.45rem;
           font-weight: 800;
           letter-spacing: -0.02em;
-          color: #1C1917;
+          color: #F4F1EC;
         }
         .fp-kpi-grid {
           display: grid;
@@ -281,8 +285,8 @@ export default function Tables() {
           gap: 12px;
         }
         .fp-kpi-card {
-          background: #FFFFFF;
-          border: 1px solid #E7E2DA;
+          background: #18181B;
+          border: 1px solid #2A2A30;
           border-radius: 14px;
           padding: 14px 16px;
           cursor: pointer;
@@ -291,20 +295,19 @@ export default function Tables() {
           flex-direction: column;
           justify-content: space-between;
           text-align: left;
-          box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
         }
         .fp-kpi-card:hover {
-          border-color: #D6CFC4;
+          border-color: #3B3B44;
           transform: translateY(-1px);
-          box-shadow: 0 6px 14px rgba(28, 25, 23, 0.06);
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
         }
         .fp-kpi-card.active {
-          border-color: #2C1A12;
-          box-shadow: 0 0 0 1.5px #2C1A12;
+          border-color: #D97706;
+          box-shadow: 0 0 0 1.5px #D97706;
         }
         .fp-toolbar {
-          background: #FFFFFF;
-          border: 1px solid #E7E2DA;
+          background: #18181B;
+          border: 1px solid #2A2A30;
           border-radius: 14px;
           padding: 10px 14px;
           display: flex;
@@ -320,24 +323,24 @@ export default function Tables() {
           font-weight: 600;
           border: 1px solid transparent;
           background: transparent;
-          color: #78716C;
+          color: #A1A1AA;
           cursor: pointer;
           transition: all 0.15s ease;
           white-space: nowrap;
         }
-        .fp-area-pill:hover { background: #F5F2EC; color: #1C1917; }
-        .fp-area-pill.active { background: #2C1A12; color: #FFFFFF; }
+        .fp-area-pill:hover { background: #202024; color: #F4F1EC; }
+        .fp-area-pill.active { background: #D97706; color: #FFFFFF; }
         .fp-search-input {
-          background: #F6F4F0;
-          border: 1px solid #E7E2DA;
+          background: #121214;
+          border: 1px solid #2E2E35;
           border-radius: 999px;
           padding: 7px 14px 7px 34px;
-          color: #1C1917;
+          color: #F4F1EC;
           font-size: 0.82rem;
           width: 240px;
           outline: none;
         }
-        .fp-search-input:focus { background: #FFFFFF; border-color: #C86A28; }
+        .fp-search-input:focus { background: #18181B; border-color: #D97706; }
         .fp-table-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
@@ -355,12 +358,12 @@ export default function Tables() {
         }
         .fp-table-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(28, 25, 23, 0.08);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
         }
-        .fp-table-card.empty { background: #FFFFFF !important; border: 1px solid #E7DFD5 !important; border-top: 3px solid #10B981 !important; }
-        .fp-table-card.empty:hover { border-color: #10B981 !important; }
-        .fp-table-card.occupied { background: #FFF8F1 !important; border: 1px solid #FDBA74 !important; border-top: 3px solid #D97706 !important; }
-        .fp-table-card.reserved { background: #FAF5FF !important; border: 1px solid #D8B4FE !important; border-top: 3px solid #9333EA !important; }
+        .fp-table-card.empty { background: #18181B; border: 1px solid #2A2A30; border-top: 3px solid #10B981; }
+        .fp-table-card.empty:hover { border-color: #10B981; }
+        .fp-table-card.occupied { background: #202024; border: 1px solid rgba(217, 119, 6, 0.45); border-top: 3px solid #D97706; }
+        .fp-table-card.reserved { background: #1D1A26; border: 1px solid rgba(168, 85, 247, 0.45); border-top: 3px solid #A855F7; }
         .fp-action-btn {
           border: none;
           border-radius: 8px;
@@ -378,8 +381,8 @@ export default function Tables() {
         .fp-modal-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(28, 25, 23, 0.45);
-          backdrop-filter: blur(4px);
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(5px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -387,26 +390,27 @@ export default function Tables() {
           z-index: 9999;
         }
         .fp-modal-box {
-          background: #FFFFFF;
-          border: 1px solid #E7E2DA;
+          background: #18181B;
+          border: 1px solid #2A2A30;
           border-radius: 16px;
           width: 100%;
           max-width: 440px;
           padding: 22px;
-          color: #1C1917;
-          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.16);
+          color: #F4F1EC;
+          box-shadow: 0 24px 56px rgba(0, 0, 0, 0.65);
         }
         .fp-field-input {
           width: 100%;
-          background: #FAF8F5;
-          border: 1px solid #E7E2DA;
+          background: #121214;
+          border: 1px solid #2E2E35;
           border-radius: 9px;
           padding: 9px 12px;
-          color: #1C1917;
+          color: #F4F1EC;
+          color-scheme: dark;
           font-size: 0.85rem;
           outline: none;
         }
-        .fp-field-input:focus { background: #FFFFFF; border-color: #C86A28; }
+        .fp-field-input:focus { background: #18181B; border-color: #D97706; }
       `}</style>
  
       {/* 1. HEADER */}
@@ -415,32 +419,34 @@ export default function Tables() {
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
             fontSize: '0.76rem', fontWeight: 700, padding: '5px 12px', borderRadius: '999px',
-            background: storeIsOpen ? '#ECFDF5' : '#FEF2F2',
-            color: storeIsOpen ? '#15803D' : '#DC2626',
-            border: `1px solid ${storeIsOpen ? '#BBF7D0' : '#FECACA'}`
+            background: storeIsOpen ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)',
+            color: storeIsOpen ? '#34D399' : '#F87171',
+            border: `1px solid ${storeIsOpen ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`
           }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: storeIsOpen ? '#16A34A' : '#DC2626' }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: storeIsOpen ? '#10B981' : '#EF4444' }} />
             {storeIsOpen ? 'Cổng Online: Đang mở' : 'Cổng Online: Ngoài giờ'}
           </span>
         </div>
  
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => handleOpenReserveModal()}
-            style={{
-              background: '#2C1A12', color: '#FFFFFF', border: 'none',
-              padding: '9px 16px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 700,
-              display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
-            }}
-          >
-            <Icon.Plus /> <span>Đặt bàn trước</span>
-          </button>
+          {canOperateTable && (
+            <button
+              type="button"
+              onClick={() => handleOpenReserveModal()}
+              style={{
+                background: '#D97706', color: '#FFFFFF', border: 'none',
+                padding: '9px 16px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
+              }}
+            >
+              <Icon.Plus /> <span>Đặt bàn trước</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { fetchData(); toast.success('Đã làm mới sơ đồ bàn'); }}
             style={{
-              background: '#FFFFFF', color: '#1C1917', border: '1px solid #E7E2DA',
+              background: '#202024', color: '#F4F1EC', border: '1px solid #32323A',
               width: '36px', height: '36px', borderRadius: '10px',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
             }}
@@ -454,51 +460,51 @@ export default function Tables() {
       {/* 2. KPI KIÊM BỘ LỌC TRẠNG THÁI */}
       <div className="fp-kpi-grid">
         <button type="button" className={`fp-kpi-card ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>
-          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#78716C', textTransform: 'uppercase' }}>Tất cả bàn</div>
+          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase' }}>Tất cả bàn</div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
-            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#1C1917' }}>{stats.total}</span>
-            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{areas.length} khu vực</span>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#F4F1EC' }}>{stats.total}</span>
+            <span style={{ fontSize: '0.76rem', color: '#A1A1AA' }}>{areas.length} khu vực</span>
           </div>
         </button>
  
         <button type="button" className={`fp-kpi-card ${statusFilter === 'empty' ? 'active' : ''}`} onClick={() => setStatusFilter(statusFilter === 'empty' ? 'all' : 'empty')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#15803D', textTransform: 'uppercase' }}>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#34D399', textTransform: 'uppercase' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981' }} />
             <span>Bàn trống</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
-            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#15803D' }}>{stats.empty}</span>
-            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{stats.emptyPct}% sẵn sàng</span>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#34D399' }}>{stats.empty}</span>
+            <span style={{ fontSize: '0.76rem', color: '#A1A1AA' }}>{stats.emptyPct}% sẵn sàng</span>
           </div>
         </button>
  
         <button type="button" className={`fp-kpi-card ${statusFilter === 'occupied' ? 'active' : ''}`} onClick={() => setStatusFilter(statusFilter === 'occupied' ? 'all' : 'occupied')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#C86A28', textTransform: 'uppercase' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase' }}>
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#D97706' }} />
             <span>Đang có khách</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
-            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#C86A28' }}>{stats.occupied}</span>
-            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{stats.occPct}% công suất</span>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#F59E0B' }}>{stats.occupied}</span>
+            <span style={{ fontSize: '0.76rem', color: '#A1A1AA' }}>{stats.occPct}% công suất</span>
           </div>
         </button>
  
         <button type="button" className={`fp-kpi-card ${statusFilter === 'reserved' ? 'active' : ''}`} onClick={() => setStatusFilter(statusFilter === 'reserved' ? 'all' : 'reserved')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#7E22CE', textTransform: 'uppercase' }}>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#9333EA' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', fontWeight: 700, color: '#C084FC', textTransform: 'uppercase' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#A855F7' }} />
             <span>Đã đặt trước</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
-            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#7E22CE' }}>{stats.reserved}</span>
-            <span style={{ fontSize: '0.76rem', color: '#78716C' }}>{stats.nextReservedTime ? `Hẹn ${stats.nextReservedTime}` : 'Không có lịch'}</span>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#C084FC' }}>{stats.reserved}</span>
+            <span style={{ fontSize: '0.76rem', color: '#A1A1AA' }}>{stats.nextReservedTime ? `Hẹn ${stats.nextReservedTime}` : 'Không có lịch'}</span>
           </div>
         </button>
  
         <button type="button" className="fp-kpi-card" onClick={() => navigate('/orders')}>
-          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Đơn Online / Mang về</div>
+          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase' }}>Đơn Online / Mang về</div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '6px' }}>
-            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#0369A1' }}>{onlineOrdersCount}</span>
-            <span style={{ fontSize: '0.76rem', color: '#0369A1', fontWeight: 600 }}>Xem danh sách →</span>
+            <span style={{ fontSize: '1.55rem', fontWeight: 800, color: '#38BDF8' }}>{onlineOrdersCount}</span>
+            <span style={{ fontSize: '0.76rem', color: '#38BDF8', fontWeight: 600 }}>Xem danh sách →</span>
           </div>
         </button>
       </div>
@@ -520,7 +526,7 @@ export default function Tables() {
         </div>
  
         <div style={{ position: 'relative', flexShrink: 0 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#78716C', display: 'flex' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#A1A1AA', display: 'flex' }}>
             <Icon.Search />
           </span>
           <input
@@ -536,24 +542,24 @@ export default function Tables() {
  
       {/* 4. LƯỚI SƠ ĐỒ BÀN THEO KHU VỰC */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: '#78716C' }}>Đang tải dữ liệu sơ đồ bàn...</div>
+        <div style={{ textAlign: 'center', padding: '48px 0', color: '#A1A1AA' }}>Đang tải dữ liệu sơ đồ bàn...</div>
       ) : groupedAreas.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 20px', background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E7E2DA', color: '#78716C' }}>
+        <div style={{ textAlign: 'center', padding: '48px 20px', background: '#18181B', borderRadius: '14px', border: '1px solid #2A2A30', color: '#A1A1AA' }}>
           Không tìm thấy bàn nào phù hợp với bộ lọc hiện tại.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
           {groupedAreas.map((group) => (
             <section key={group.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '6px', borderBottom: '1px solid #E7E2DA' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '6px', borderBottom: '1px solid #2A2A30' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h2 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 700, color: '#2C1A12' }}>{group.name}</h2>
-                  <span style={{ fontSize: '0.78rem', color: '#78716C' }}>({group.tables.length} bàn)</span>
+                  <h2 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 700, color: '#F4F1EC' }}>{group.name}</h2>
+                  <span style={{ fontSize: '0.78rem', color: '#A1A1AA' }}>({group.tables.length} bàn)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.76rem', fontWeight: 600 }}>
-                  <span style={{ color: '#15803D' }}>● {group.emptyCount} trống</span>
-                  {group.occupiedCount > 0 && <span style={{ color: '#C86A28' }}>● {group.occupiedCount} có khách</span>}
-                  {group.reservedCount > 0 && <span style={{ color: '#7E22CE' }}>● {group.reservedCount} đặt trước</span>}
+                  <span style={{ color: '#34D399' }}>● {group.emptyCount} trống</span>
+                  {group.occupiedCount > 0 && <span style={{ color: '#F59E0B' }}>● {group.occupiedCount} có khách</span>}
+                  {group.reservedCount > 0 && <span style={{ color: '#C084FC' }}>● {group.reservedCount} đặt trước</span>}
                 </div>
               </div>
  
@@ -568,28 +574,28 @@ export default function Tables() {
                     <div key={t.id} className={`fp-table-card ${t.status}`} onClick={() => handleOpenTablePos(t)}>
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1C1917' }}>{t.code}</span>
+                          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#F4F1EC' }}>{t.code}</span>
                           <span style={{
                             fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
-                            background: isEmpty ? '#ECFDF5' : isOccupied ? '#FEF3C7' : '#F3E8FF',
-                            color: isEmpty ? '#15803D' : isOccupied ? '#B45309' : '#7E22CE'
+                            background: isEmpty ? 'rgba(16,185,129,0.14)' : isOccupied ? 'rgba(245,158,11,0.14)' : 'rgba(168,85,247,0.14)',
+                            color: isEmpty ? '#34D399' : isOccupied ? '#FBBF24' : '#C084FC'
                           }}>
                             {isEmpty ? 'Trống' : isOccupied ? 'Đang phục vụ' : 'Đặt trước'}
                           </span>
                         </div>
  
                         {isEmpty && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#78716C' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#A1A1AA' }}>
                             <Icon.Users /><span>{t.seats} ghế tiêu chuẩn</span>
                           </div>
                         )}
  
                         {isOccupied && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                            <div style={{ fontSize: '1.02rem', fontWeight: 800, color: '#C86A28' }}>
+                            <div style={{ fontSize: '1.02rem', fontWeight: 800, color: '#F59E0B' }}>
                               {Number(t.current_order_total || 0) > 0 ? fmt(t.current_order_total) : 'Đang chọn món'}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.74rem', color: '#57534E' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.74rem', color: '#A1A1AA' }}>
                               <span>{t.current_item_count || 0} món</span>
                               {mins > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Icon.Clock /> {mins}p</span>}
                             </div>
@@ -598,75 +604,77 @@ export default function Tables() {
  
                         {isReserved && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
-                            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#581C87' }}>
+                            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#E9D5FF' }}>
                               {t.reservation_name} • {t.reservation_time}
                             </div>
-                            <div style={{ fontSize: '0.73rem', color: '#7E22CE' }}>
+                            <div style={{ fontSize: '0.73rem', color: '#C084FC' }}>
                               {t.customer_count || t.seats} khách {t.reservation_phone ? `• ${t.reservation_phone}` : ''}
                             </div>
                           </div>
                         )}
                       </div>
  
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>
-                        {isEmpty && (
-                          <>
-                            <button type="button" className="fp-action-btn"
-                              style={{ flex: 1, background: '#ECFDF5', color: '#15803D', border: '1px solid #BBF7D0' }}
-                              onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
-                            >
-                              <span>Mở bàn</span> <Icon.ArrowRight />
-                            </button>
-                            <button type="button" className="fp-action-btn"
-                              style={{ background: '#F6F4F0', color: '#57534E', border: '1px solid #E7E2DA' }}
-                              onClick={(e) => { e.stopPropagation(); handleOpenReserveModal(String(t.id)); }}
-                              title="Đặt trước bàn này"
-                            >
-                              <Icon.Calendar />
-                            </button>
-                          </>
-                        )}
+                      {canOperateTable && (
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>
+                          {isEmpty && (
+                            <>
+                              <button type="button" className="fp-action-btn"
+                                style={{ flex: 1, background: 'rgba(16,185,129,0.14)', color: '#34D399', border: '1px solid rgba(52,211,153,0.3)' }}
+                                onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
+                              >
+                                <span>Mở bàn</span> <Icon.ArrowRight />
+                              </button>
+                              <button type="button" className="fp-action-btn"
+                                style={{ background: '#202024', color: '#D4D4D8', border: '1px solid #32323A' }}
+                                onClick={(e) => { e.stopPropagation(); handleOpenReserveModal(String(t.id)); }}
+                                title="Đặt trước bàn này"
+                              >
+                                <Icon.Calendar />
+                              </button>
+                            </>
+                          )}
  
-                        {isOccupied && (
-                          <>
-                            <button type="button" className="fp-action-btn"
-                              style={{ flex: 1, background: '#C86A28', color: '#FFFFFF' }}
-                              onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
-                            >
-                              Gọi thêm
-                            </button>
-                            <button type="button" className="fp-action-btn"
-                              style={{ background: '#FFFFFF', color: '#57534E', border: '1px solid #E7E2DA' }}
-                              onClick={(e) => handleOpenTransferModal(e, t)} title="Chuyển bàn"
-                            >
-                              <Icon.Swap />
-                            </button>
-                            <button type="button" className="fp-action-btn"
-                              style={{ background: '#ECFDF5', color: '#15803D', border: '1px solid #BBF7D0' }}
-                              onClick={(e) => handleReleaseTable(e, t)} title="Khách về / Dọn bàn trống"
-                            >
-                              <Icon.Check />
-                            </button>
-                          </>
-                        )}
+                          {isOccupied && (
+                            <>
+                              <button type="button" className="fp-action-btn"
+                                style={{ flex: 1, background: '#D97706', color: '#FFFFFF' }}
+                                onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
+                              >
+                                Gọi thêm
+                              </button>
+                              <button type="button" className="fp-action-btn"
+                                style={{ background: '#18181B', color: '#D4D4D8', border: '1px solid #32323A' }}
+                                onClick={(e) => handleOpenTransferModal(e, t)} title="Chuyển bàn"
+                              >
+                                <Icon.Swap />
+                              </button>
+                              <button type="button" className="fp-action-btn"
+                                style={{ background: 'rgba(16,185,129,0.14)', color: '#34D399', border: '1px solid rgba(52,211,153,0.3)' }}
+                                onClick={(e) => handleReleaseTable(e, t)} title="Khách về / Dọn bàn trống"
+                              >
+                                <Icon.Check />
+                              </button>
+                            </>
+                          )}
  
-                        {isReserved && (
-                          <>
-                            <button type="button" className="fp-action-btn"
-                              style={{ flex: 1, background: '#9333EA', color: '#FFFFFF' }}
-                              onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
-                            >
-                              Nhận bàn
-                            </button>
-                            <button type="button" className="fp-action-btn"
-                              style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
-                              onClick={(e) => handleCancelReservation(e, t)}
-                            >
-                              Hủy
-                            </button>
-                          </>
-                        )}
-                      </div>
+                          {isReserved && (
+                            <>
+                              <button type="button" className="fp-action-btn"
+                                style={{ flex: 1, background: '#9333EA', color: '#FFFFFF' }}
+                                onClick={(e) => { e.stopPropagation(); handleOpenTablePos(t); }}
+                              >
+                                Nhận bàn
+                              </button>
+                              <button type="button" className="fp-action-btn"
+                                style={{ background: 'rgba(239,68,68,0.14)', color: '#F87171', border: '1px solid rgba(248,113,113,0.3)' }}
+                                onClick={(e) => handleCancelReservation(e, t)}
+                              >
+                                Hủy
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -680,10 +688,10 @@ export default function Tables() {
       {reserveModal.open && (
         <div className="fp-modal-backdrop" onClick={() => setReserveModal((p) => ({ ...p, open: false }))}>
           <form className="fp-modal-box" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmitReserve}>
-            <h3 style={{ margin: '0 0 14px', fontSize: '1.12rem', fontWeight: 800, color: '#2C1A12' }}>Đặt bàn trước</h3>
+            <h3 style={{ margin: '0 0 14px', fontSize: '1.12rem', fontWeight: 700, color: '#F4F1EC' }}>Đặt bàn trước</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Chọn bàn trống</label>
+                <label style={{ fontSize: '0.78rem', color: '#A1A1AA', display: 'block', marginBottom: '4px' }}>Chọn bàn trống</label>
                 <select className="fp-field-input" value={reserveModal.tableId} onChange={(e) => setReserveModal((p) => ({ ...p, tableId: e.target.value }))}>
                   <option value="">-- Chọn bàn --</option>
                   {tables.filter((t) => t.status === 'empty').map((t) => (
@@ -693,32 +701,32 @@ export default function Tables() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Tên khách *</label>
+                  <label style={{ fontSize: '0.78rem', color: '#A1A1AA', display: 'block', marginBottom: '4px' }}>Tên khách *</label>
                   <input type="text" className="fp-field-input" placeholder="Anh Hoàng..." value={reserveModal.reservation_name} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_name: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Số điện thoại *</label>
+                  <label style={{ fontSize: '0.78rem', color: '#A1A1AA', display: 'block', marginBottom: '4px' }}>Số điện thoại *</label>
                   <input type="tel" className="fp-field-input" placeholder="0901234567" value={reserveModal.reservation_phone} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_phone: e.target.value }))} />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Giờ đến</label>
+                  <label style={{ fontSize: '0.78rem', color: '#A1A1AA', display: 'block', marginBottom: '4px' }}>Giờ đến</label>
                   <input type="time" className="fp-field-input" value={reserveModal.reservation_time} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_time: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Số lượng khách</label>
+                  <label style={{ fontSize: '0.78rem', color: '#A1A1AA', display: 'block', marginBottom: '4px' }}>Số lượng khách</label>
                   <input type="number" min="1" max="20" className="fp-field-input" value={reserveModal.customer_count} onChange={(e) => setReserveModal((p) => ({ ...p, customer_count: e.target.value }))} />
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: '0.78rem', color: '#78716C', display: 'block', marginBottom: '4px' }}>Ghi chú</label>
+                <label style={{ fontSize: '0.78rem', color: '#A1A1AA', display: 'block', marginBottom: '4px' }}>Ghi chú</label>
                 <input type="text" className="fp-field-input" placeholder="Bàn gần cửa sổ, ghế trẻ em..." value={reserveModal.reservation_note} onChange={(e) => setReserveModal((p) => ({ ...p, reservation_note: e.target.value }))} />
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
-              <button type="button" onClick={() => setReserveModal((p) => ({ ...p, open: false }))} style={{ background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#57534E', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Đóng</button>
-              <button type="submit" style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}>Xác nhận đặt bàn</button>
+              <button type="button" onClick={() => setReserveModal((p) => ({ ...p, open: false }))} style={{ background: '#202024', border: '1px solid #32323A', color: '#F4F1EC', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Đóng</button>
+              <button type="submit" style={{ background: '#D97706', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer' }}>Xác nhận đặt bàn</button>
             </div>
           </form>
         </div>
@@ -728,8 +736,8 @@ export default function Tables() {
       {transferModal.open && transferModal.fromTable && (
         <div className="fp-modal-backdrop" onClick={() => setTransferModal({ open: false, fromTable: null, toTableId: '' })}>
           <form className="fp-modal-box" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmitTransfer}>
-            <h3 style={{ margin: '0 0 8px', fontSize: '1.12rem', fontWeight: 800, color: '#2C1A12' }}>Chuyển từ {transferModal.fromTable.code}</h3>
-            <p style={{ margin: '0 0 14px', fontSize: '0.82rem', color: '#78716C' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.12rem', fontWeight: 700, color: '#F4F1EC' }}>Chuyển từ {transferModal.fromTable.code}</h3>
+            <p style={{ margin: '0 0 14px', fontSize: '0.82rem', color: '#A1A1AA' }}>
               Toàn bộ đơn hàng đang phục vụ tại {transferModal.fromTable.code} sẽ được chuyển sang bàn trống mới.
             </p>
             <select className="fp-field-input" value={transferModal.toTableId} onChange={(e) => setTransferModal((p) => ({ ...p, toTableId: e.target.value }))}>
@@ -739,8 +747,8 @@ export default function Tables() {
               ))}
             </select>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
-              <button type="button" onClick={() => setTransferModal({ open: false, fromTable: null, toTableId: '' })} style={{ background: '#FFFFFF', border: '1px solid #E7E2DA', color: '#57534E', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Hủy</button>
-              <button type="submit" style={{ background: 'linear-gradient(135deg, #D97706, #B45309)', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}>Chuyển bàn ngay</button>
+              <button type="button" onClick={() => setTransferModal({ open: false, fromTable: null, toTableId: '' })} style={{ background: '#202024', border: '1px solid #32323A', color: '#F4F1EC', padding: '8px 14px', borderRadius: '9px', cursor: 'pointer' }}>Hủy</button>
+              <button type="submit" style={{ background: '#D97706', border: 'none', color: '#FFFFFF', fontWeight: 700, padding: '8px 18px', borderRadius: '9px', cursor: 'pointer' }}>Chuyển bàn ngay</button>
             </div>
           </form>
         </div>

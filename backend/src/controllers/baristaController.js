@@ -34,6 +34,7 @@ const getQueue = async (req, res) => {
        ) oit_agg ON oit_agg.order_item_id = oi.id
        WHERE oi.status IN ('pending', 'preparing', 'done')
          AND o.status NOT IN ('cancelled', 'scheduled')
+         AND (o.order_type = 'dine_in' OR o.payment_status = 'paid')
        ORDER BY oi.sent_at ASC`
     );
 
@@ -147,7 +148,7 @@ const updateItemStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy món cần cập nhật' });
     }
     const currentItem = itemRows[0];
-    if (['cancelled', 'scheduled'].includes(currentItem.order_status)) {
+    if (['cancelled', 'scheduled', 'paid'].includes(currentItem.order_status)) {
       return res.status(400).json({ success: false, message: `Không thể cập nhật món của đơn hàng đang ở trạng thái "${currentItem.order_status}"!` });
     }
     if (currentItem.order_type !== 'dine_in' && currentItem.payment_status !== 'paid') {
@@ -263,6 +264,21 @@ const updateOrderStatus = async (req, res) => {
     const validStatuses = ['preparing', 'done', 'served'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
+    }
+
+    const [ordRows] = await db.query(
+      'SELECT id, status, payment_status, order_type FROM orders WHERE id = ?',
+      [orderId]
+    );
+    if (!ordRows.length) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+    }
+    const ord = ordRows[0];
+    if (['cancelled', 'scheduled', 'paid'].includes(ord.status)) {
+      return res.status(400).json({ success: false, message: `Không thể pha chế đơn đang ở trạng thái "${ord.status}"!` });
+    }
+    if (ord.order_type !== 'dine_in' && ord.payment_status !== 'paid') {
+      return res.status(400).json({ success: false, message: 'Đơn Online chưa xác nhận thanh toán, không thể chuyển trạng thái pha chế!' });
     }
 
     let itemQuery = 'UPDATE order_items SET status = ?';

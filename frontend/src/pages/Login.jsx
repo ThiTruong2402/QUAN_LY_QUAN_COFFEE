@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
+import { reconnectSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import './Login.css';
@@ -13,7 +14,7 @@ const getHomeRouteByRole = (role) => {
     case 'manager':
     case 'cashier':
     case 'waiter':
-      return '/';
+      return '/tables';
     case 'barista':
       return '/barista';
     case 'warehouse':
@@ -77,7 +78,6 @@ export default function Login() {
   // State Đăng nhập
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
  
   // State Đăng ký hội viên
   const [fullName, setFullName] = useState('');
@@ -109,18 +109,22 @@ export default function Login() {
     return { score, ...levels[score] };
   }, [regPassword]);
  
-  // Lưu phiên đăng nhập tương thích linh hoạt với mọi cách viết AuthContext
+  // Lưu phiên đăng nhập bằng sessionStorage để mở đường link / tab mới luôn qua trang Đăng nhập
   const applyAuthSession = async (data) => {
     const { accessToken, refreshToken, user } = data;
-    localStorage.setItem('accessToken', accessToken);
-    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(user));
- 
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    sessionStorage.setItem('accessToken', accessToken);
+    if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
+    sessionStorage.setItem('user', JSON.stringify(user));
+
     if (typeof auth?.setUser === 'function') {
       auth.setUser(user);
     } else if (typeof auth?.refreshUser === 'function') {
       await auth.refreshUser();
     }
+    reconnectSocket();
     return user;
   };
  
@@ -157,9 +161,6 @@ export default function Login() {
       const res = await api.post('/auth/login', { username: cleanUser, password });
       if (res.data?.success && res.data?.data) {
         const loggedUser = await applyAuthSession(res.data.data);
-        if (!rememberMe) {
-          sessionStorage.setItem('accessToken', res.data.data.accessToken);
-        }
         toast.success(`Chào mừng ${loggedUser.full_name || loggedUser.username}!`);
         const redirectTarget = searchParams.get('redirect');
         const nextPath = (loggedUser.role === 'customer' && redirectTarget === '/customer')
@@ -234,24 +235,9 @@ export default function Login() {
             <h1 className="mch-showcase-title">
               Hương vị thủ công,<br />trọn vẹn từng khoảnh khắc.
             </h1>
-
-            <div className="mch-guest-banner" style={{ marginTop: '36px' }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>
-                  Khám phá thực đơn quán
-                </div>
-                <div style={{ fontSize: '0.74rem', color: '#A1A1AA', marginTop: '2px' }}>
-                  Xem trước 57+ thức uống và ưu đãi
-                </div>
-              </div>
-              <button
-                type="button"
-                className="mch-guest-btn"
-                onClick={() => navigate('/customer')}
-              >
-                Xem thực đơn →
-              </button>
-            </div>
+            <p style={{ marginTop: '14px', fontSize: '0.86rem', color: '#D4D4D8', lineHeight: 1.55, maxWidth: '330px' }}>
+              Vui lòng đăng nhập tài khoản nhân sự hoặc hội viên để tiếp tục đặt món và theo dõi đơn hàng.
+            </p>
           </div>
         </section>
  
@@ -334,14 +320,9 @@ export default function Login() {
                 </div>
  
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', color: '#5A463A', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                    />
-                    <span>Ghi nhớ phiên đăng nhập</span>
-                  </label>
+                  <span style={{ color: '#786355', fontSize: '0.76rem' }}>
+                    Bảo mật: yêu cầu đăng nhập mỗi lượt mở trình duyệt
+                  </span>
                   <button
                     type="button"
                     onClick={() => switchMode('register')}

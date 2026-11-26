@@ -16,7 +16,7 @@ const NAV_GROUPS = [
   {
     title: 'Vận hành tại quầy',
     items: [
-      { to: '/', label: 'Sơ đồ bàn', roles: ['admin', 'manager', 'cashier', 'waiter', 'barista'], end: true, icon: <SvgIcon d={<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>} /> },
+      { to: '/tables', label: 'Sơ đồ bàn', roles: ['admin', 'manager', 'cashier', 'waiter', 'barista'], icon: <SvgIcon d={<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>} /> },
       { to: '/pos', label: 'Bán hàng (POS)', roles: ['admin', 'manager', 'cashier', 'waiter'], icon: <SvgIcon d={<><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></>} /> },
       { to: '/orders', label: 'Đơn hàng', roles: ['admin', 'manager', 'cashier', 'waiter', 'barista'], hasBadge: true, icon: <SvgIcon d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>} /> },
       { to: '/barista', label: 'Pha chế (KDS)', roles: ['admin', 'manager', 'barista'], icon: <SvgIcon d={<><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/></>} /> },
@@ -42,7 +42,7 @@ const NAV_GROUPS = [
 ];
 
 const ROUTE_TITLES = {
-  '/': 'Sơ đồ bàn phục vụ',
+  '/tables': 'Sơ đồ bàn phục vụ',
   '/pos': 'Chọn món — Bán hàng (POS)',
   '/pos/checkout': 'Thanh toán đơn hàng',
   '/orders': 'Quản lý đơn hàng',
@@ -81,7 +81,13 @@ export default function AppLayout({ children }) {
   const userRole = user?.role || 'admin';
   const currentTitle = ROUTE_TITLES[location.pathname] || 'My Coffee House';
 
+  const canViewOrdersBadge = ['admin', 'manager', 'cashier', 'waiter', 'barista'].includes(userRole);
+
   const fetchPendingCount = async () => {
+    if (!canViewOrdersBadge) {
+      setPendingOrdersCount(0);
+      return;
+    }
     try {
       const res = await api.get('/orders/all');
       const list = res.data?.data || [];
@@ -108,6 +114,16 @@ export default function AppLayout({ children }) {
       fetchPendingCount();
     };
 
+    const handleJoinRooms = () => {
+      if (['admin', 'manager', 'cashier'].includes(userRole)) {
+        socket.emit('join_cashier');
+      }
+      if (['admin', 'manager', 'barista'].includes(userRole)) {
+        socket.emit('join_barista');
+      }
+    };
+    if (socket.connected) handleJoinRooms();
+    socket.on('connect', handleJoinRooms);
     socket.on('newOrder', handleNewOrder);
     socket.on('order:created', handleNewOrder);
     socket.on('order:status_updated', handleUpdate);
@@ -115,18 +131,17 @@ export default function AppLayout({ children }) {
 
     return () => {
       clearInterval(interval);
+      socket.off('connect', handleJoinRooms);
       socket.off('newOrder', handleNewOrder);
       socket.off('order:created', handleNewOrder);
       socket.off('order:status_updated', handleUpdate);
       socket.off('table:status_updated', handleUpdate);
     };
-  }, []);
+  }, [userRole]);
 
   return (
     <div className="mch-shell">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
-
         .mch-shell {
           display: flex;
           height: 100vh;
@@ -134,7 +149,7 @@ export default function AppLayout({ children }) {
           overflow: hidden;
           background: #121214 !important;
           color: #F4F1EC !important;
-          font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .mch-sidebar {
           width: ${collapsed ? '72px' : '268px'};
@@ -200,13 +215,6 @@ export default function AppLayout({ children }) {
           color: #FFFFFF;
           font-weight: 700;
           box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
-        }
-        .mch-shell {
-          display: flex;
-          height: 100vh;
-          width: 100vw;
-          overflow: hidden;
-          background: #F7F5F0;
         }
         .mch-main {
           flex: 1;
@@ -363,21 +371,23 @@ export default function AppLayout({ children }) {
               <span style={{ color: '#A1A1AA' }}>{shiftInfo.time}</span>
             </div>
 
-            {/* Quick button Cổng khách hàng */}
-            <button
-              type="button"
-              onClick={() => window.open('/customer', '_blank')}
-              style={{
-                background: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgba(217, 119, 6, 0.35)', color: '#FBBF24',
-                padding: '6px 13px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700,
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-              title="Mở cổng khách đặt món trực tuyến trong tab mới"
-            >
-              <span>Cổng khách hàng</span>
-              <SvgIcon size={13} d={<><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></>} />
-            </button>
+            {/* Quick button Cổng khách hàng (cùng tab giữ phiên sessionStorage) */}
+            {['admin', 'manager', 'cashier'].includes(userRole) && (
+              <button
+                type="button"
+                onClick={() => navigate('/customer')}
+                style={{
+                  background: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgba(217, 119, 6, 0.35)', color: '#FBBF24',
+                  padding: '6px 13px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700,
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Mở cổng khách đặt món trực tuyến"
+              >
+                <span>Cổng khách hàng</span>
+                <SvgIcon size={13} d={<><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></>} />
+              </button>
+            )}
 
             <div style={{ width: '1px', height: '22px', background: '#2E2E35' }} />
 

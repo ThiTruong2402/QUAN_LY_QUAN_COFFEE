@@ -196,14 +196,17 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     pointsDiscount = redemptionRes.pointsDiscount;
   }
 
-  // 6. Tính tổng tiền cuối cùng (Tầng 4 - Thuế VAT & Phí vận chuyển)
+  // 6. Tính tổng tiền cuối cùng (Tầng 4 - Thuế VAT & Phí vận chuyển; khách online không nhận shipping_fee từ client)
+  const safeShippingFee = isOnlineCustomer ? 0 : Math.max(0, Number(shipping_fee || 0));
+  const safeRecipientPhone = recipient_phone || effectivePhone || null;
+
   const pricingResult = pricingService.calculateFinalTotal({
     subtotal,
     promoDiscount,
     tierDiscount,
     pointsDiscount,
     tax,
-    shippingFee: shipping_fee
+    shippingFee: safeShippingFee
   });
   const { total, tax: finalTax, totalDiscount } = pricingResult;
 
@@ -239,11 +242,11 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
   }
 
   // 8. Trạng thái thanh toán:
-  // SEC-02 & BIZ-01: Khách đặt online (isOnlineCustomer) BẮT BUỘC có payment_status = 'unpaid'
-  // Chỉ nhân viên thu ngân tại quầy (isStaff) tạo đơn tại POS mới được phép gán 'paid' khi thu tiền trực tiếp
+  // SEC-02 & BIZ-01: Khách đặt online (isOnlineCustomer) mặc định 'unpaid' (chỉ 'paid' nếu tổng 0đ sau voucher/điểm)
+  // Nhân viên thu ngân tại quầy (isStaff) chốt đơn POS mặc định là 'paid' (trừ khi chủ đích gửi 'unpaid')
   const finalPaymentStatus = isOnlineCustomer
-    ? 'unpaid'
-    : ((isStaff && (requestedStatus === 'paid' || orderData.payment_status === 'paid')) ? 'paid' : 'unpaid');
+    ? (total === 0 ? 'paid' : 'unpaid')
+    : (orderData.payment_status === 'unpaid' ? 'unpaid' : 'paid');
 
   // 9. Sinh số hóa đơn và mã đơn hàng tuần tự
   const today = getVietnamDateString();
@@ -274,14 +277,14 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     [orderRes] = await conn.query(
       `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at, pickup_time)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${closedAt}, ?)`,
-      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, shipping_fee || 0, recipient_phone || null, validCouponCode, dbUser.id, effectivePickupDate]
+      [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, safeShippingFee, safeRecipientPhone, validCouponCode, dbUser.id, effectivePickupDate]
     );
   } catch (insErr) {
     if (insErr.message?.includes('pickup_time')) {
       [orderRes] = await conn.query(
         `INSERT INTO orders (code, order_type, table_id, customer_id, status, payment_status, subtotal, discount_total, service_fee, vat_amount, total, note, delivery_address, shipping_fee, recipient_phone, coupon_code, created_by, opened_at, closed_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ${closedAt})`,
-        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, shipping_fee || 0, recipient_phone || null, validCouponCode, dbUser.id]
+        [orderCode, normalizedOrderType, effectiveTableId, customerId, finalOrderStatus, finalPaymentStatus, subtotal, totalDiscount, finalTax, total, note || null, delivery_address || null, safeShippingFee, safeRecipientPhone, validCouponCode, dbUser.id]
       );
     } else {
       throw insErr;
@@ -353,14 +356,13 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     await conn.query("UPDATE `tables` SET status='occupied' WHERE id=?", [effectiveTableId]);
   }
 
-  // 17. Phát Socket.IO
-  if (io) {
-    // Masking SĐT khi phát broadcast để bảo vệ quyền riêng tư
-    const maskedPhone = effectivePhone
-      ? (effectivePhone.length > 6 ? effectivePhone.slice(0, 3) + '****' + effectivePhone.slice(-3) : '***')
-      : null;
+  // 17. Đóng gói sự kiện Socket.IO để Controller chỉ phát SAU khi conn.commit() thành công
+  const maskedPhone = effectivePhone
+    ? (effectivePhone.length > 6 ? effectivePhone.slice(0, 3) + '****' + effectivePhone.slice(-3) : '***')
+    : null;
 
-    io.emit('order:created', {
+  const socketEvents = {
+    orderCreated: {
       orderId,
       orderCode,
       invoiceNo,
@@ -375,10 +377,8 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
       status: finalOrderStatus,
       pickupTime: effectivePickupDate,
       pickupDisplayLabel,
-    });
-
-    // Phát đầy đủ chi tiết cho nhân viên quầy thu ngân (cashier room)
-    io.to('cashier').emit('cashier:new_order', {
+    },
+    cashierNewOrder: {
       orderId,
       orderCode,
       invoiceNo,
@@ -387,22 +387,17 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
       total,
       orderType: normalizedOrderType,
       paymentStatus: finalPaymentStatus,
-    });
-
-    // Chỉ phát sang KDS Barista khi:
-    // 1. Đơn tại bàn (dine_in), HOẶC
-    // 2. Đơn ĐÃ THANH TOÁN (payment_status === 'paid')
-    // Đơn online chưa thanh toán (unpaid) KHÔNG phát sang Barista!
-    if (finalOrderStatus === 'pending' && (normalizedOrderType === 'dine_in' || finalPaymentStatus === 'paid')) {
-      io.emit('barista:new_order', {
-        orderId,
-        orderCode,
-        customerName: effectiveName,
-        tableId: effectiveTableId,
-        orderType: normalizedOrderType,
-      });
-    }
-  }
+    },
+    baristaNewOrder: (finalOrderStatus === 'pending' && (normalizedOrderType === 'dine_in' || finalPaymentStatus === 'paid'))
+      ? {
+          orderId,
+          orderCode,
+          customerName: effectiveName,
+          tableId: effectiveTableId,
+          orderType: normalizedOrderType,
+        }
+      : null,
+  };
 
   let successMsg = 'Xác nhận đơn thành công! Đơn hàng đang ở trạng thái Đang chờ làm.';
   if (finalOrderStatus === 'scheduled') {
@@ -422,7 +417,8 @@ async function createDirectOrder(conn, { orderData, reqUser, io }) {
     payment_status: finalPaymentStatus,
     pickup_time: effectivePickupDate,
     pickup_display_label: pickupDisplayLabel,
-    message: successMsg
+    message: successMsg,
+    socketEvents,
   };
 }
 

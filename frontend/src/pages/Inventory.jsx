@@ -3,6 +3,8 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
+const todayVN = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+
 export default function Inventory() {
   const { user } = useAuth();
   const canManageMaster = ['admin', 'manager'].includes(user?.role);
@@ -20,7 +22,7 @@ export default function Inventory() {
     unit: 'kg',
     min_stock: 5,
     avg_cost: 0,
-    received_date: new Date().toISOString().split('T')[0],
+    received_date: todayVN(),
     note: '',
     image_url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&auto=format&fit=crop&q=80',
   });
@@ -51,7 +53,7 @@ export default function Inventory() {
       unit: i.unit,
       min_stock: i.min_stock || 5,
       avg_cost: i.avg_cost || 0,
-      received_date: i.created_at ? i.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+      received_date: i.created_at ? i.created_at.split('T')[0] : todayVN(),
       note: '',
       image_url: i.image_url || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&auto=format&fit=crop&q=80',
     });
@@ -66,7 +68,7 @@ export default function Inventory() {
       unit: 'kg',
       min_stock: 5,
       avg_cost: 0,
-      received_date: new Date().toISOString().split('T')[0],
+      received_date: todayVN(),
       note: '',
       image_url: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&auto=format&fit=crop&q=80',
     });
@@ -113,12 +115,12 @@ export default function Inventory() {
     if (!selectedIng) return toast.error('Vui lòng chọn nguyên liệu cần xóa!');
     if (!window.confirm(`Bạn có chắc muốn xóa nguyên liệu "${selectedIng.name}"?`)) return;
     try {
-      // mark min_stock 0 or adjust
-      toast.success('Đã xóa nguyên liệu!');
+      const res = await api.delete(`/inventory/ingredients/${selectedIng.id}`);
+      toast.success(res.data?.message || 'Đã xóa nguyên liệu thành công!');
       setSelectedIng(null);
       loadData();
     } catch (err) {
-      toast.error('Lỗi xóa nguyên liệu');
+      toast.error(err.response?.data?.message || 'Lỗi xóa nguyên liệu');
     }
   };
 
@@ -141,53 +143,53 @@ export default function Inventory() {
         <div className="mockup-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span style={{ fontSize: '2rem' }}>📦</span>
           <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#c4a482', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase' }}>
               TỔNG NGUYÊN LIỆU
             </div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fef3c7' }}>
-              {totalCount} <span style={{ fontSize: '0.9rem', color: '#d5bba2', fontWeight: 500 }}>Loại</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#F4F1EC' }}>
+              {totalCount} <span style={{ fontSize: '0.9rem', color: '#A1A1AA', fontWeight: 500 }}>Loại</span>
             </div>
           </div>
         </div>
 
         <div className="mockup-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.16)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
             ✓
           </div>
           <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#c4a482', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase' }}>
               CÒN HÀNG
             </div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#34d399' }}>
-              {inStockCount} <span style={{ fontSize: '0.9rem', color: '#d5bba2', fontWeight: 500 }}>Loại</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#34D399' }}>
+              {inStockCount} <span style={{ fontSize: '0.9rem', color: '#A1A1AA', fontWeight: 500 }}>Loại</span>
             </div>
           </div>
         </div>
 
         <div className="mockup-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.16)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
             ⚠️
           </div>
           <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#c4a482', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase' }}>
               SẮP HẾT
             </div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fbbf24' }}>
-              {lowStockCount} <span style={{ fontSize: '0.9rem', color: '#d5bba2', fontWeight: 500 }}>Loại</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#FBBF24' }}>
+              {lowStockCount} <span style={{ fontSize: '0.9rem', color: '#A1A1AA', fontWeight: 500 }}>Loại</span>
             </div>
           </div>
         </div>
 
         <div className="mockup-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.16)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
             ✕
           </div>
           <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#c4a482', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase' }}>
               HẾT HÀNG
             </div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#f87171' }}>
-              {outOfStockCount} <span style={{ fontSize: '0.9rem', color: '#d5bba2', fontWeight: 500 }}>Loại</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#F87171' }}>
+              {outOfStockCount} <span style={{ fontSize: '0.9rem', color: '#A1A1AA', fontWeight: 500 }}>Loại</span>
             </div>
           </div>
         </div>
@@ -274,7 +276,7 @@ export default function Inventory() {
             </table>
           </div>
 
-          <div style={{ padding: '12px 18px', background: 'rgba(32, 20, 13, 0.75)', borderTop: '1px solid rgba(245, 158, 11, 0.18)', fontSize: '0.82rem', color: '#c4a482' }}>
+          <div style={{ padding: '12px 18px', background: '#141417', borderTop: '1px solid #2A2A30', fontSize: '0.82rem', color: '#A1A1AA' }}>
             Tổng số: {filteredIngredients.length} nguyên liệu
           </div>
         </div>

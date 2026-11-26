@@ -5,6 +5,78 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
+const todayVN = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+
+const MANUAL_STATUSES = ['Vắng có lý do', 'Nghỉ phép', 'Đã hủy'];
+const ABSENCE_STATUSES = ['Vắng có lý do', 'Nghỉ phép'];
+const GENERIC_SHIFT_NOTES = [
+  'trực theo lịch tự động',
+  'đã kiểm kê, ca sáng trực đầy đủ',
+  'ca hành chính bình thường',
+  'ca chiều theo phân công',
+];
+const ABSENCE_REASON_PRESETS = [
+  'Nghỉ ốm / Khám bệnh',
+  'Việc gia đình đột xuất',
+  'Nghỉ phép năm đã duyệt',
+  'Trùng lịch học / thi',
+  'Sự cố phương tiện đi lại',
+];
+
+const validateClientAbsenceReason = (status, note) => {
+  if (!ABSENCE_STATUSES.includes(status)) return null;
+  const trimmed = String(note || '').trim();
+  if (trimmed.length < 3) {
+    return 'Vui lòng nhập lý do vắng cụ thể (tối thiểu 3 ký tự)!';
+  }
+  const lower = trimmed.toLowerCase();
+  if (
+    lower === '---' ||
+    lower === 'không có' ||
+    lower === 'khong co' ||
+    lower === 'none' ||
+    !/[\p{L}\p{N}]/u.test(trimmed) ||
+    GENERIC_SHIFT_NOTES.some((g) => lower.includes(g))
+  ) {
+    return 'Ghi chú hiện tại không phải lý do vắng hợp lệ. Vui lòng nhập lý do cụ thể (VD: Nghỉ ốm, Việc gia đình...).';
+  }
+  return null;
+};
+
+const resolveShiftStatusClient = (shiftDate, shiftType, currentStatus, nowMs = Date.now()) => {
+  if (MANUAL_STATUSES.includes(currentStatus)) return currentStatus;
+  const dateStr = String(shiftDate || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return currentStatus || 'Chưa bắt đầu';
+
+  let startStr = '06:30';
+  let endStr = '14:30';
+  const match = String(shiftType || '').match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if (match) {
+    startStr = match[1].padStart(5, '0');
+    endStr = match[2].padStart(5, '0');
+  } else {
+    const lower = String(shiftType || '').toLowerCase();
+    if (lower.includes('chiều') || lower.includes('tối')) {
+      startStr = '14:30';
+      endStr = '22:30';
+    } else if (lower.includes('hành chính')) {
+      startStr = '08:00';
+      endStr = '17:00';
+    } else if (lower.includes('đêm')) {
+      startStr = '22:30';
+      endStr = '06:30';
+    }
+  }
+
+  const startMs = new Date(`${dateStr}T${startStr}:00+07:00`).getTime();
+  let endMs = new Date(`${dateStr}T${endStr}:00+07:00`).getTime();
+  if (endMs <= startMs) endMs += 86400000;
+
+  if (nowMs < startMs) return 'Chưa bắt đầu';
+  if (nowMs <= endMs) return 'Đang làm việc';
+  return 'Đã hoàn thành';
+};
+
 export default function Shifts() {
   const { user } = useAuth();
 
@@ -35,6 +107,10 @@ export default function Shifts() {
   const [swapTargetShiftId, setSwapTargetShiftId] = useState('');
   const [showSwapSection, setShowSwapSection] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const [showAbsenceBox, setShowAbsenceBox] = useState(false);
+  const [absenceStatusType, setAbsenceStatusType] = useState('Vắng có lý do');
+  const [absenceReason, setAbsenceReason] = useState('');
 
   // Quick Schedule Form
   const [quickForm, setQuickForm] = useState({
@@ -48,8 +124,8 @@ export default function Shifts() {
     shift_code: '',
     user_id: '',
     shift_type: 'Ca Sáng (06:30 - 14:30)',
-    shift_date: new Date().toISOString().split('T')[0],
-    status: 'Chưa bắt đầu',
+    shift_date: todayVN(),
+    status: '',
     note: '',
   });
 
@@ -65,11 +141,14 @@ export default function Shifts() {
       toast.error('Lỗi tải danh sách ca trực');
     }
 
+    if (!isManagerOrAdmin) return;
+
     try {
       const staffRes = await api.get('/staff');
       const allUsers = staffRes.data?.data?.users || [];
-      // Chỉ lấy tài khoản nhân viên nội bộ, loại bỏ hoàn toàn tài khoản khách hàng
+      // Chỉ lấy tài khoản nhân viên nội bộ đang hoạt động (loại khách hàng & tài khoản đã khóa/trùng)
       const staffOnly = allUsers.filter((u) => {
+        if (u.is_active === 0 || u.is_active === false) return false;
         const rName = String(u.role_name || u.role || '').toLowerCase();
         const rLabel = String(u.role_label || '').toLowerCase();
         return (
@@ -87,7 +166,18 @@ export default function Shifts() {
 
   useEffect(() => {
     loadData();
+    const timer = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(timer);
   }, []);
+
+  const normalizedShifts = useMemo(
+    () =>
+      shifts.map((s) => ({
+        ...s,
+        status: resolveShiftStatusClient(s.shift_date, s.shift_type, s.status, nowTick),
+      })),
+    [shifts, nowTick]
+  );
 
   const selectRow = (s) => {
     setSelectedShift(s);
@@ -95,36 +185,28 @@ export default function Shifts() {
       shift_code: s.shift_code,
       user_id: s.user_id,
       shift_type: s.shift_type,
-      shift_date: s.shift_date ? s.shift_date.split('T')[0] : new Date().toISOString().split('T')[0],
-      status: s.status,
+      shift_date: s.shift_date ? s.shift_date.split('T')[0] : todayVN(),
+      status: ABSENCE_STATUSES.includes(s.status) ? s.status : '',
       note: s.note || '',
     });
   };
 
-  // Compute 7 days of the selected week (Mon - Sun)
+  // Compute 7 days of the selected week (Mon - Sun) theo chuẩn GMT+7
   const currentWeekDays = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay(); // 0 is Sun, 1 is Mon
+    const todayStr = todayVN();
+    const today = new Date(`${todayStr}T12:00:00+07:00`);
+    const day = today.getUTCDay(); // 0 is Sun, 1 is Mon (UTC at 12:00+07:00 = 05:00Z cùng ngày)
     const diffToMonday = (day === 0 ? -6 : 1 - day) + weekOffset * 7;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + diffToMonday);
-
-    const formatLocalDate = (d) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dt = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${dt}`;
-    };
-
-    const todayStr = formatLocalDate(today);
+    const mondayMs = today.getTime() + diffToMonday * 86400000;
 
     const days = [];
     const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const iso = formatLocalDate(d);
-      const displayDate = `${d.getDate()}/${d.getMonth() + 1}`;
+      const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(
+        new Date(mondayMs + i * 86400000)
+      );
+      const [, m, dt] = iso.split('-');
+      const displayDate = `${Number(dt)}/${Number(m)}`;
       days.push({
         dateStr: iso,
         label: `${dayNames[i]} (${displayDate})`,
@@ -139,9 +221,9 @@ export default function Shifts() {
   // Lọc nhân sự theo vai trò
   const displayUsers = useMemo(() => {
     let list = users && users.length > 0 ? users : [];
-    if (!list.length && shifts && shifts.length > 0) {
+    if (!list.length && normalizedShifts && normalizedShifts.length > 0) {
       const map = new Map();
-      shifts.forEach((s) => {
+      normalizedShifts.forEach((s) => {
         if (!map.has(s.user_id)) {
           map.set(s.user_id, {
             id: s.user_id,
@@ -166,11 +248,11 @@ export default function Shifts() {
       if (roleFilter === 'manager') return rName === 'manager' || rName === 'admin';
       return true;
     });
-  }, [users, shifts, myOnly, user, roleFilter]);
+  }, [users, normalizedShifts, myOnly, user, roleFilter]);
 
   // Filtered shifts for table list
   const filteredShifts = useMemo(() => {
-    return shifts.filter((s) => {
+    return normalizedShifts.filter((s) => {
       if (myOnly && s.user_id !== user?.id) return false;
       if (!search) return true;
       const q = search.toLowerCase();
@@ -180,7 +262,7 @@ export default function Shifts() {
         (s.user_code || '').toLowerCase().includes(q)
       );
     });
-  }, [shifts, myOnly, user, search]);
+  }, [normalizedShifts, myOnly, user, search]);
 
   // Pagination for list
   const totalPages = Math.ceil(filteredShifts.length / pageSize) || 1;
@@ -193,20 +275,21 @@ export default function Shifts() {
     setPage(Math.max(1, Math.min(totalPages, p)));
   };
 
-  // Helper badge style (Chuẩn hóa màu Pastel SaaS F&B)
+  // Helper badge style (Tối dịu Matte Dark cho tuần lịch phân ca)
   const getShiftBadge = (type) => {
-    if (!type) return { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0', label: 'Nghỉ', icon: '' };
-    if (type.includes('Sáng')) return { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A', label: 'Ca Sáng', icon: '', time: '06:30 - 14:30' };
-    if (type.includes('Chiều') || type.includes('Tối')) return { bg: '#EEF2FF', color: '#4338CA', border: '#C7D2FE', label: 'Ca Chiều/Tối', icon: '', time: '14:30 - 22:30' };
-    return { bg: '#ECFDF5', color: '#15803D', border: '#BBF7D0', label: 'Hành Chính', icon: '', time: '08:00 - 17:00' };
+    if (!type) return { bg: '#202024', color: '#A1A1AA', border: '#2A2A30', label: 'Nghỉ', icon: '' };
+    if (type.includes('Sáng')) return { bg: 'rgba(245, 158, 11, 0.14)', color: '#FBBF24', border: 'rgba(245, 158, 11, 0.35)', label: 'Ca Sáng', icon: '', time: '06:30 - 14:30' };
+    if (type.includes('Chiều') || type.includes('Tối')) return { bg: 'rgba(99, 102, 241, 0.16)', color: '#A5B4FC', border: 'rgba(99, 102, 241, 0.35)', label: 'Ca Chiều/Tối', icon: '', time: '14:30 - 22:30' };
+    return { bg: 'rgba(16, 185, 129, 0.14)', color: '#34D399', border: 'rgba(52, 211, 153, 0.35)', label: 'Hành Chính', icon: '', time: '08:00 - 17:00' };
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Đang làm việc': return '#10b981'; // Xanh lá
-      case 'Đã hoàn thành': return '#38bdf8'; // Xanh dương
-      case 'Vắng có lý do': return '#ef4444'; // Đỏ
-      default: return '#f59e0b'; // Vàng cam (Chưa bắt đầu)
+      case 'Đang làm việc': return '#34D399';
+      case 'Đã hoàn thành': return '#38BDF8';
+      case 'Vắng có lý do':
+      case 'Nghỉ phép': return '#F87171';
+      default: return '#FBBF24';
     }
   };
 
@@ -264,7 +347,7 @@ export default function Shifts() {
     setQuickForm({
       shift_type: 'Ca Sáng (06:30 - 14:30)',
       note: (u.role_name === 'barista' || u.role === 'barista') ? 'Pha chế quầy Bar' : 'Thu ngân / Phục vụ',
-      status: d.isToday ? 'Đang làm việc' : 'Chưa bắt đầu',
+      status: '',
     });
   };
 
@@ -289,10 +372,17 @@ export default function Shifts() {
 
   // 5. Mở Modal Chi tiết ca & Đổi người trực
   const handleOpenShiftDetail = (shift) => {
-    setShiftDetailModal(shift);
+    const currentStatus = resolveShiftStatusClient(shift.shift_date, shift.shift_type, shift.status, nowTick);
+    const isAbsent = ABSENCE_STATUSES.includes(currentStatus);
+    setShiftDetailModal({ ...shift, status: currentStatus });
     setReassignUserId('');
     setSwapTargetShiftId('');
     setShowSwapSection(false);
+    setShowAbsenceBox(isAbsent);
+    setAbsenceStatusType(isAbsent ? currentStatus : 'Vắng có lý do');
+    const currentNote = String(shift.note || '').trim();
+    const isGenericNote = GENERIC_SHIFT_NOTES.some((g) => currentNote.toLowerCase().includes(g));
+    setAbsenceReason(isAbsent && !isGenericNote ? currentNote : '');
   };
 
   // 6. Đổi nhân viên trực (Reassign Staff)
@@ -330,19 +420,51 @@ export default function Shifts() {
     }
   };
 
-  // 8. Đổi trạng thái nhanh trong modal
-  const handleQuickChangeStatus = async (newStatus) => {
+  // 8a. Xác nhận báo vắng kèm lý do cụ thể
+  const handleMarkAbsent = async () => {
     if (!shiftDetailModal) return;
+    const trimmedReason = absenceReason.trim();
+    const errMsg = validateClientAbsenceReason(absenceStatusType, trimmedReason);
+    if (errMsg) return toast.error(errMsg);
+
     try {
-      await api.put(`/work-shifts/${shiftDetailModal.id}`, {
+      const res = await api.put(`/work-shifts/${shiftDetailModal.id}`, {
         ...shiftDetailModal,
-        status: newStatus,
+        status: absenceStatusType,
+        note: trimmedReason,
       });
-      toast.success(`Đã cập nhật trạng thái: ${newStatus}`);
-      setShiftDetailModal((prev) => (prev ? { ...prev, status: newStatus } : null));
+      const resolvedStatus = res.data?.data?.status || absenceStatusType;
+      const resolvedNote = res.data?.data?.note ?? trimmedReason;
+      toast.success(`Đã cập nhật "${resolvedStatus}" với lý do cụ thể`);
+      setShiftDetailModal((prev) => (prev ? { ...prev, status: resolvedStatus, note: resolvedNote } : null));
+      setShowAbsenceBox(true);
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Lỗi cập nhật');
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật trạng thái vắng');
+    }
+  };
+
+  // 8b. Khôi phục về trạng thái tự động theo giờ thực tế (Backend GMT+7)
+  const handleRestoreAutoStatus = async () => {
+    if (!shiftDetailModal) return;
+    const isCurrentlyAbsent = ABSENCE_STATUSES.includes(shiftDetailModal.status);
+    const nextNote = isCurrentlyAbsent ? '' : (shiftDetailModal.note || '');
+    try {
+      const res = await api.put(`/work-shifts/${shiftDetailModal.id}`, {
+        ...shiftDetailModal,
+        status: '',
+        note: nextNote,
+      });
+      const resolvedStatus =
+        res.data?.data?.status ||
+        resolveShiftStatusClient(shiftDetailModal.shift_date, shiftDetailModal.shift_type, '', Date.now());
+      toast.success(`Đã khôi phục trạng thái tự động: ${resolvedStatus}`);
+      setShowAbsenceBox(false);
+      setAbsenceReason('');
+      setShiftDetailModal((prev) => (prev ? { ...prev, status: resolvedStatus, note: nextNote || null } : null));
+      await loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khôi phục trạng thái ca');
     }
   };
 
@@ -363,8 +485,13 @@ export default function Shifts() {
   // 10. CRUD thủ công ở List View
   const handleCreate = async () => {
     if (!form.user_id) return toast.error('Vui lòng chọn nhân viên cho ca trực!');
+    const absenceErr = validateClientAbsenceReason(form.status, form.note);
+    if (absenceErr) return toast.error(absenceErr);
     try {
-      await api.post('/work-shifts', form);
+      await api.post('/work-shifts', {
+        ...form,
+        note: String(form.note || '').trim(),
+      });
       toast.success('Thêm ca trực thành công! 📅');
       await loadData();
     } catch (err) {
@@ -374,8 +501,13 @@ export default function Shifts() {
 
   const handleUpdate = async () => {
     if (!selectedShift) return toast.error('Vui lòng chọn ca trực cần sửa!');
+    const absenceErr = validateClientAbsenceReason(form.status, form.note);
+    if (absenceErr) return toast.error(absenceErr);
     try {
-      await api.put(`/work-shifts/${selectedShift.id}`, form);
+      await api.put(`/work-shifts/${selectedShift.id}`, {
+        ...form,
+        note: String(form.note || '').trim(),
+      });
       toast.success('Cập nhật ca trực thành công!');
       await loadData();
     } catch (err) {
@@ -399,49 +531,32 @@ export default function Shifts() {
   // Danh sách các ca khác trong tuần này để hoán đổi
   const otherShiftsInWeek = useMemo(() => {
     if (!shiftDetailModal) return [];
-    return shifts.filter(
+    return normalizedShifts.filter(
       (s) =>
         s.id !== shiftDetailModal.id &&
         s.user_id !== shiftDetailModal.user_id &&
         currentWeekDays.some((d) => (s.shift_date ? s.shift_date.split('T')[0] : '') === d.dateStr)
     );
-  }, [shiftDetailModal, shifts, currentWeekDays]);
+  }, [shiftDetailModal, normalizedShifts, currentWeekDays]);
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* 1. TOP HEADER & NAVIGATION */}
+      {/* 1. TOP BAR CHUYỂN CHẾ ĐỘ GỌN GÀNG (Bỏ tiêu đề lớn lặp TopBar) */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(32, 20, 13, 0.75)',
-          backdropFilter: 'blur(16px)',
-          padding: '14px 20px',
-          borderRadius: '12px',
-          border: '1px solid rgba(245, 158, 11, 0.18)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          background: '#18181B',
+          padding: '12px 18px',
+          borderRadius: '14px',
+          border: '1px solid #2A2A30',
           flexWrap: 'wrap',
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.6rem' }}>📅</span>
-          <div>
-            <div
-              style={{
-                fontWeight: 800,
-                fontSize: '1.2rem',
-                color: '#1E1815',
-                fontFamily: "'Be Vietnam Pro', sans-serif",
-              }}
-            >
-              Lịch phân ca &amp; điều phối nhân sự
-            </div>
-            <div style={{ fontSize: '0.8rem', color: '#73675E', marginTop: '2px' }}>
-              Xếp ca làm việc, điều chuyển và hoán đổi ca giữa các nhân viên linh hoạt
-            </div>
-          </div>
+        <div style={{ fontSize: '0.84rem', color: '#A1A1AA' }}>
+          Xếp ca làm việc, điều chuyển và hoán đổi ca giữa các nhân sự
         </div>
 
         {/* View Toggle Buttons */}
@@ -449,24 +564,24 @@ export default function Shifts() {
           style={{
             display: 'flex',
             gap: '6px',
-            background: '#F1ECE4',
+            background: '#121214',
             padding: '4px',
             borderRadius: '10px',
-            border: '1px solid #EAE3DA',
+            border: '1px solid #2A2A30',
           }}
         >
           <button
             type="button"
             className="ui-btn"
             style={{
-              background: viewMode === 'weekly' ? '#FFFFFF' : 'transparent',
-              color: viewMode === 'weekly' ? '#1E1815' : '#73675E',
+              height: '32px',
+              background: viewMode === 'weekly' ? '#D97706' : 'transparent',
+              color: viewMode === 'weekly' ? '#FFFFFF' : '#A1A1AA',
               fontWeight: 700,
-              padding: '6px 14px',
+              padding: '0 14px',
               borderRadius: '8px',
-              border: viewMode === 'weekly' ? '1px solid #EAE3DA' : 'none',
-              boxShadow: viewMode === 'weekly' ? '0 1px 3px rgba(28, 20, 14, 0.05)' : 'none',
-              fontSize: '0.82rem'
+              border: 'none',
+              fontSize: '0.8rem'
             }}
             onClick={() => setViewMode('weekly')}
           >
@@ -476,14 +591,14 @@ export default function Shifts() {
             type="button"
             className="ui-btn"
             style={{
-              background: viewMode === 'list' ? '#FFFFFF' : 'transparent',
-              color: viewMode === 'list' ? '#1E1815' : '#73675E',
+              height: '32px',
+              background: viewMode === 'list' ? '#D97706' : 'transparent',
+              color: viewMode === 'list' ? '#FFFFFF' : '#A1A1AA',
               fontWeight: 700,
-              padding: '6px 14px',
+              padding: '0 14px',
               borderRadius: '8px',
-              border: viewMode === 'list' ? '1px solid #EAE3DA' : 'none',
-              boxShadow: viewMode === 'list' ? '0 1px 3px rgba(28, 20, 14, 0.05)' : 'none',
-              fontSize: '0.82rem'
+              border: 'none',
+              fontSize: '0.8rem'
             }}
             onClick={() => setViewMode('list')}
           >
@@ -510,20 +625,23 @@ export default function Shifts() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className="btn btn-sm btn-outline"
-                style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fef3c7', fontWeight: 600, padding: '6px 12px' }}
+                className="ui-btn ui-btn-outline"
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem', fontWeight: 600 }}
                 onClick={() => setWeekOffset((w) => w - 1)}
               >
                 ◀ Tuần trước
               </button>
               <button
                 type="button"
-                className="btn btn-sm"
+                className="ui-btn"
                 style={{
-                  background: weekOffset === 0 ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255, 255, 255, 0.08)',
-                  color: '#fff',
+                  height: '32px',
+                  background: weekOffset === 0 ? '#D97706' : '#202024',
+                  color: weekOffset === 0 ? '#FFFFFF' : '#F4F1EC',
+                  border: weekOffset === 0 ? '1px solid #D97706' : '1px solid #32323A',
                   fontWeight: 700,
-                  padding: '6px 14px',
+                  padding: '0 14px',
+                  fontSize: '0.8rem',
                 }}
                 onClick={() => setWeekOffset(0)}
               >
@@ -531,13 +649,13 @@ export default function Shifts() {
               </button>
               <button
                 type="button"
-                className="btn btn-sm btn-outline"
-                style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fef3c7', fontWeight: 600, padding: '6px 12px' }}
+                className="ui-btn ui-btn-outline"
+                style={{ height: '32px', padding: '0 12px', fontSize: '0.8rem', fontWeight: 600 }}
                 onClick={() => setWeekOffset((w) => w + 1)}
               >
                 Tuần sau ▶
               </button>
-              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#fbbf24', marginLeft: '6px' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#FBBF24', marginLeft: '6px' }}>
                 Tuần từ {currentWeekDays[0]?.displayDate} đến {currentWeekDays[6]?.displayDate}
               </span>
             </div>
@@ -547,16 +665,14 @@ export default function Shifts() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  className="btn btn-sm"
+                  className="ui-btn"
                   style={{
-                    background: 'linear-gradient(135deg, #15803d, #166534)',
-                    color: '#ffffff',
+                    height: '34px',
+                    background: '#15803D',
+                    color: '#FFFFFF',
                     fontWeight: 700,
-                    padding: '6px 14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 8px rgba(21, 128, 61, 0.3)',
+                    padding: '0 14px',
+                    fontSize: '0.78rem',
                   }}
                   disabled={isGenerating}
                   onClick={handleGenerateWeek}
@@ -568,14 +684,8 @@ export default function Shifts() {
 
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline"
-                  style={{
-                    borderColor: '#ef4444',
-                    color: '#fca5a5',
-                    fontWeight: 600,
-                    padding: '6px 10px',
-                    fontSize: '0.78rem',
-                  }}
+                  className="ui-btn ui-btn-danger"
+                  style={{ height: '34px', padding: '0 12px', fontSize: '0.78rem' }}
                   onClick={handleClearWeek}
                   title="Xóa nhanh toàn bộ ca trong tuần này để làm lại"
                 >
@@ -585,12 +695,12 @@ export default function Shifts() {
             )}
           </div>
 
-          {/* Subheader: Bộ lọc theo vai trò & Gợi ý hướng dẫn */}
+          {/* Subheader: Bộ lọc theo vai trò */}
           <div
             style={{
               padding: '10px 18px',
-              background: 'rgba(24, 15, 10, 0.85)',
-              borderBottom: '1px solid rgba(245, 158, 11, 0.12)',
+              background: '#141417',
+              borderBottom: '1px solid #2A2A30',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -600,7 +710,7 @@ export default function Shifts() {
           >
             {/* Role Filter Chips */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.78rem', color: '#c4a482', fontWeight: 600, marginRight: '4px' }}>
+              <span style={{ fontSize: '0.78rem', color: '#A1A1AA', fontWeight: 600, marginRight: '4px' }}>
                 Bộ lọc:
               </span>
               {[
@@ -614,12 +724,14 @@ export default function Shifts() {
                 <button
                   key={r.id}
                   type="button"
-                  className="btn btn-sm"
+                  className="ui-btn"
                   style={{
-                    background: roleFilter === r.id ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
-                    color: roleFilter === r.id ? '#ffffff' : '#fef3c7',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
-                    padding: '3px 8px',
+                    height: '28px',
+                    background: roleFilter === r.id ? '#D97706' : '#202024',
+                    color: roleFilter === r.id ? '#FFFFFF' : '#D4D4D8',
+                    border: roleFilter === r.id ? '1px solid #D97706' : '1px solid #2A2A30',
+                    padding: '0 10px',
+                    borderRadius: '8px',
                     fontSize: '0.74rem',
                     fontWeight: 600,
                   }}
@@ -630,12 +742,14 @@ export default function Shifts() {
               ))}
               <button
                 type="button"
-                className="btn btn-sm"
+                className="ui-btn"
                 style={{
-                  background: myOnly ? '#78350f' : 'rgba(255, 255, 255, 0.05)',
-                  color: myOnly ? '#fef3c7' : '#c4a482',
-                  border: '1px solid rgba(245, 158, 11, 0.2)',
-                  padding: '3px 8px',
+                  height: '28px',
+                  background: myOnly ? '#D97706' : '#202024',
+                  color: myOnly ? '#FFFFFF' : '#A1A1AA',
+                  border: '1px solid #2A2A30',
+                  padding: '0 10px',
+                  borderRadius: '8px',
                   fontSize: '0.74rem',
                   fontWeight: 700,
                 }}
@@ -644,8 +758,6 @@ export default function Shifts() {
                 👤 Ca của tôi
               </button>
             </div>
-
-            
           </div>
 
           {/* Weekly Timetable Grid Table */}
@@ -653,7 +765,7 @@ export default function Shifts() {
             <table className="mockup-table" style={{ width: '100%', minWidth: '980px' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '180px', background: 'rgba(45, 27, 18, 0.95)', color: '#fef3c7' }}>
+                  <th style={{ width: '190px' }}>
                     Nhân viên
                   </th>
                   {currentWeekDays.map((d) => (
@@ -661,24 +773,26 @@ export default function Shifts() {
                       key={d.dateStr}
                       style={{
                         textAlign: 'center',
-                        background: d.isToday ? 'rgba(217, 119, 6, 0.35)' : 'rgba(45, 27, 18, 0.95)',
-                        color: '#fef3c7',
+                        background: d.isToday ? 'rgba(217, 119, 6, 0.16)' : undefined,
+                        color: d.isToday ? '#FBBF24' : undefined,
                         fontWeight: 700,
-                        borderRight: '1px solid rgba(245, 158, 11, 0.15)',
+                        borderRight: '1px solid #2A2A30',
                         width: '11.5%',
                       }}
                     >
                       <div>{d.dayName}</div>
-                      <div style={{ fontSize: '0.75rem', opacity: d.isToday ? 1 : 0.8 }}>{d.displayDate}</div>
+                      <div style={{ fontSize: '0.75rem', opacity: d.isToday ? 1 : 0.85 }}>{d.displayDate}</div>
                       {d.isToday && (
                         <span
                           style={{
+                            display: 'inline-block',
+                            marginTop: '2px',
                             fontSize: '0.65rem',
-                            background: '#f59e0b',
-                            color: '#1a0f08',
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            fontWeight: 800,
+                            background: '#D97706',
+                            color: '#FFFFFF',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 700,
                           }}
                         >
                           Hôm nay
@@ -691,7 +805,7 @@ export default function Shifts() {
               <tbody>
                 {displayUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#a8a29e' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#A1A1AA' }}>
                       Không có nhân viên nào phù hợp với bộ lọc hiện tại.
                     </td>
                   </tr>
@@ -701,24 +815,24 @@ export default function Shifts() {
                       <tr key={u.id}>
                         <td
                           style={{
-                            background: 'rgba(28, 18, 11, 0.85)',
-                            borderRight: '1px solid rgba(245, 158, 11, 0.15)',
-                            padding: '10px',
+                            borderRight: '1px solid #2A2A30',
+                            padding: '10px 14px',
                           }}
                         >
-                          <div style={{ fontWeight: 700, color: '#fef3c7', fontSize: '0.88rem' }}>{u.full_name}</div>
-                          <div style={{ fontSize: '0.74rem', color: '#c4a482', marginTop: '2px' }}>
-                            <span style={{ fontWeight: 600 }}>{u.code || `NV00${u.id}`}</span> • {u.role_label || u.role_name}
+                          <div style={{ fontWeight: 700, color: '#F4F1EC', fontSize: '0.88rem' }}>{u.full_name}</div>
+                          <div style={{ fontSize: '0.74rem', color: '#A1A1AA', marginTop: '2px' }}>
+                            <span style={{ fontWeight: 700, color: '#F59E0B' }}>{u.code || `NV00${u.id}`}</span> • {u.role_label || u.role_name}
                           </div>
                         </td>
 
                         {currentWeekDays.map((d) => {
-                          const shift = shifts.find(
+                          const shift = normalizedShifts.find(
                             (s) =>
                               s.user_id === u.id &&
                               (s.shift_date ? s.shift_date.split('T')[0] : '') === d.dateStr
                           );
                           const badge = getShiftBadge(shift?.shift_type);
+                          const isAbsent = shift && ABSENCE_STATUSES.includes(shift.status);
 
                           return (
                             <td
@@ -745,7 +859,7 @@ export default function Shifts() {
                                     boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
                                     position: 'relative',
                                   }}
-                                  title={`Ca: ${shift.shift_type}\nTrạng thái: ${shift.status}\nGhi chú: ${shift.note || 'Không có'}\n(Bấm để đổi người hoặc đổi ca)`}
+                                  title={`Ca: ${shift.shift_type}\nTrạng thái: ${shift.status}\n${isAbsent ? 'Lý do vắng' : 'Ghi chú'}: ${shift.note || 'Chưa ghi chú'}\n(Bấm để đổi người, đổi ca hoặc báo vắng)`}
                                 >
                                   {/* Status indicator dot */}
                                   <div
@@ -779,6 +893,28 @@ export default function Shifts() {
                                   >
                                     {shift.status}
                                   </div>
+                                  {isAbsent && (
+                                    <div
+                                      style={{
+                                        fontSize: '0.62rem',
+                                        color: '#FCA5A5',
+                                        marginTop: '3px',
+                                        lineHeight: 1.25,
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden',
+                                        wordBreak: 'break-word',
+                                        background: 'rgba(239, 68, 68, 0.14)',
+                                        padding: '2px 4px',
+                                        borderRadius: '4px',
+                                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                                      }}
+                                      title={shift.note || 'Chưa ghi rõ lý do'}
+                                    >
+                                      Lý do: {shift.note || 'Chưa ghi rõ'}
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <div
@@ -787,7 +923,7 @@ export default function Shifts() {
                                     border: '1px dashed rgba(245, 158, 11, 0.25)',
                                     borderRadius: '8px',
                                     padding: '12px 4px',
-                                    color: '#78716c',
+                                    color: '#71717A',
                                     cursor: isManagerOrAdmin ? 'pointer' : 'default',
                                     transition: 'all 0.15s ease',
                                     display: 'flex',
@@ -836,10 +972,10 @@ export default function Shifts() {
           <div
             style={{
               padding: '12px 18px',
-              background: 'rgba(32, 20, 13, 0.75)',
-              borderTop: '1px solid rgba(245, 158, 11, 0.18)',
+              background: '#141417',
+              borderTop: '1px solid #2A2A30',
               fontSize: '0.82rem',
-              color: '#c4a482',
+              color: '#A1A1AA',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -850,22 +986,22 @@ export default function Shifts() {
             <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '0.76rem' }}>
               <span>Chú thích trạng thái:</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span> Đang làm việc
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34D399' }}></span> Đang làm việc
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }}></span> Đã hoàn thành
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38BDF8' }}></span> Đã hoàn thành
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }}></span> Chưa bắt đầu
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FBBF24' }}></span> Chưa bắt đầu
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span> Vắng có lý do
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F87171' }}></span> Vắng có lý do
               </span>
             </div>
 
             <button
-              className="btn btn-sm btn-outline"
-              style={{ borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fef3c7', fontWeight: 700, background: 'transparent' }}
+              className="ui-btn ui-btn-outline"
+              style={{ height: '32px', padding: '0 12px', fontSize: '0.78rem', fontWeight: 700 }}
               onClick={() => setViewMode('list')}
             >
               Chuyển sang Bảng danh sách chi tiết ➡
@@ -914,13 +1050,14 @@ export default function Shifts() {
                 <tbody>
                   {pagedShifts.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#8c674b' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#A1A1AA' }}>
                         Không tìm thấy ca trực nào phù hợp.
                       </td>
                     </tr>
                   ) : (
                     pagedShifts.map((s) => {
                       const isSelected = selectedShift?.id === s.id;
+                      const isAbsent = ABSENCE_STATUSES.includes(s.status);
                       return (
                         <tr
                           key={s.id}
@@ -937,6 +1074,11 @@ export default function Shifts() {
                             <span style={{ color: getStatusColor(s.status), fontWeight: 700 }}>
                               • {s.status}
                             </span>
+                            {isAbsent && (
+                              <div style={{ fontSize: '0.72rem', color: '#FCA5A5', marginTop: '2px', lineHeight: 1.3 }}>
+                                Lý do: {s.note || 'Chưa ghi rõ'}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -953,8 +1095,8 @@ export default function Shifts() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '12px 18px',
-                background: 'rgba(32, 20, 13, 0.75)',
-                borderTop: '1px solid rgba(245, 158, 11, 0.18)',
+                background: '#141417',
+                borderTop: '1px solid #2A2A30',
                 flexWrap: 'wrap',
                 gap: '8px',
               }}
@@ -962,14 +1104,8 @@ export default function Shifts() {
               <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline"
-                  style={{
-                    padding: '4px 10px',
-                    fontWeight: 700,
-                    borderColor: 'rgba(245, 158, 11, 0.25)',
-                    color: '#fef3c7',
-                    background: 'transparent',
-                  }}
+                  className="ui-btn ui-btn-outline"
+                  style={{ height: '30px', padding: '0 10px', fontWeight: 700 }}
                   onClick={() => goToPage(page - 1)}
                   disabled={page === 1}
                 >
@@ -980,13 +1116,14 @@ export default function Shifts() {
                   <button
                     key={pageNum}
                     type="button"
-                    className="btn btn-sm"
+                    className="ui-btn"
                     style={{
-                      padding: '4px 12px',
+                      height: '30px',
+                      padding: '0 12px',
                       fontWeight: 700,
-                      background: page === pageNum ? 'linear-gradient(135deg, #d97706, #b45309)' : 'rgba(255, 255, 255, 0.05)',
-                      color: page === pageNum ? '#ffffff' : '#fef3c7',
-                      border: page === pageNum ? '1px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.2)',
+                      background: page === pageNum ? '#D97706' : '#202024',
+                      color: page === pageNum ? '#FFFFFF' : '#D4D4D8',
+                      border: page === pageNum ? '1px solid #D97706' : '1px solid #2A2A30',
                     }}
                     onClick={() => goToPage(pageNum)}
                   >
@@ -996,14 +1133,8 @@ export default function Shifts() {
 
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline"
-                  style={{
-                    padding: '4px 10px',
-                    fontWeight: 700,
-                    borderColor: 'rgba(245, 158, 11, 0.25)',
-                    color: '#fef3c7',
-                    background: 'transparent',
-                  }}
+                  className="ui-btn ui-btn-outline"
+                  style={{ height: '30px', padding: '0 10px', fontWeight: 700 }}
                   onClick={() => goToPage(page + 1)}
                   disabled={page === totalPages}
                 >
@@ -1011,7 +1142,7 @@ export default function Shifts() {
                 </button>
               </div>
 
-              <span style={{ fontSize: '0.82rem', color: '#c4a482', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.82rem', color: '#A1A1AA', fontWeight: 600 }}>
                 Hiển thị {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, filteredShifts.length)} trong số {filteredShifts.length} ca trực
               </span>
             </div>
@@ -1085,15 +1216,25 @@ export default function Shifts() {
               </div>
 
               <div>
-                <label className="form-label" style={{ fontSize: '0.82rem' }}>
-                  Ghi chú công việc :
+                <label
+                  className="form-label"
+                  style={{
+                    fontSize: '0.82rem',
+                    color: ABSENCE_STATUSES.includes(form.status) ? '#FCA5A5' : undefined,
+                  }}
+                >
+                  {ABSENCE_STATUSES.includes(form.status) ? 'Lý do vắng / nghỉ (bắt buộc) :' : 'Ghi chú công việc :'}
                 </label>
                 <input
                   type="text"
                   className="form-input"
                   value={form.note}
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
-                  placeholder="Ghi chú phân công ca..."
+                  placeholder={
+                    ABSENCE_STATUSES.includes(form.status)
+                      ? 'VD: Nghỉ ốm, Việc gia đình (tối thiểu 3 ký tự)...'
+                      : 'Ghi chú phân công ca...'
+                  }
                 />
               </div>
 
@@ -1104,12 +1245,12 @@ export default function Shifts() {
                 <select
                   className="form-select"
                   value={form.status}
+                  disabled={!isManagerOrAdmin}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
                 >
-                  <option value="Chưa bắt đầu">Chưa bắt đầu</option>
-                  <option value="Đang làm việc">Đang làm việc</option>
-                  <option value="Đã hoàn thành">Đã hoàn thành</option>
+                  <option value="">⏱ Tự động theo giờ thực tế (GMT+7)</option>
                   <option value="Vắng có lý do">Vắng có lý do</option>
+                  <option value="Nghỉ phép">Nghỉ phép</option>
                 </select>
               </div>
 
@@ -1148,8 +1289,9 @@ export default function Shifts() {
                 type="button"
                 className="btn btn-primary"
                 style={{
-                  background: '#78350f',
-                  borderColor: '#78350f',
+                  background: myOnly ? '#D97706' : '#202024',
+                  borderColor: myOnly ? '#D97706' : '#2A2A30',
+                  color: myOnly ? '#FFFFFF' : '#F4F1EC',
                   padding: '12px',
                   fontWeight: 700,
                   display: 'flex',
@@ -1174,7 +1316,7 @@ export default function Shifts() {
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              backgroundColor: 'rgba(0, 0, 0, 0.78)',
               backdropFilter: 'blur(6px)',
               display: 'flex',
               alignItems: 'center',
@@ -1188,8 +1330,9 @@ export default function Shifts() {
               style={{
                 width: '100%',
                 maxWidth: '480px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.7)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
+                background: '#18181B',
+                boxShadow: '0 20px 44px rgba(0,0,0,0.65)',
+                border: '1px solid #2A2A30',
               }}
             >
               <div
@@ -1199,15 +1342,16 @@ export default function Shifts() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '14px 18px',
+                  borderBottom: '1px solid #2A2A30',
                 }}
               >
-                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fef3c7', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.96rem', color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>📅</span>
-                  <span>XẾP CA TRỰC NHANH</span>
+                  <span>Xếp ca trực nhanh</span>
                 </div>
                 <button
                   type="button"
-                  style={{ background: 'none', border: 'none', color: '#a8a29e', fontSize: '1.2rem', cursor: 'pointer' }}
+                  style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '6px', width: '28px', height: '28px', color: '#A1A1AA', fontSize: '0.95rem', cursor: 'pointer' }}
                   onClick={() => setQuickScheduleModal(null)}
                 >
                   ✕
@@ -1217,24 +1361,24 @@ export default function Shifts() {
               <div className="mockup-panel-body" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div
                   style={{
-                    background: 'rgba(255, 255, 255, 0.04)',
+                    background: '#202024',
                     padding: '12px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(245, 158, 11, 0.15)',
+                    borderRadius: '10px',
+                    border: '1px solid #2A2A30',
                   }}
                 >
-                  <div style={{ fontSize: '0.82rem', color: '#c4a482' }}>Phân công nhân viên:</div>
-                  <div style={{ fontWeight: 800, color: '#fef3c7', fontSize: '1rem', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#A1A1AA' }}>Phân công nhân viên:</div>
+                  <div style={{ fontWeight: 700, color: '#F4F1EC', fontSize: '1rem', marginTop: '2px' }}>
                     {quickScheduleModal.user.full_name} ({quickScheduleModal.user.code || `NV00${quickScheduleModal.user.id}`})
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#FBBF24', marginTop: '2px' }}>
                     Vai trò: {quickScheduleModal.user.role_label || quickScheduleModal.user.role_name} • Ngày: {quickScheduleModal.dayName}, {quickScheduleModal.displayDate}
                   </div>
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem' }}>
-                    Chọn Ca làm việc :
+                  <label className="form-label" style={{ fontSize: '0.82rem', color: '#A1A1AA' }}>
+                    Chọn Ca làm việc:
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                     {[
@@ -1248,8 +1392,8 @@ export default function Shifts() {
                         style={{
                           padding: '10px 14px',
                           borderRadius: '8px',
-                          border: quickForm.shift_type === c.id ? '2px solid #d97706' : '1px solid rgba(245, 158, 11, 0.2)',
-                          background: quickForm.shift_type === c.id ? 'rgba(217, 119, 6, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                          border: quickForm.shift_type === c.id ? '2px solid #D97706' : '1px solid #2A2A30',
+                          background: quickForm.shift_type === c.id ? 'rgba(217, 119, 6, 0.16)' : '#202024',
                           cursor: 'pointer',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -1257,16 +1401,16 @@ export default function Shifts() {
                           transition: 'all 0.15s',
                         }}
                       >
-                        <span style={{ fontWeight: 700, color: '#fef3c7' }}>{c.label}</span>
-                        <span style={{ fontSize: '0.8rem', color: '#c4a482' }}>{c.time}</span>
+                        <span style={{ fontWeight: 700, color: '#F4F1EC' }}>{c.label}</span>
+                        <span style={{ fontSize: '0.8rem', color: '#A1A1AA' }}>{c.time}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.82rem' }}>
-                    Ghi chú phân công :
+                  <label className="form-label" style={{ fontSize: '0.82rem', color: '#A1A1AA' }}>
+                    Ghi chú phân công:
                   </label>
                   <input
                     className="form-input"
@@ -1280,7 +1424,7 @@ export default function Shifts() {
                   <button
                     type="button"
                     className="btn btn-outline"
-                    style={{ flex: 1, borderColor: '#523423', color: '#c4a482' }}
+                    style={{ flex: 1, background: '#202024', borderColor: '#2A2A30', color: '#A1A1AA' }}
                     onClick={() => setQuickScheduleModal(null)}
                   >
                     Hủy bỏ
@@ -1290,13 +1434,14 @@ export default function Shifts() {
                     className="btn btn-primary"
                     style={{
                       flex: 2,
-                      background: 'linear-gradient(135deg, #15803d, #166534)',
-                      fontWeight: 800,
+                      background: '#D97706',
+                      color: '#FFFFFF',
+                      fontWeight: 700,
                       border: 'none',
                     }}
                     onClick={handleSaveQuickSchedule}
                   >
-                    ✅ XÁC NHẬN PHÂN CA
+                    ✓ Xác nhận phân ca
                   </button>
                 </div>
               </div>
@@ -1312,7 +1457,7 @@ export default function Shifts() {
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              backgroundColor: 'rgba(0, 0, 0, 0.78)',
               backdropFilter: 'blur(6px)',
               display: 'flex',
               alignItems: 'center',
@@ -1326,8 +1471,9 @@ export default function Shifts() {
               style={{
                 width: '100%',
                 maxWidth: '520px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.7)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
+                background: '#18181B',
+                boxShadow: '0 20px 44px rgba(0,0,0,0.65)',
+                border: '1px solid #2A2A30',
               }}
             >
               <div
@@ -1337,15 +1483,16 @@ export default function Shifts() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '14px 18px',
+                  borderBottom: '1px solid #2A2A30',
                 }}
               >
-                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fef3c7', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.96rem', color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>🔄</span>
-                  <span>ĐIỀU CHỈNH CA TRỰC #{shiftDetailModal.shift_code}</span>
+                  <span>Điều chỉnh ca trực #{shiftDetailModal.shift_code}</span>
                 </div>
                 <button
                   type="button"
-                  style={{ background: 'none', border: 'none', color: '#a8a29e', fontSize: '1.2rem', cursor: 'pointer' }}
+                  style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '6px', width: '28px', height: '28px', color: '#A1A1AA', fontSize: '0.95rem', cursor: 'pointer' }}
                   onClick={() => setShiftDetailModal(null)}
                 >
                   ✕
@@ -1356,23 +1503,24 @@ export default function Shifts() {
                 {/* Thông tin ca hiện tại */}
                 <div
                   style={{
-                    background: 'rgba(255, 255, 255, 0.04)',
+                    background: '#202024',
                     padding: '12px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(245, 158, 11, 0.15)',
+                    borderRadius: '10px',
+                    border: '1px solid #2A2A30',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.82rem', color: '#c4a482' }}>Nhân viên hiện tại:</span>
+                    <span style={{ fontSize: '0.82rem', color: '#A1A1AA' }}>Nhân viên hiện tại:</span>
                     <span
                       style={{
                         fontSize: '0.74rem',
                         fontWeight: 700,
                         color: getStatusColor(shiftDetailModal.status),
-                        background: 'rgba(0,0,0,0.2)',
+                        background: '#141417',
+                        border: '1px solid #2A2A30',
                         padding: '2px 8px',
                         borderRadius: '4px',
                       }}
@@ -1380,15 +1528,22 @@ export default function Shifts() {
                       • {shiftDetailModal.status}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 800, color: '#fef3c7', fontSize: '1.05rem' }}>
+                  <div style={{ fontWeight: 700, color: '#F4F1EC', fontSize: '1.05rem' }}>
                     {shiftDetailModal.user_name} ({shiftDetailModal.user_code || `NV00${shiftDetailModal.user_id}`})
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#fbbf24' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#FBBF24' }}>
                     {shiftDetailModal.shift_type} • Ngày: {shiftDetailModal.shift_date ? shiftDetailModal.shift_date.split('T')[0] : ''}
                   </div>
                   {shiftDetailModal.note && (
-                    <div style={{ fontSize: '0.74rem', color: '#a8a29e', fontStyle: 'italic', marginTop: '2px' }}>
-                      Ghi chú: {shiftDetailModal.note}
+                    <div
+                      style={{
+                        fontSize: '0.74rem',
+                        color: ABSENCE_STATUSES.includes(shiftDetailModal.status) ? '#FCA5A5' : '#A1A1AA',
+                        fontStyle: 'italic',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {ABSENCE_STATUSES.includes(shiftDetailModal.status) ? 'Lý do vắng' : 'Ghi chú'}: {shiftDetailModal.note}
                     </div>
                   )}
                 </div>
@@ -1399,13 +1554,13 @@ export default function Shifts() {
                     style={{
                       background: 'rgba(217, 119, 6, 0.08)',
                       padding: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(217, 119, 6, 0.28)',
                     }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: '0.86rem', color: '#fbbf24', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.84rem', color: '#FBBF24', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>👤</span>
-                      <span>ĐỔI NHÂN VIÊN VÀO CA TRỰC NÀY:</span>
+                      <span>Đổi nhân viên vào ca trực này:</span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -1429,11 +1584,12 @@ export default function Shifts() {
                         type="button"
                         className="btn btn-sm"
                         style={{
-                          background: 'linear-gradient(135deg, #d97706, #b45309)',
-                          color: '#ffffff',
+                          background: '#D97706',
+                          color: '#FFFFFF',
                           fontWeight: 700,
                           padding: '6px 12px',
                           whiteSpace: 'nowrap',
+                          border: 'none',
                         }}
                         disabled={!reassignUserId}
                         onClick={handleReassignStaff}
@@ -1452,9 +1608,10 @@ export default function Shifts() {
                       className="btn btn-sm btn-outline"
                       style={{
                         width: '100%',
-                        borderColor: 'rgba(245, 158, 11, 0.35)',
-                        color: '#fef3c7',
-                        fontWeight: 700,
+                        background: '#202024',
+                        borderColor: '#2A2A30',
+                        color: '#F4F1EC',
+                        fontWeight: 600,
                         padding: '8px',
                         display: 'flex',
                         alignItems: 'center',
@@ -1473,11 +1630,11 @@ export default function Shifts() {
                           marginTop: '8px',
                           background: 'rgba(56, 189, 248, 0.08)',
                           padding: '12px',
-                          borderRadius: '8px',
+                          borderRadius: '10px',
                           border: '1px solid rgba(56, 189, 248, 0.25)',
                         }}
                       >
-                        <div style={{ fontSize: '0.8rem', color: '#bae6fd', fontWeight: 600, marginBottom: '6px' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#7DD3FC', fontWeight: 600, marginBottom: '6px' }}>
                           Chọn ca trực trong tuần để hoán đổi vị trí:
                         </div>
 
@@ -1500,11 +1657,12 @@ export default function Shifts() {
                             type="button"
                             className="btn btn-sm"
                             style={{
-                              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                              color: '#ffffff',
+                              background: '#0284C7',
+                              color: '#FFFFFF',
                               fontWeight: 700,
                               padding: '6px 12px',
                               whiteSpace: 'nowrap',
+                              border: 'none',
                             }}
                             disabled={!swapTargetShiftId}
                             onClick={handleSwapShifts}
@@ -1517,45 +1675,158 @@ export default function Shifts() {
                   </div>
                 )}
 
-                {/* KHỐI 3: CẬP NHẬT TRẠNG THÁI CA */}
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: '#c4a482', fontWeight: 600, marginBottom: '6px' }}>
-                    Cập nhật trạng thái ca trực:
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {[
-                      { status: 'Chưa bắt đầu', color: '#f59e0b' },
-                      { status: 'Đang làm việc', color: '#10b981' },
-                      { status: 'Đã hoàn thành', color: '#38bdf8' },
-                      { status: 'Vắng có lý do', color: '#ef4444' },
-                    ].map((st) => (
+                {/* KHỐI 3: CẬP NHẬT TRẠNG THÁI & LÝ DO VẮNG (CHỈ QUẢN LÝ / ADMIN) */}
+                {isManagerOrAdmin && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#A1A1AA', fontWeight: 600 }}>
+                      Cập nhật trạng thái ca trực:
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
-                        key={st.status}
                         type="button"
                         className="btn btn-sm"
                         style={{
-                          background: shiftDetailModal.status === st.status ? st.color : 'rgba(255, 255, 255, 0.05)',
-                          color: shiftDetailModal.status === st.status ? '#ffffff' : '#fef3c7',
-                          border: `1px solid ${shiftDetailModal.status === st.status ? st.color : 'rgba(245, 158, 11, 0.2)'}`,
-                          fontWeight: 700,
-                          fontSize: '0.74rem',
-                          padding: '4px 10px',
+                          background: !ABSENCE_STATUSES.includes(shiftDetailModal.status) && !showAbsenceBox ? '#D97706' : '#202024',
+                          color: !ABSENCE_STATUSES.includes(shiftDetailModal.status) && !showAbsenceBox ? '#FFFFFF' : '#D4D4D8',
+                          border: `1px solid ${!ABSENCE_STATUSES.includes(shiftDetailModal.status) && !showAbsenceBox ? '#D97706' : '#2A2A30'}`,
+                          fontWeight: 600,
+                          fontSize: '0.76rem',
+                          padding: '6px 12px',
                         }}
-                        onClick={() => handleQuickChangeStatus(st.status)}
+                        onClick={handleRestoreAutoStatus}
                       >
-                        {st.status}
+                        ⏱ Tự động theo giờ thực tế
                       </button>
-                    ))}
+
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        style={{
+                          background: showAbsenceBox || ABSENCE_STATUSES.includes(shiftDetailModal.status) ? '#EF4444' : '#202024',
+                          color: showAbsenceBox || ABSENCE_STATUSES.includes(shiftDetailModal.status) ? '#FFFFFF' : '#FCA5A5',
+                          border: `1px solid ${showAbsenceBox || ABSENCE_STATUSES.includes(shiftDetailModal.status) ? '#EF4444' : 'rgba(239,68,68,0.4)'}`,
+                          fontWeight: 600,
+                          fontSize: '0.76rem',
+                          padding: '6px 12px',
+                        }}
+                        onClick={() => {
+                          setShowAbsenceBox(true);
+                          if (!ABSENCE_STATUSES.includes(absenceStatusType)) {
+                            setAbsenceStatusType('Vắng có lý do');
+                          }
+                        }}
+                      >
+                        📝 Báo vắng có lý do
+                      </button>
+                    </div>
+
+                    {showAbsenceBox && (
+                      <div
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          borderRadius: '10px',
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {ABSENCE_STATUSES.map((st) => (
+                            <button
+                              key={st}
+                              type="button"
+                              className="btn btn-sm"
+                              style={{
+                                flex: 1,
+                                background: absenceStatusType === st ? '#EF4444' : '#18181B',
+                                color: absenceStatusType === st ? '#FFFFFF' : '#D4D4D8',
+                                border: `1px solid ${absenceStatusType === st ? '#EF4444' : '#2A2A30'}`,
+                                fontWeight: 700,
+                                fontSize: '0.75rem',
+                                padding: '6px 10px',
+                              }}
+                              onClick={() => setAbsenceStatusType(st)}
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: '0.74rem', color: '#FCA5A5', fontWeight: 600, marginBottom: '6px' }}>
+                            Chọn nhanh lý do vắng:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {ABSENCE_REASON_PRESETS.map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setAbsenceReason(preset)}
+                                style={{
+                                  fontSize: '0.72rem',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  background: absenceReason === preset ? 'rgba(239,68,68,0.28)' : '#18181B',
+                                  color: absenceReason === preset ? '#FFFFFF' : '#D4D4D8',
+                                  border: `1px solid ${absenceReason === preset ? '#EF4444' : '#2A2A30'}`,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.76rem', color: '#F4F1EC', fontWeight: 600, marginBottom: '5px' }}>
+                            Lý do vắng cụ thể <span style={{ color: '#EF4444' }}>*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="VD: Nghỉ ốm có giấy bác sĩ, việc gia đình..."
+                            value={absenceReason}
+                            onChange={(e) => setAbsenceReason(e.target.value)}
+                            maxLength={255}
+                          />
+                          <div style={{ fontSize: '0.7rem', color: '#A1A1AA', marginTop: '4px' }}>
+                            Bắt buộc ghi rõ lý do vắng để phục vụ đối soát bảng công.
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            width: '100%',
+                            background: absenceReason.trim().length >= 3 ? '#EF4444' : '#27272A',
+                            color: absenceReason.trim().length >= 3 ? '#FFFFFF' : '#71717A',
+                            border: 'none',
+                            fontWeight: 700,
+                            padding: '8px 12px',
+                            cursor: absenceReason.trim().length >= 3 ? 'pointer' : 'not-allowed',
+                          }}
+                          disabled={absenceReason.trim().length < 3}
+                          onClick={handleMarkAbsent}
+                        >
+                          ✓ Xác nhận vắng &amp; lưu lý do
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
 
                 {/* Footer buttons */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid rgba(245, 158, 11, 0.15)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '12px', borderTop: '1px solid #2A2A30' }}>
                   {isManagerOrAdmin ? (
                     <button
                       type="button"
                       className="btn btn-sm btn-outline"
-                      style={{ borderColor: '#ef4444', color: '#fca5a5', fontWeight: 700 }}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#FCA5A5', fontWeight: 700 }}
                       onClick={handleDeleteShiftFromModal}
                     >
                       🗑️ Xóa ca trực này
@@ -1564,8 +1835,8 @@ export default function Shifts() {
 
                   <button
                     type="button"
-                    className="btn btn-sm btn-primary"
-                    style={{ background: '#78350f', borderColor: '#78350f', fontWeight: 700 }}
+                    className="btn btn-sm btn-outline"
+                    style={{ background: '#202024', borderColor: '#2A2A30', color: '#F4F1EC', fontWeight: 600, padding: '6px 16px' }}
                     onClick={() => setShiftDetailModal(null)}
                   >
                     Đóng

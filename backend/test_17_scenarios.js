@@ -285,7 +285,7 @@ async function runTests() {
     record('AUTH-ORDER-01', 'Chặn đặt hàng không cần tài khoản', false, err.message);
   }
 
-  // --- CUS-02: Khách đặt món lấy ngay -> Đơn đến POS và KDS, khách thấy tiến trình realtime ---
+  // --- CUS-02: Khách đặt món lấy ngay -> Đơn unpaid chưa vào KDS cho tới khi thu ngân xác nhận thanh toán ---
   let createdOrderId = null;
   try {
     await new Promise(r => setTimeout(r, 3100)); // Chờ khóa spam lock user hết hiệu lực
@@ -295,20 +295,24 @@ async function runTests() {
       order_type: 'takeaway',
       items: [{ product_size_id: 1, name: 'Cà phê đen đá', price: 25000, quantity: 1, line_total: 25000 }],
       payment_method: 'Tiền mặt',
-      payment_status: 'paid',
+      payment_status: 'paid', // Thử giả mạo paid -> backend phải ép thành unpaid
       status: 'pending'
     }, customerToken);
 
     createdOrderId = directOrder.data?.data?.orderId;
-    const kdsCheck = await req('/barista/queue', 'GET', null, adminToken);
-    const itemInKds = (kdsCheck.data?.data || []).some(it => it.order_id === createdOrderId);
+    const kdsBeforePay = await req('/barista/queue', 'GET', null, adminToken);
+    const hiddenBeforePay = !(kdsBeforePay.data?.data || []).some(it => it.order_id === createdOrderId);
 
-    const pass = directOrder.status === 200 && createdOrderId && itemInKds;
+    const confirmRes = await req(`/orders/${createdOrderId}/confirm-payment`, 'POST', {}, cashierToken);
+    const kdsAfterPay = await req('/barista/queue', 'GET', null, adminToken);
+    const itemInKds = (kdsAfterPay.data?.data || []).some(it => it.order_id === createdOrderId);
+
+    const pass = directOrder.status === 200 && createdOrderId && hiddenBeforePay && confirmRes.status === 200 && itemInKds;
     record(
       'CUS-02',
-      'Khách đặt món lấy ngay -> Đơn đến POS và KDS ngay lập tức (Status: pending)',
+      'Khách đặt online: Tự ép unpaid chưa vào KDS -> Sau thu ngân xác nhận tiền mới vào KDS',
       pass,
-      `Mã đơn: #${directOrder.data?.data?.orderCode}, ID: ${createdOrderId}, Có trong KDS Queue: ${itemInKds}`
+      `Mã đơn: #${directOrder.data?.data?.orderCode}, Chưa thu tiền ẩn khỏi KDS: ${hiddenBeforePay}, Sau confirm-payment vào KDS: ${itemInKds}`
     );
   } catch (err) {
     record('CUS-02', 'Customer instant order to KDS', false, err.message);
@@ -371,9 +375,9 @@ async function runTests() {
 
   // --- CUS-06: Khách tích điểm sau đơn hoàn tất, dùng điểm -> Điểm đúng, không âm ---
   try {
-    const profileRes = await req('/customers/profile', 'GET', null, customerToken);
-    const points = profileRes.data?.data?.points ?? profileRes.data?.data?.loyalty_points ?? 0;
-    const pass = Number(points) >= 0;
+    const profileRes = await req('/auth/me', 'GET', null, customerToken);
+    const points = profileRes.data?.data?.customer_info?.points_balance ?? 0;
+    const pass = profileRes.status === 200 && Number(points) >= 0;
     record(
       'CUS-06',
       'Khách tích điểm thưởng và sử dụng điểm -> Điểm số chính xác và không bao giờ âm',
@@ -425,17 +429,19 @@ async function runTests() {
       status: 'pending'
     }, token2);
     const prepId = orderPrep.data?.data?.orderId;
-    await req(`/barista/orders/${prepId}/status`, 'PUT', { status: 'preparing' }, adminToken);
+    const unpaidPrepBlock = await req(`/barista/orders/${prepId}/status`, 'PUT', { status: 'preparing' }, adminToken);
+    const confirmPrep = await req(`/orders/${prepId}/confirm-payment`, 'POST', {}, cashierToken);
+    const baristaPrepOk = await req(`/barista/orders/${prepId}/status`, 'PUT', { status: 'preparing' }, adminToken);
 
     // Khách thử hủy đơn đang pha chế -> Bị chặn (HTTP 400)
     const cancelPrep = await req(`/orders/${prepId}/cancel`, 'PUT', { cancel_reason: 'Khách muốn hủy' }, token2);
-    const pass = cancelPending.status === 200 && cancelPrep.status === 400;
+    const pass = cancelPending.status === 200 && unpaidPrepBlock.status === 400 && confirmPrep.status === 200 && baristaPrepOk.status === 200 && cancelPrep.status === 400;
 
     record(
       'CUS-07',
-      'Khách hủy đơn khi Pending (Thành công 200) và khi Barista đang Preparing (Chặn 400)',
+      'Khách hủy đơn khi Pending (200); Barista bị chặn pha đơn unpaid (400); Khi đã Preparing khách không thể hủy (400)',
       pass,
-      `Pending Cancel: HTTP ${cancelPending.status}, Preparing Cancel: HTTP ${cancelPrep.status} ("${cancelPrep.data?.message}")`
+      `Pending Cancel: HTTP ${cancelPending.status}, Unpaid Barista Block: HTTP ${unpaidPrepBlock.status}, Paid Prep Cancel: HTTP ${cancelPrep.status} ("${cancelPrep.data?.message}")`
     );
   } catch (err) {
     record('CUS-07', 'Customer cancel order policy', false, err.message);

@@ -15,7 +15,7 @@ const directCheckoutLimiter = rateLimit({
 // Danh sách đơn hàng
 router.get('/my-history', authenticate, c.getMyOrders);
 router.get('/', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista'), c.getOpen);
-router.get('/all', authenticate, authorize('admin', 'manager', 'cashier'), c.getAllOrders);
+router.get('/all', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista'), c.getAllOrders);
 router.get('/:id', authenticate, authorize('admin', 'manager', 'cashier', 'waiter', 'barista', 'customer'), c.getOne);
 
 // Tạo & bán đơn hàng tại quầy (POS) & Đặt món trực tuyến (Khách Hàng Online)

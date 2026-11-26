@@ -1,13 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api, { resolveProductImage } from '../api/axios';
 import socket from '../api/socket';
 import toast from 'react-hot-toast';
 import {
-  Coffee, Ticket, Clock, MapPin, Wifi, Phone, Copy, ExternalLink, Lock, ArrowRight
+  Coffee, Ticket, Clock, MapPin, Wifi, Phone, Copy, ExternalLink, Lock, ArrowRight, User, Award, KeyRound, LogOut, RefreshCw
 } from 'lucide-react';
 import { BANK_CONFIG, generateVietQRUrl } from '../constants/bankConfig';
+
+const readPortalCart = (key) => {
+  try {
+    const saved = localStorage.getItem(key);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 
 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN') + ' đ';
 const FALLBACK_DRINK_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%2318181B'/><circle cx='200' cy='150' r='44' fill='%2327272A'/><path d='M182 142h28v18a14 14 0 0 1-28 0v-18zm28 4h5a6 6 0 0 1 0 12h-5' fill='none' stroke='%23D97706' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>";
@@ -40,15 +50,10 @@ export default function CustomerPortal() {
   const [orderHistory, setOrderHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- STATE GIỎ HÀNG (PANEL THANH TOÁN BÊN PHẢI GIỐNG ADMIN POS) ---
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem('customer_cart');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // --- STATE GIỎ HÀNG CÔ LẬP THEO USER.ID (CHỐNG DÍNH GIỎ GIỮA CÁC TÀI KHOẢN) ---
+  const cartStorageKey = user?.id ? `customer_cart_u${user.id}` : 'customer_cart_guest';
+  const loadedCartKeyRef = useRef(cartStorageKey);
+  const [cart, setCart] = useState(() => readPortalCart(cartStorageKey));
 
   // --- STATE CHỌN SIZE KHI BẤM "+ THÊM" ---
   const [selectedProductForSize, setSelectedProductForSize] = useState(null);
@@ -68,6 +73,63 @@ export default function CustomerPortal() {
   const [completedOrderModal, setCompletedOrderModal] = useState(null);
   const [customerRedirectCountdown, setCustomerRedirectCountdown] = useState(4);
   const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+
+  // --- STATE HỒ SƠ CÁ NHÂN & ĐỔI MẬT KHẨU ---
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '', birthday: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [savingPw, setSavingPw] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        birthday: user.birthday ? String(user.birthday).slice(0, 10) : '',
+      });
+    }
+  }, [user]);
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (profileForm.full_name.trim().length < 2) {
+      return toast.error('Họ và tên cần có ít nhất 2 ký tự');
+    }
+    try {
+      setSavingProfile(true);
+      const res = await api.put('/auth/profile', profileForm);
+      toast.success(res.data?.message || 'Đã cập nhật thông tin cá nhân thành công!');
+      await refreshUser();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật hồ sơ cá nhân');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (pwForm.new_password.length < 6) {
+      return toast.error('Mật khẩu mới phải có tối thiểu 6 ký tự');
+    }
+    if (pwForm.new_password !== pwForm.confirm_password) {
+      return toast.error('Mật khẩu xác nhận không khớp');
+    }
+    try {
+      setSavingPw(true);
+      const res = await api.put('/auth/change-password', {
+        current_password: pwForm.current_password,
+        new_password: pwForm.new_password,
+      });
+      toast.success(res.data?.message || 'Đổi mật khẩu thành công!');
+      setPwForm({ current_password: '', new_password: '', confirm_password: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi đổi mật khẩu');
+    } finally {
+      setSavingPw(false);
+    }
+  };
 
   // Tự động chuyển sang Lịch Sử Đơn Hàng / Tiến trình pha chế sau khi đặt đơn thành công
   useEffect(() => {
@@ -103,14 +165,24 @@ export default function CustomerPortal() {
   const [selectedSlotDatetime, setSelectedSlotDatetime] = useState('');
   const [selectedSlotLabel, setSelectedSlotLabel] = useState('');
 
-  // Lưu giỏ hàng vào localStorage
+  // Nạp lại giỏ hàng cô lập mỗi khi chuyển đổi user.id
   useEffect(() => {
+    const nextCart = readPortalCart(cartStorageKey);
+    loadedCartKeyRef.current = cartStorageKey;
+    setCart(nextCart);
+    setAppliedVoucher(null);
+    setUsePoints(false);
+  }, [cartStorageKey]);
+
+  // Chỉ ghi localStorage sau khi đã hydrate đúng key user hiện tại
+  useEffect(() => {
+    if (loadedCartKeyRef.current !== cartStorageKey) return;
     try {
-      localStorage.setItem('customer_cart', JSON.stringify(cart));
+      localStorage.setItem(cartStorageKey, JSON.stringify(cart));
     } catch (e) {
       console.warn('Could not save cart', e);
     }
-  }, [cart]);
+  }, [cart, cartStorageKey]);
 
   const loadOrderHistory = async () => {
     if (!user) {
@@ -592,53 +664,55 @@ export default function CustomerPortal() {
   });
 
   return (
-    <div className="animate-fade-in" style={{ minHeight: '100vh', background: '#121214', color: '#F4F1EC', paddingBottom: '60px' }}>
-      <style>{`
-        .customer-product-card {
-          background: #1c120b;
-          border: 1px solid #3d2618;
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.35);
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
-          cursor: pointer;
-        }
-        .customer-product-card:hover {
-          transform: translateY(-4px) translateZ(0);
-          box-shadow: 0 10px 24px -4px rgba(84, 51, 16, 0.4), 0 4px 8px -2px rgba(84, 51, 16, 0.2);
-          border-color: #d97706 !important;
-        }
-        .customer-product-card .card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center center;
-          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .customer-product-card:hover .card-img {
-          transform: scale(1.06);
-        }
-      `}</style>
-      {/* 1. TOP HEADER & GREETING */}
-      <div style={{
+    <div className="animate-fade-in cp-portal-page">
+      {/* 1. TOP HEADER ĐỒNG BỘ HOÀN TOÀN VỚI BANNER ADMIN */}
+      <header style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+        minHeight: '58px',
         background: '#18181B',
         borderBottom: '1px solid #27272B',
-        padding: '18px 24px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+        padding: '8px 24px',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.25)',
+        display: 'flex',
+        alignItems: 'center',
       }}>
-        <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '1.8rem' }}>☕</span>
+        <div style={{
+          maxWidth: '1440px',
+          width: '100%',
+          margin: '0 auto',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '12px',
+        }}>
+          {/* Brand Lockup đồng bộ Sidebar Admin */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+            <div style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '9px',
+              background: 'linear-gradient(135deg, #F59E0B, #B45309)',
+              color: '#FFFFFF',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '0.92rem',
+              boxShadow: '0 2px 8px rgba(217, 119, 6, 0.28)',
+            }}>
+              ☕
+            </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: '1.35rem', color: '#fde68a', fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
-                MY COFFEE HOUSE • ĐẶT MÓN ONLINE
+              <h1 style={{ margin: 0, fontSize: '0.96rem', color: '#F4F1EC', fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.01em' }}>
+                My Coffee House
               </h1>
-              <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#d4b094' }}>
-                Xin chào, <strong style={{ color: '#fff' }}>{user?.full_name || 'Khách'}</strong>!
-              </p>
+              <div style={{ fontSize: '0.7rem', color: '#B09884', marginTop: '1px' }}>
+                Cổng đặt món trực tuyến
+              </div>
             </div>
           </div>
 
@@ -649,15 +723,15 @@ export default function CustomerPortal() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid #10b981',
-                color: '#34d399',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                padding: '5px 12px',
-                borderRadius: '20px',
+                background: '#202024',
+                border: '1px solid #2E2E35',
+                color: '#34D399',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '5px 10px',
+                borderRadius: '8px',
               }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981' }} />
                 <span>Đang mở cửa ({storeHours.open_time} – {storeHours.close_time})</span>
               </div>
             ) : (
@@ -665,115 +739,177 @@ export default function CustomerPortal() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'rgba(239, 68, 68, 0.18)',
-                border: '1px solid #ef4444',
-                color: '#fca5a5',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                padding: '5px 12px',
-                borderRadius: '20px',
+                background: 'rgba(239, 68, 68, 0.14)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                color: '#FCA5A5',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '5px 10px',
+                borderRadius: '8px',
               }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>
-                <span>Quán đóng cửa • Hẹn giờ nhận ({storeHours.open_time} – {storeHours.close_time})</span>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#EF4444' }} />
+                <span>Quán đóng cửa • Hẹn giờ ({storeHours.open_time} – {storeHours.close_time})</span>
               </div>
             )}
-            {user?.role === 'admin' && (
+
+            {user && user.role !== 'customer' && (
               <button
-                onClick={() => navigate('/')}
+                type="button"
+                onClick={() => navigate('/tables')}
                 style={{
-                  background: '#b45309',
-                  border: '1px solid #d97706',
-                  color: '#fff',
-                  padding: '7px 14px',
-                  borderRadius: '6px',
+                  background: 'rgba(217, 119, 6, 0.15)',
+                  border: '1px solid rgba(217, 119, 6, 0.35)',
+                  color: '#FBBF24',
+                  padding: '6px 13px',
+                  borderRadius: '999px',
                   cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 700
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                👑 Bàn Quản Lý
+                Quay lại POS
               </button>
             )}
+
+            <div style={{ width: '1px', height: '22px', background: '#2E2E35' }} />
+
             {user ? (
-              <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
+                  type="button"
                   onClick={() => { refreshUser(); loadOrderHistory(); toast.success('Đã cập nhật số điểm & đơn hàng!'); }}
                   style={{
-                    background: '#2b170c',
-                    border: '1px solid #5a341e',
-                    color: '#fde68a',
-                    padding: '7px 12px',
-                    borderRadius: '6px',
+                    background: '#202024',
+                    border: '1px solid #2E2E35',
+                    color: '#FBBF24',
+                    padding: '6px 10px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '0.8rem',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <RefreshCw size={13} />
+                  <span>Cập nhật</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('profile')}
+                  title="Xem hồ sơ & điểm thưởng"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '2px 4px',
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '8px',
+                    textAlign: 'left',
                   }}
                 >
-                  🔄 Cập nhật
+                  <div style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    background: '#27272B',
+                    border: '1px solid #3F3F46',
+                    color: '#F59E0B',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {(user.full_name || user.username || 'K').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ lineHeight: 1.2 }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#F4F1EC' }}>
+                      {user.full_name || user.username}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#A1A1AA' }}>
+                      Hạng {tierName} · {currentPoints} điểm
+                    </div>
+                  </div>
                 </button>
+
                 <button
+                  type="button"
                   onClick={logout}
+                  title="Đăng xuất"
+                  aria-label="Đăng xuất"
                   style={{
-                    background: '#451a03',
-                    border: '1px solid #78350f',
-                    color: '#fca5a5',
-                    padding: '7px 12px',
-                    borderRadius: '6px',
+                    marginLeft: '2px',
+                    background: 'rgba(220, 38, 38, 0.15)',
+                    border: '1px solid rgba(220, 38, 38, 0.3)',
+                    color: '#F87171',
+                    height: '30px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 600
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
                   }}
                 >
-                  Đăng xuất
+                  <LogOut size={13} />
+                  <span>Đăng xuất</span>
                 </button>
-              </>
+              </div>
             ) : (
               <button
+                type="button"
                 onClick={() => navigate('/login')}
                 style={{
-                  background: '#15803d',
-                  border: '1px solid #22c55e',
-                  color: '#fff',
+                  background: '#D97706',
+                  border: 'none',
+                  color: '#FFFFFF',
                   padding: '7px 14px',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   cursor: 'pointer',
-                  fontSize: '0.82rem',
+                  fontSize: '0.8rem',
                   fontWeight: 700,
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
                 }}
               >
-                🔐 Đăng nhập / Đăng ký
+                Đăng nhập / Đăng ký
               </button>
             )}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* 2. NAVIGATION TABS */}
       <div style={{ maxWidth: '1440px', margin: '16px auto 0', padding: '0 24px' }}>
         <div style={{
           display: 'flex',
           gap: '10px',
-          borderBottom: '2px solid #2b170c',
+          borderBottom: '1px solid #2A2A30',
           paddingBottom: '10px',
           overflowX: 'auto'
         }}>
           {[
             { id: 'menu', label: '☕ Thực Đơn', count: filteredProducts.length },
-            ...(cartTotalCount > 0 ? [{ id: 'checkout', label: '🛒 Giỏ Hàng', count: cartTotalCount }] : []),
             { id: 'vouchers', label: '🎁 Mã Khuyến Mãi', count: availableVouchers.length },
             { id: 'history', label: '📜 Lịch Sử Đơn Hàng', count: historyList.length },
-            { id: 'about', label: '📍 Thông Tin Quán' }
+            { id: 'about', label: '📍 Thông Tin Quán' },
+            ...(user ? [{ id: 'profile', label: '👤 Thông Tin Cá Nhân' }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                background: activeTab === tab.id ? '#d97706' : '#1f130b',
-                color: activeTab === tab.id ? '#ffffff' : '#d4b094',
-                border: activeTab === tab.id ? '1px solid #f59e0b' : '1px solid #3d2314',
+                background: activeTab === tab.id ? '#D97706' : '#18181B',
+                color: activeTab === tab.id ? '#FFFFFF' : '#A1A1AA',
+                border: activeTab === tab.id ? '1px solid #D97706' : '1px solid #2A2A30',
                 padding: '9px 18px',
                 borderRadius: '8px',
                 cursor: 'pointer',
@@ -805,1045 +941,580 @@ export default function CustomerPortal() {
       {/* 3. MAIN CONTENT */}
       <div style={{ maxWidth: '1440px', margin: '20px auto 0', padding: '0 24px' }}>
         <div key={activeTab} className="page-unfold-transition">
-          {/* TAB 1: THỰC ĐƠN TOÀN MÀN HÌNH 100% CHIỀU NGANG */}
+          {/* TAB 1: THỰC ĐƠN + GIỎ HÀNG STICKY BÊN CẠNH MÀN HÌNH */}
           {activeTab === 'menu' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* DANH SÁCH MÓN */}
-              <div className="mockup-panel">
-                <div className="mockup-panel-header">
-                  <div className="mockup-panel-title">
-                    <span>☕</span>
-                    <span>DANH SÁCH MÓN ({filteredProducts.length} MÓN)</span>
-                  </div>
-                </div>
-
-                <div className="mockup-panel-body">
-                  {/* Thanh tìm kiếm & lọc danh mục */}
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div className={`cp-menu-layout ${cart.length > 0 ? 'has-cart' : ''}`}>
+              {/* CỘT TRÁI: TÌM KIẾM, DANH MỤC & LƯỚI MÓN ĂN CHUẨN 4:3 */}
+              <section style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{
+                  background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px',
+                  padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <input
                       type="text"
-                      className="form-input"
-                      placeholder="🔍 Tìm kiếm món..."
+                      className="ui-input"
+                      style={{ flex: 1, minWidth: '220px', maxWidth: '420px', background: '#121214', color: '#F4F1EC', borderColor: '#2E2E35' }}
+                      placeholder="Tìm tên đồ uống, mã món (CF01, TR02)..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ flex: 1, minWidth: '180px', padding: '7px 12px', fontSize: '0.85rem' }}
                     />
-
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      <button
-                        className={`btn btn-sm ${selectedCategory === 'all' ? 'btn-primary' : 'btn-outline'}`}
-                        onClick={() => setSelectedCategory('all')}
-                        style={{
-                          background: selectedCategory === 'all' ? '#d97706' : '#24160e',
-                          color: selectedCategory === 'all' ? '#fff' : '#c4a482',
-                          border: selectedCategory === 'all' ? '1px solid #fbbf24' : '1px solid #4a2c18',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Tất cả
-                      </button>
-                      {categoryList.map((c) => (
-                        <button
-                          key={c.id}
-                          className={`btn btn-sm ${String(selectedCategory) === String(c.id) ? 'btn-primary' : 'btn-outline'}`}
-                          onClick={() => setSelectedCategory(String(c.id))}
-                          style={{
-                            background: String(selectedCategory) === String(c.id) ? '#d97706' : '#24160e',
-                            color: String(selectedCategory) === String(c.id) ? '#fff' : '#c4a482',
-                            border: String(selectedCategory) === String(c.id) ? '1px solid #fbbf24' : '1px solid #4a2c18',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {getCategoryIcon(c.id)} {c.name}
-                        </button>
-                      ))}
-                    </div>
+                    <span style={{ fontSize: '0.8rem', color: '#A1A1AA', fontWeight: 600 }}>
+                      {filteredProducts.length} món có sẵn
+                    </span>
                   </div>
 
-                  {loading ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#d4b094' }}>
-                      <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>☕</div>
-                      <div>Đang tải danh sách đồ uống hảo hạng...</div>
-                    </div>
-                  ) : filteredProducts.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8', background: '#1c1008', borderRadius: '12px' }}>
-                      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
-                      <div>Không tìm thấy món nào phù hợp với từ khóa của bạn.</div>
-                    </div>
-                  ) : (
-                    /* Grid danh sách món thẻ dark luxury chuẩn POS với hiệu ứng lật trang 3D mượt mà */
-                    <div
-                      key={selectedCategory}
-                      className="page-unfold-transition"
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategory('all')}
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(215px, 1fr))',
-                        gap: '16px'
+                        padding: '6px 14px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600,
+                        cursor: 'pointer', border: '1px solid',
+                        background: selectedCategory === 'all' ? '#D97706' : '#202024',
+                        borderColor: selectedCategory === 'all' ? '#D97706' : '#2E2E35',
+                        color: selectedCategory === 'all' ? '#FFFFFF' : '#A1A1AA',
                       }}
                     >
-                      {filteredProducts.map((p) => {
-                        const sizes = p.sizes || [];
-                        const defaultPrice = sizes.length > 0 ? sizes[0].price : (p.price || 0);
-                        const inCartQty = getProductTotalQtyInCart(p.id);
+                      Tất cả
+                    </button>
+                    {categoryList.map((c) => {
+                      const active = String(selectedCategory) === String(c.id);
+                      const label = String(c.name || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setSelectedCategory(String(c.id))}
+                          style={{
+                            padding: '6px 14px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600,
+                            cursor: 'pointer', border: '1px solid',
+                            background: active ? '#D97706' : '#202024',
+                            borderColor: active ? '#D97706' : '#2E2E35',
+                            color: active ? '#FFFFFF' : '#A1A1AA',
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                        return (
-                          <div
-                            key={p.id}
-                            className="product-card customer-product-card"
-                            onClick={() => handleOpenSizeModal(p)}
-                          >
-                            {/* Ảnh món căn giữa chuẩn khung 4:3 */}
-                            <div style={{ position: 'relative', overflow: 'hidden', width: '100%', aspectRatio: '4 / 3', background: '#150d08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <img
-                                src={resolveProductImage(p.image_url, FALLBACK_DRINK_IMG)}
-                                alt={p.name}
-                                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
-                                className="card-img"
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover',
-                                  objectPosition: 'center center',
-                                  display: 'block',
-                                }}
-                              />
-                              {inCartQty > 0 && (
-                                <span
-                                  style={{
-                                    position: 'absolute',
-                                    top: '8px',
-                                    right: '8px',
-                                    background: '#d97706',
-                                    color: '#fff',
-                                    fontWeight: 800,
-                                    fontSize: '0.75rem',
-                                    padding: '2px 8px',
-                                    borderRadius: '12px',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                                    zIndex: 2
-                                  }}
-                                >
-                                  Đã chọn: {inCartQty}
-                                </span>
-                              )}
+                {loading ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', color: '#A1A1AA' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>☕</div>
+                    <div>Đang tải danh sách đồ uống hảo hạng...</div>
+                  </div>
+                ) : filteredProducts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', color: '#71717A', background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px' }}>
+                    Không tìm thấy món nào phù hợp với từ khóa của bạn.
+                  </div>
+                ) : (
+                  <div key={selectedCategory} className="cp-products-grid">
+                    {filteredProducts.map((p) => {
+                      const sizes = p.sizes || [];
+                      const defaultPrice = sizes.length > 0 ? sizes[0].price : (p.price || 0);
+                      const inCartQty = getProductTotalQtyInCart(p.id);
+                      return (
+                        <article key={p.id} className="cp-product-card" onClick={() => handleOpenSizeModal(p)}>
+                          <div className="cp-product-thumb-wrap">
+                            <img
+                              src={resolveProductImage(p.image_url, FALLBACK_DRINK_IMG)}
+                              alt={p.name}
+                              className="cp-product-thumb"
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_DRINK_IMG; }}
+                            />
+                            {p.code && (
+                              <span style={{
+                                position: 'absolute', top: '10px', left: '10px',
+                                background: 'rgba(18, 18, 20, 0.82)', color: '#F4F1EC',
+                                fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: '6px',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                              }}>
+                                {p.code}
+                              </span>
+                            )}
+                            {inCartQty > 0 && (
+                              <span style={{
+                                position: 'absolute', top: '10px', right: '10px',
+                                background: '#D97706', color: '#FFFFFF',
+                                fontSize: '0.72rem', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                              }}>
+                                {inCartQty} trong giỏ
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: '10px' }}>
+                            <div>
+                              <h3 style={{ margin: '0 0 4px', fontSize: '0.9rem', fontWeight: 600, color: '#F4F1EC', lineHeight: 1.35 }} title={p.name}>
+                                {p.name}
+                              </h3>
+                              <p style={{
+                                margin: 0, fontSize: '0.75rem', color: '#A1A1AA', lineHeight: 1.4,
+                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '32px'
+                              }}>
+                                {p.description || 'Pha chế chuẩn vị tại My Coffee House'}
+                              </p>
                             </div>
 
-                            {/* Chi tiết */}
-                            <div style={{ padding: '12px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24', background: 'rgba(251, 191, 36, 0.12)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(251, 191, 36, 0.25)', letterSpacing: '0.5px' }}>
-                                  {p.code || `ID:${p.id}`}
-                                </span>
-                                <span style={{ fontSize: '0.72rem', color: '#a88265', fontWeight: 600 }}>
-                                  {p.category_id === 9 ? 'Đồ ăn vặt' : 'Đồ uống'}
-                                </span>
-                              </div>
-
-                              <div
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #26262B' }}>
+                              <span className="ui-money" style={{ fontWeight: 700, fontSize: '0.96rem', color: '#F59E0B' }}>
+                                {fmt(defaultPrice)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleOpenSizeModal(p); }}
                                 style={{
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '6px',
-                                  fontWeight: 700,
-                                  fontSize: '0.88rem',
-                                  color: '#fef3c7',
-                                  minHeight: '48px',
-                                  lineHeight: 1.42,
-                                  paddingTop: '2px',
-                                  marginBottom: '4px',
+                                  background: '#D97706', color: '#FFFFFF', border: 'none',
+                                  padding: '6px 12px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer',
                                 }}
                               >
-                                <span style={{ fontSize: '1.05rem', flexShrink: 0, marginTop: '0px' }}>
-                                  {getCategoryIcon(p.category_id)}
-                                </span>
-                                <span
-                                  style={{
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                    wordBreak: 'break-word',
-                                  }}
-                                  title={p.name}
-                                >
-                                  {p.name}
-                                </span>
-                              </div>
-
-                              <p
-                                style={{
-                                  fontSize: '0.73rem',
-                                  color: '#c4a482',
-                                  margin: '0 0 10px',
-                                  minHeight: '34px',
-                                  lineHeight: 1.35,
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {p.description || 'Hương vị thơm ngon hảo hạng từ MY COFFEE HOUSE'}
-                              </p>
-
-                              {/* Giá & Nút + Thêm (khi click sẽ mở chọn size) */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                                <div>
-                                  <span style={{ fontSize: '0.72rem', color: '#a88265', fontWeight: 600 }}>Giá: </span>
-                                  <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fbbf24' }}>
-                                    {fmt(defaultPrice)}
-                                  </span>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  className="btn btn-sm"
-                                  style={{
-                                    background: '#15803d',
-                                    color: '#fff',
-                                    fontWeight: 700,
-                                    padding: '5px 14px',
-                                    borderRadius: '6px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                                    border: 'none',
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenSizeModal(p);
-                                  }}
-                                >
-                                  <span>+ Thêm</span>
-                                </button>
-                              </div>
+                                + Thêm
+                              </button>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {cartTotalCount > 0 && (
-                <div className="pos-floating-cart" style={{ width: 'calc(100% - 32px)', maxWidth: '760px' }}>
-                  <div>
-                    <div style={{ fontWeight: 800, color: '#FFFFFF' }}>{cartTotalCount} món trong giỏ hàng</div>
-                    <div style={{ fontSize: '0.78rem', color: '#D6C7B8' }}>Tạm tính: {fmt(finalTotal)}</div>
+                        </article>
+                      );
+                    })}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => { setActiveTab('checkout'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    style={{ background: '#D97706', color: '#FFFFFF', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
-                  >
-                    Xem giỏ &amp; Thanh toán →
-                  </button>
+                )}
+              </section>
+
+              {/* CỘT PHẢI: GIỎ HÀNG & THANH TOÁN LUÔN CỐ ĐỊNH BÊN CẠNH */}
+              {cart.length > 0 && (
+                <aside className={`cp-side-cart ${mobileCartOpen ? 'is-mobile-open' : ''}`}>
+                  <div className="cp-side-cart-header">
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.96rem', color: '#F4F1EC' }}>
+                        Giỏ hàng ({cartTotalCount} món)
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#A1A1AA', marginTop: '2px' }}>
+                        {user?.full_name || 'Thành viên'} · Hạng {tierName}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => { clearCart(); setMobileCartOpen(false); }}
+                        style={{ background: 'none', border: 'none', color: '#F87171', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Xóa hết
+                      </button>
+                      <button
+                        type="button"
+                        className="cp-mobile-close-btn"
+                        onClick={() => setMobileCartOpen(false)}
+                        aria-label="Đóng giỏ hàng"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="cp-side-cart-body">
+                    {/* 1. Danh sách món trong giỏ */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {cart.map((item, idx) => (
+                        <div key={item.cartItemId || idx} style={{
+                          background: '#202024', border: '1px solid #2A2A30', borderRadius: '11px',
+                          padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.84rem', color: '#F4F1EC' }}>
+                              {item.name} {item.size_name && ['S', 'M', 'L', 'XL'].includes(item.size_name.toUpperCase()) ? `(${item.size_name})` : ''}
+                            </div>
+                            {item.note && (
+                              <div style={{ fontSize: '0.72rem', color: '#A1A1AA', marginTop: '2px' }}>{item.note}</div>
+                            )}
+                            <div className="ui-money" style={{ fontSize: '0.78rem', fontWeight: 600, color: '#F59E0B', marginTop: '3px' }}>
+                              {fmt(item.price * item.quantity)}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                            <button type="button" onClick={() => updateCartLineQty(idx, -1)} style={{ width: '25px', height: '25px', borderRadius: '7px', background: '#141417', border: '1px solid #32323A', color: '#F4F1EC', cursor: 'pointer' }}>−</button>
+                            <span className="ui-money" style={{ minWidth: '18px', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem' }}>{item.quantity}</span>
+                            <button type="button" onClick={() => updateCartLineQty(idx, 1)} style={{ width: '25px', height: '25px', borderRadius: '7px', background: '#141417', border: '1px solid #32323A', color: '#F4F1EC', cursor: 'pointer' }}>+</button>
+                            <button type="button" onClick={() => removeCartLine(idx)} title="Xóa món" style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '0.8rem', padding: '0 2px' }}>✕</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 2. Ghi chú chung đơn hàng */}
+                    <input
+                      type="text"
+                      className="ui-input"
+                      style={{ background: '#121214', color: '#F4F1EC', borderColor: '#2E2E35', fontSize: '0.78rem' }}
+                      placeholder="Ghi chú chung cho quầy pha chế..."
+                      value={orderGeneralNote}
+                      onChange={(e) => setOrderGeneralNote(e.target.value)}
+                    />
+
+                    {/* 3. Thời gian nhận món (Nhận ngay / Hẹn giờ lấy + chọn ngày) */}
+                    <div style={{ paddingTop: '10px', borderTop: '1px solid #26262B', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {!storeHours.isOpen && (
+                        <div style={{
+                          background: 'rgba(239, 68, 68, 0.14)', border: '1px solid rgba(239, 68, 68, 0.35)',
+                          borderRadius: '8px', padding: '7px 10px', fontSize: '0.73rem', color: '#FCA5A5', lineHeight: 1.4
+                        }}>
+                          Quán đang đóng cửa ({storeHours.open_time} – {storeHours.close_time}). Vui lòng chọn giờ đặt trước:
+                        </div>
+                      )}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: '#121214', padding: '3px', borderRadius: '9px', border: '1px solid #2A2A30' }}>
+                        <button
+                          type="button"
+                          disabled={!storeHours.isOpen}
+                          onClick={() => setOrderTimingMode('now')}
+                          style={{
+                            height: '32px', borderRadius: '7px', border: 'none', fontSize: '0.76rem', fontWeight: 600,
+                            cursor: storeHours.isOpen ? 'pointer' : 'not-allowed',
+                            background: orderTimingMode === 'now' && storeHours.isOpen ? '#D97706' : 'transparent',
+                            color: orderTimingMode === 'now' && storeHours.isOpen ? '#FFFFFF' : '#71717A',
+                          }}
+                        >
+                          Nhận ngay
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderTimingMode('scheduled')}
+                          style={{
+                            height: '32px', borderRadius: '7px', border: 'none', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer',
+                            background: orderTimingMode === 'scheduled' || !storeHours.isOpen ? '#D97706' : 'transparent',
+                            color: orderTimingMode === 'scheduled' || !storeHours.isOpen ? '#FFFFFF' : '#A1A1AA',
+                          }}
+                        >
+                          Hẹn giờ lấy
+                        </button>
+                      </div>
+
+                      {(orderTimingMode === 'scheduled' || !storeHours.isOpen) && storeHours.availableSlots && storeHours.availableSlots.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', gap: '5px', overflowX: 'auto' }}>
+                            {storeHours.availableSlots.map((d, dIdx) => (
+                              <button
+                                key={d.date}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDayIndex(dIdx);
+                                  if (d.slots && d.slots.length > 0) {
+                                    setSelectedSlotDatetime(d.slots[0].datetime);
+                                    setSelectedSlotLabel(d.slots[0].label);
+                                  }
+                                }}
+                                style={{
+                                  padding: '4px 9px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
+                                  background: selectedDayIndex === dIdx ? '#D97706' : '#202024',
+                                  color: selectedDayIndex === dIdx ? '#FFFFFF' : '#A1A1AA',
+                                  border: '1px solid ' + (selectedDayIndex === dIdx ? '#D97706' : '#2E2E35'),
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {d.dayLabel}
+                              </button>
+                            ))}
+                          </div>
+                          {storeHours.availableSlots[selectedDayIndex]?.slots?.length > 0 ? (
+                            <select
+                              className="ui-select"
+                              style={{ width: '100%', background: '#121214', color: '#F4F1EC', borderColor: '#2E2E35' }}
+                              value={selectedSlotDatetime}
+                              onChange={(e) => {
+                                const slot = storeHours.availableSlots[selectedDayIndex].slots.find((s) => s.datetime === e.target.value);
+                                setSelectedSlotDatetime(e.target.value);
+                                setSelectedSlotLabel(slot?.label || '');
+                              }}
+                            >
+                              {storeHours.availableSlots[selectedDayIndex].slots.map((s) => (
+                                <option key={s.datetime} value={s.datetime}>{s.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div style={{ fontSize: '0.72rem', color: '#F87171' }}>Hết khung giờ hôm nay, vui lòng chọn ngày khác.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. Mã ưu đãi & Điểm thưởng */}
+                    <div style={{ paddingTop: '10px', borderTop: '1px solid #26262B', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          className="ui-input"
+                          style={{ flex: 1, background: '#121214', color: '#F4F1EC', borderColor: '#2E2E35', textTransform: 'uppercase' }}
+                          placeholder="Nhập mã ưu đãi..."
+                          value={voucherCodeInput}
+                          onChange={(e) => setVoucherCodeInput(e.target.value.toUpperCase())}
+                        />
+                        {appliedVoucher ? (
+                          <button type="button" className="ui-btn ui-btn-danger" onClick={handleRemoveCoupon}>Bỏ</button>
+                        ) : (
+                          <button type="button" className="ui-btn ui-btn-outline" style={{ background: '#202024', color: '#F4F1EC', borderColor: '#32323A' }} onClick={() => handleApplyCoupon()}>Áp dụng</button>
+                        )}
+                      </div>
+                      {readyToUseVouchers.length > 0 && (
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                          {readyToUseVouchers.map((c) => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => handleApplyCoupon(c.code)}
+                              style={{
+                                padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                                border: appliedVoucher?.code === c.code ? '1px solid #10B981' : '1px dashed #D97706',
+                                background: appliedVoucher?.code === c.code ? 'rgba(16,185,129,0.16)' : '#121214',
+                                color: appliedVoucher?.code === c.code ? '#34D399' : '#FBBF24',
+                              }}
+                            >
+                              {c.code}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {maxRedeemablePoints > 0 && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.78rem', color: '#D4D4D8', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} />
+                          <span>Dùng {maxRedeemablePoints} điểm thưởng (-{fmt(maxRedeemablePoints * 1000)})</span>
+                        </label>
+                      )}
+                    </div>
+
+                    {/* 5. Phương thức thanh toán */}
+                    <div style={{ paddingTop: '10px', borderTop: '1px solid #26262B', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        {['QR Banking', 'Tiền mặt'].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setPaymentMethod(m)}
+                            style={{
+                              height: '36px', borderRadius: '9px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                              background: paymentMethod === m ? 'rgba(217, 119, 6, 0.16)' : '#202024',
+                              border: paymentMethod === m ? '1.5px solid #D97706' : '1px solid #2E2E35',
+                              color: paymentMethod === m ? '#FBBF24' : '#A1A1AA',
+                            }}
+                          >
+                            {m === 'QR Banking' ? 'Chuyển khoản QR' : 'Trả tại quầy'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {paymentMethod === 'QR Banking' && finalTotal > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#121214', padding: '10px', borderRadius: '11px', border: '1px solid #2A2A30' }}>
+                          <img src={vietQrUrl} alt="VietQR" style={{ width: '88px', height: '88px', borderRadius: '8px', background: '#FFFFFF', padding: '3px', flexShrink: 0 }} />
+                          <div style={{ fontSize: '0.73rem', color: '#D4D4D8', lineHeight: 1.5 }}>
+                            <div style={{ fontWeight: 700, color: '#F4F1EC' }}>{BANK_CONFIG.bankName}</div>
+                            <div>STK: <strong>{BANK_CONFIG.accountNumber}</strong></div>
+                            <div>CTK: <strong>{BANK_CONFIG.accountHolder}</strong></div>
+                            <div>Nội dung: <strong style={{ color: '#FBBF24' }}>CF {customerPhone} DH</strong></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer ghim cố định ở đáy Panel bên cạnh */}
+                  <div className="cp-side-cart-footer">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A1A1AA' }}>
+                        <span>Tạm tính</span><span className="ui-money">{fmt(totalAmount)}</span>
+                      </div>
+                      {(voucherDiscount + tierDiscount + pointsDiscount) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34D399' }}>
+                          <span>Giảm giá</span><span className="ui-money">-{fmt(voucherDiscount + tierDiscount + pointsDiscount)}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#F4F1EC' }}>Tổng thanh toán</span>
+                        <span className="ui-money" style={{ fontWeight: 700, fontSize: '1.22rem', color: '#F59E0B' }}>{fmt(finalTotal)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={submittingOrder}
+                      onClick={!user ? () => setShowAuthRequiredModal(true) : handleCompleteOrder}
+                      className="ui-money"
+                      style={{
+                        width: '100%', height: '42px', borderRadius: '11px', border: 'none',
+                        background: '#D97706', color: '#FFFFFF', fontSize: '0.86rem', fontWeight: 700,
+                        cursor: submittingOrder ? 'not-allowed' : 'pointer', opacity: submittingOrder ? 0.6 : 1,
+                      }}
+                    >
+                      {submittingOrder ? 'Đang gửi đơn...' : `Đặt đơn & Thanh toán · ${fmt(finalTotal)}`}
+                    </button>
+                  </div>
+                </aside>
+              )}
+
+              {/* THANH THU GỌN TRÊN MOBILE (CHỈ HIỆN KHI <= 820px VÀ CHƯA BUNG PANEL) */}
+              {cart.length > 0 && !mobileCartOpen && (
+                <div className="cp-mobile-cart-bar" onClick={() => setMobileCartOpen(true)}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#F4F1EC' }}>
+                      🛒 Giỏ hàng ({cartTotalCount} món)
+                    </span>
+                    <span className="ui-money" style={{ fontSize: '0.76rem', fontWeight: 700, color: '#F59E0B' }}>
+                      Tổng: {fmt(finalTotal)}
+                    </span>
+                  </div>
+                  <span style={{
+                    background: '#D97706', color: '#FFFFFF', padding: '7px 14px',
+                    borderRadius: '9px', fontSize: '0.8rem', fontWeight: 700
+                  }}>
+                    Xem &amp; Đặt đơn →
+                  </span>
                 </div>
               )}
             </div>
           )}
 
-          {/* TAB THANH TOÁN CHUYÊN DỤNG RIÊNG BIỆT DÀNH CHO KHÁCH */}
-          {activeTab === 'checkout' && (
-            <div style={{ maxWidth: '820px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('menu')}
-                  style={{
-                    background: '#1f130b', border: '1px solid #3d2314', color: '#d4b094',
-                    padding: '9px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700,
-                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px'
-                  }}
-                >
-                  ← Quay lại thực đơn chọn thêm món
-                </button>
-                <div style={{ fontSize: '0.82rem', color: '#d4b094' }}>
-                  Kiểm tra đơn hàng và hoàn tất đặt món
-                </div>
+          {/* TAB 2: MÃ KHUYẾN MÃI */}
+          {activeTab === 'vouchers' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 4px', fontSize: '1.3rem', fontWeight: 700, color: '#F4F1EC', letterSpacing: '-0.02em' }}>
+                  Ưu đãi &amp; Mã khuyến mãi
+                </h2>
+                <p style={{ margin: 0, fontSize: '0.84rem', color: '#A1A1AA' }}>
+                  Chọn mã phù hợp để tự động khấu trừ trực tiếp vào đơn hàng của bạn.
+                </p>
               </div>
 
-              {/* BANNER THANH TOÁN & THÔNG TIN ĐƠN HÀNG */}
-              <div
-                className="mockup-panel pos-sticky-cart"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 6px 25px rgba(0,0,0,0.5)',
-                }}
-              >
-                <div className="mockup-panel-header" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '8px' }}>
-                  <div className="mockup-panel-title">
-                    <span>📋</span>
-                    <span>THÔNG TIN ĐƠN HÀNG ({cartTotalCount} MÓN)</span>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '3px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #10b981' }}>
-                    ☕ CỐC ĐÓNG SẴN
-                  </span>
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '16px' }}>
+                {availableVouchers.map((v) => {
+                  const isNewCode = ['BANMOI', 'BANMOI20'].includes(v.code);
+                  const isBlockedNew = isNewCode && !isFirstTimeCustomer;
+                  const minOrder = Number(v.min_order_value || 0);
+                  const missingAmt = Math.max(0, minOrder - totalAmount);
+                  const isQualified = !isBlockedNew && missingAmt === 0 && totalAmount > 0;
 
-                <div
-                  className="mockup-panel-body"
-                  style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    padding: '14px 16px',
-                  }}
-                >
-                  {/* 1. THÔNG TIN KHÁCH HÀNG & TÍCH ĐIỂM */}
-                  <div
-                    style={{
-                      background: 'rgba(36, 22, 14, 0.85)',
-                      border: '1px solid rgba(245, 158, 11, 0.25)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fbbf24' }}>
-                        👤 HỘI VIÊN: <span style={{ color: '#fff' }}>{user?.full_name || 'Khách hàng'}</span>
+                  const isPct = ['percent_order', 'happy_hour', 'percentage'].includes(v.type);
+                  const shortVal = isPct ? `-${Number(v.value)}%` : `-${Math.round(Number(v.value) / 1000)}K`;
+
+                  return (
+                    <div
+                      key={v.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '104px 1fr',
+                        background: '#18181B',
+                        border: isQualified ? '1px solid rgba(217, 119, 6, 0.55)' : '1px solid #2A2A30',
+                        borderRadius: '16px',
+                        overflow: 'hidden',
+                        opacity: isBlockedNew ? 0.58 : 1,
+                        transition: 'border-color 0.16s ease, transform 0.16s ease',
+                      }}
+                    >
+                      {/* Cuống vé bên trái: Mức giảm nổi bật */}
+                      <div style={{
+                        background: isBlockedNew
+                          ? '#202024'
+                          : 'linear-gradient(160deg, rgba(217, 119, 6, 0.22) 0%, rgba(180, 83, 9, 0.08) 100%)',
+                        borderRight: '1px dashed #2E2E35',
+                        padding: '16px 10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        gap: '6px',
+                      }}>
+                        <Ticket size={18} color={isBlockedNew ? '#71717A' : '#F59E0B'} />
+                        <div className="ui-money" style={{ fontSize: '1.25rem', fontWeight: 700, color: isBlockedNew ? '#A1A1AA' : '#F59E0B', lineHeight: 1.1 }}>
+                          {shortVal}
+                        </div>
+                        <span style={{
+                          fontSize: '0.68rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px',
+                          background: '#121214', color: '#D4D4D8', letterSpacing: '0.04em',
+                        }}>
+                          {v.code}
+                        </span>
                       </div>
-                      <span style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 800 }}>
-                        ⭐ Hạng {tierName}
-                      </span>
-                    </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.76rem', color: '#c4a482' }}>
-                      <span>SĐT: <strong style={{ color: '#fef3c7' }}>{customerPhone}</strong></span>
-                      <span>Điểm: <strong style={{ color: '#34d399' }}>{currentPoints} điểm</strong></span>
-                    </div>
+                      {/* Chi tiết điều kiện & Nút hành động */}
+                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.92rem', color: '#F4F1EC', marginBottom: '4px' }}>
+                            {v.name}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.4 }}>
+                            {v.description || 'Áp dụng cho mọi đồ uống tại quán.'}
+                          </div>
+                        </div>
 
-                    {currentPoints > 0 && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#fbbf24', marginTop: '2px', fontSize: '0.78rem' }}>
-                        <input
-                          type="checkbox"
-                          checked={usePoints}
-                          onChange={(e) => setUsePoints(e.target.checked)}
-                          style={{ cursor: 'pointer' }}
-                        />
-                        <span>Đổi {effectivePointsRedeemed} điểm (giảm {fmt(pointsDiscount)})</span>
-                      </label>
-                    )}
-                  </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '8px', borderTop: '1px solid #242428' }}>
+                          <span className="ui-money" style={{
+                            fontSize: '0.72rem', fontWeight: 600,
+                            color: isBlockedNew ? '#71717A' : isQualified ? '#34D399' : '#FBBF24',
+                          }}>
+                            {isBlockedNew
+                              ? 'Chỉ áp dụng đơn đầu tiên'
+                              : isQualified
+                                ? 'Đủ điều kiện áp dụng'
+                                : totalAmount === 0
+                                  ? `Đơn từ ${fmt(minOrder)}`
+                                  : `Cần thêm ${fmt(missingAmt)}`}
+                          </span>
 
-                  {/* 2. MÃ GIẢM GIÁ / VOUCHERS */}
-                  <div style={{ background: 'rgba(36, 22, 14, 0.85)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '10px 12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24', margin: 0 }}>
-                        🏷️ MÃ GIẢM GIÁ / VOUCHER:
-                      </label>
-                      {appliedVoucher && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveCoupon}
-                          style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          ✕ Hủy mã
-                        </button>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Nhập mã (CHAOMUNG, COFFEE10...)"
-                        value={voucherCodeInput}
-                        onChange={(e) => setVoucherCodeInput(e.target.value.toUpperCase())}
-                        style={{ padding: '5px 8px', fontSize: '0.82rem', textTransform: 'uppercase', fontWeight: 700, flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary"
-                        style={{ background: '#d97706', borderColor: '#d97706', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                        onClick={() => handleApplyCoupon()}
-                      >
-                        Áp dụng
-                      </button>
-                    </div>
-
-                    {/* Quick Voucher Pills: Khách hàng chỉ nhìn thấy & sử dụng những mã mình có quyền và đủ điều kiện */}
-                    {readyToUseVouchers.length > 0 ? (
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                        {readyToUseVouchers.map((c) => (
                           <button
-                            key={c.code}
                             type="button"
-                            onClick={() => handleApplyCoupon(c.code)}
-                            title={c.description}
+                            disabled={isBlockedNew}
+                            onClick={() => {
+                              if (isQualified) {
+                                handleApplyCoupon(v.code);
+                                setActiveTab('menu');
+                              } else {
+                                setActiveTab('menu');
+                              }
+                            }}
                             style={{
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              border: appliedVoucher?.code === c.code ? '1.5px solid #16a34a' : '1px dashed #d97706',
-                              background: appliedVoucher?.code === c.code ? 'rgba(22, 163, 74, 0.25)' : '#24160e',
-                              color: appliedVoucher?.code === c.code ? '#4ade80' : '#fbbf24',
-                              fontSize: '0.74rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
+                              height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none',
+                              fontSize: '0.76rem', fontWeight: 600,
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              cursor: isBlockedNew ? 'not-allowed' : 'pointer',
+                              background: isBlockedNew ? '#26262B' : isQualified ? '#D97706' : '#26262B',
+                              color: isBlockedNew ? '#71717A' : isQualified ? '#FFFFFF' : '#F4F1EC',
                             }}
                           >
-                            {appliedVoucher?.code === c.code ? '✅ ' : '⚡ '}{c.code}
+                            {isBlockedNew ? (
+                              <><Lock size={12} /> Không khả dụng</>
+                            ) : isQualified ? (
+                              <>Áp dụng ngay <ArrowRight size={13} /></>
+                            ) : (
+                              <>Chọn món <ArrowRight size={13} /></>
+                            )}
                           </button>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {appliedVoucher && (
-                      <div style={{ marginTop: '6px', fontSize: '0.74rem', color: '#4ade80', fontWeight: 700 }}>
-                        🎉 Đã áp dụng: {appliedVoucher.name} (-{fmt(voucherDiscount)})
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 3. GHI CHÚ ĐƠN */}
-                  <div>
-                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fef3c7', display: 'block', marginBottom: '2px' }}>
-                      📝 Ghi chú đơn hàng:
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Ghi chú pha chế..."
-                      value={orderGeneralNote}
-                      onChange={(e) => setOrderGeneralNote(e.target.value)}
-                      style={{ fontSize: '0.8rem', padding: '6px 8px', width: '100%' }}
-                    />
-                  </div>
-
-                  {/* 4. BẢNG MÓN ĐÃ CHỌN TRONG ĐƠN HÀNG */}
-                  <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px' }}>
-                    <table className="mockup-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '26px' }}>STT</th>
-                          <th>Món / Size</th>
-                          <th style={{ width: '60px', textAlign: 'center' }}>SL</th>
-                          <th style={{ textAlign: 'right' }}>Đ.Giá</th>
-                          <th style={{ textAlign: 'right' }}>T.Tiền</th>
-                          <th style={{ width: '24px' }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cart.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#c4a482', fontSize: '0.82rem' }}>
-                              Chưa có món nào. Bấm <strong>+ Thêm</strong> từ thực đơn bên trái để chọn món!
-                            </td>
-                          </tr>
-                        ) : (
-                          cart.map((item, idx) => (
-                            <tr key={idx}>
-                              <td>{idx + 1}</td>
-                              <td style={{ fontWeight: 600 }}>
-                                <div style={{ fontSize: '0.82rem', color: '#fef3c7', lineHeight: 1.2 }}>{item.name}</div>
-                                {item.size_name && ['S', 'M', 'L', 'XL'].includes(item.size_name.toUpperCase()) && (
-                                  <span
-                                    style={{
-                                      display: 'inline-block',
-                                      marginTop: '2px',
-                                      fontSize: '0.68rem',
-                                      fontWeight: 700,
-                                      background: 'rgba(245, 158, 11, 0.2)',
-                                      color: '#fbbf24',
-                                      padding: '1px 5px',
-                                      borderRadius: '4px',
-                                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                                    }}
-                                  >
-                                    Size {item.size_name}
-                                  </span>
-                                )}
-                                {item.note && (
-                                  <div style={{ fontSize: '0.7rem', color: '#f87171', fontStyle: 'italic', marginTop: '2px' }}>
-                                    📝 {item.note}
-                                  </div>
-                                )}
-                              </td>
-                              <td style={{ textAlign: 'center' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                  <button
-                                    type="button"
-                                    style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #4a2c18', background: '#24160e', color: '#fef3c7', cursor: 'pointer', lineHeight: '16px', fontSize: '11px' }}
-                                    onClick={() => updateCartLineQty(idx, -1)}
-                                  >
-                                    -
-                                  </button>
-                                  <span style={{ fontWeight: 700, width: '16px', textAlign: 'center', fontSize: '0.82rem', color: '#fef3c7' }}>{item.quantity}</span>
-                                  <button
-                                    type="button"
-                                    style={{ width: '20px', height: '20px', borderRadius: '4px', border: '1px solid #4a2c18', background: '#24160e', color: '#fef3c7', cursor: 'pointer', lineHeight: '16px', fontSize: '11px' }}
-                                    onClick={() => updateCartLineQty(idx, 1)}
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'right', fontSize: '0.78rem', color: '#c4a482' }}>{fmt(item.price)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 700, color: '#fbbf24', fontSize: '0.8rem' }}>
-                                {fmt(item.price * item.quantity)}
-                              </td>
-                              <td style={{ textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => removeCartLine(idx)}
-                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }}
-                                  title="Xóa món"
-                                >
-                                  ✕
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* 4.5. THỜI GIAN NHẬN MÓN (LÀM NGAY HOẶC HẸN GIỜ ĐẶT TRƯỚC) */}
-                  <div style={{
-                    background: 'rgba(28, 17, 10, 0.95)',
-                    border: storeHours.isOpen ? '1px solid rgba(245, 158, 11, 0.3)' : '1.5px solid #ef4444',
-                    borderRadius: '10px',
-                    padding: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fde68a', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                        <span>⏰</span>
-                        <span>THỜI GIAN NHẬN HÀNG:</span>
-                      </label>
-                      <span style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        background: storeHours.isOpen ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                        color: storeHours.isOpen ? '#34d399' : '#f87171',
-                        border: `1px solid ${storeHours.isOpen ? '#10b981' : '#ef4444'}`
-                      }}>
-                        {storeHours.isOpen ? `● Quán mở (${storeHours.open_time} - ${storeHours.close_time})` : `● Đang đóng cửa`}
-                      </span>
-                    </div>
-
-                    {!storeHours.isOpen ? (
-                      <div style={{
-                        background: 'rgba(239, 68, 68, 0.12)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        borderRadius: '6px',
-                        padding: '8px 10px',
-                        fontSize: '0.74rem',
-                        color: '#fca5a5',
-                        lineHeight: 1.4
-                      }}>
-                        ⚠️ <strong>Quán hiện đang đóng cửa</strong> (Giờ phục vụ: {storeHours.open_time} – {storeHours.close_time}). Quý khách vui lòng chọn thời gian nhận hàng bên dưới để đặt trước:
-                      </div>
-                    ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          style={{
-                            background: orderTimingMode === 'now' ? 'linear-gradient(135deg, #15803d, #166534)' : '#24160e',
-                            color: orderTimingMode === 'now' ? '#ffffff' : '#c4a482',
-                            border: orderTimingMode === 'now' ? '1.5px solid #22c55e' : '1px solid #4a2c18',
-                            fontWeight: 800,
-                            fontSize: '0.76rem',
-                            padding: '6px 4px',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setOrderTimingMode('now')}
-                        >
-                          ⚡ Nhận ngay
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          style={{
-                            background: orderTimingMode === 'scheduled' ? 'linear-gradient(135deg, #9333ea, #7e22ce)' : '#24160e',
-                            color: orderTimingMode === 'scheduled' ? '#ffffff' : '#c4a482',
-                            border: orderTimingMode === 'scheduled' ? '1.5px solid #c084fc' : '1px solid #4a2c18',
-                            fontWeight: 800,
-                            fontSize: '0.76rem',
-                            padding: '6px 4px',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setOrderTimingMode('scheduled')}
-                        >
-                          🗓️ Hẹn giờ nhận trước
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Khi chọn Hẹn giờ nhận trước hoặc khi quán đang đóng cửa */}
-                    {(orderTimingMode === 'scheduled' || !storeHours.isOpen) && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                        {/* Chọn Ngày */}
-                        {storeHours.availableSlots && storeHours.availableSlots.length > 0 && (
-                          <div>
-                            <div style={{ fontSize: '0.72rem', color: '#c4a482', fontWeight: 600, marginBottom: '4px' }}>
-                              📅 Chọn ngày nhận hàng:
-                            </div>
-                            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto' }}>
-                              {storeHours.availableSlots.map((d, dIdx) => (
-                                <button
-                                  key={d.date}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedDayIndex(dIdx);
-                                    if (d.slots && d.slots.length > 0) {
-                                      setSelectedSlotDatetime(d.slots[0].datetime);
-                                      setSelectedSlotLabel(d.slots[0].label);
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '4px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '0.74rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    background: selectedDayIndex === dIdx ? '#a855f7' : '#1f130b',
-                                    color: selectedDayIndex === dIdx ? '#fff' : '#d4b094',
-                                    border: selectedDayIndex === dIdx ? '1px solid #c084fc' : '1px solid #4a2c18',
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  {d.dayLabel}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Chọn Giờ (Slot 15 phút) */}
-                        {storeHours.availableSlots && storeHours.availableSlots[selectedDayIndex]?.slots?.length > 0 ? (
-                          <div>
-                            <div style={{ fontSize: '0.72rem', color: '#c4a482', fontWeight: 600, marginBottom: '4px' }}>
-                              🕒 Chọn khung giờ nhận ({storeHours.slot_step_minutes} phút/khung):
-                            </div>
-                            <select
-                              className="form-input"
-                              value={selectedSlotDatetime}
-                              onChange={(e) => {
-                                const found = storeHours.availableSlots[selectedDayIndex]?.slots?.find(s => s.datetime === e.target.value);
-                                setSelectedSlotDatetime(e.target.value);
-                                if (found) setSelectedSlotLabel(found.label);
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '6px 8px',
-                                fontSize: '0.82rem',
-                                background: '#24140b',
-                                border: '1.5px solid #a855f7',
-                                color: '#fef3c7',
-                                fontWeight: 700,
-                                borderRadius: '6px'
-                              }}
-                            >
-                              {storeHours.availableSlots[selectedDayIndex].slots.map(s => (
-                                <option key={s.datetime} value={s.datetime}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: '0.72rem', color: '#f87171', fontStyle: 'italic' }}>
-                            Không còn khung giờ trống trong ngày này. Vui lòng chọn ngày khác!
-                          </div>
-                        )}
-
-                        <div style={{ fontSize: '0.7rem', color: '#c4a482', lineHeight: 1.35, fontStyle: 'italic' }}>
-                          💡 Hệ thống sẽ tự động chuyển đơn cho Barista trước giờ nhận {storeHours.auto_dispatch_before_minutes} phút để đảm bảo đồ uống luôn tươi mới.
                         </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* 5. PHƯƠNG THỨC THANH TOÁN */}
-                  <div style={{ marginTop: '2px' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#c4a482', fontWeight: 600, marginBottom: '4px' }}>
-                      Phương thức thanh toán:
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{
-                          background: paymentMethod === 'QR Banking' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#24160e',
-                          color: paymentMethod === 'QR Banking' ? '#ffffff' : '#c4a482',
-                          border: paymentMethod === 'QR Banking' ? '1.5px solid #fbbf24' : '1px solid #4a2c18',
-                          fontWeight: 800,
-                          fontSize: '0.78rem',
-                          padding: '6px 4px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => setPaymentMethod('QR Banking')}
-                      >
-                        💠 Quét QR VietQR
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{
-                          background: paymentMethod === 'Tiền mặt' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#24160e',
-                          color: paymentMethod === 'Tiền mặt' ? '#ffffff' : '#c4a482',
-                          border: paymentMethod === 'Tiền mặt' ? '1.5px solid #fbbf24' : '1px solid #4a2c18',
-                          fontWeight: 800,
-                          fontSize: '0.78rem',
-                          padding: '6px 4px',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => setPaymentMethod('Tiền mặt')}
-                      >
-                        💵 Tiền mặt tại quầy
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Hiển thị QR Ngân hàng trực tiếp trong banner nếu chọn QR */}
-                  {paymentMethod === 'QR Banking' && finalTotal > 0 && (
-                    <div style={{
-                      background: '#1c120b',
-                      border: '1px solid #3d2618',
-                      borderRadius: '8px',
-                      padding: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px'
-                    }}>
-                      <div style={{ background: '#fff', padding: '4px', borderRadius: '6px', flexShrink: 0 }}>
-                        <img
-                          src={vietQrUrl}
-                          alt="QR VietinBank"
-                          style={{ width: '84px', height: '84px', objectFit: 'contain', display: 'block' }}
-                        />
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: '#c4a482', lineHeight: 1.5 }}>
-                        <div>Ngân hàng: <strong style={{ color: '#fff' }}>{BANK_CONFIG.bankName}</strong></div>
-                        <div>STK: <strong style={{ color: '#fde68a' }}>{BANK_CONFIG.accountNumber}</strong></div>
-                        <div>Chủ TK: <strong style={{ color: '#fff' }}>{BANK_CONFIG.accountHolder}</strong></div>
-                        <div>Số tiền: <strong style={{ color: '#34d399' }}>{fmt(finalTotal)}</strong></div>
-                        <div style={{ color: '#fbbf24', fontSize: '0.7rem' }}>Nội dung: <strong>CF {customerPhone} DH</strong></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* FOOTER PINNED: TỔNG TIỀN & NÚT ĐẶT ĐƠN */}
-                <div
-                  style={{
-                    flexShrink: 0,
-                    background: 'rgba(38, 24, 15, 0.96)',
-                    borderTop: '1px solid rgba(245, 158, 11, 0.2)',
-                    padding: '12px 16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    boxShadow: '0 -4px 16px rgba(0,0,0,0.3)',
-                  }}
-                >
-                  {/* Bảng chi tiết tính tiền */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.82rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#c4a482' }}>Tổng tiền hàng:</span>
-                      <span style={{ fontWeight: 700, color: '#fef3c7' }}>{fmt(totalAmount)}</span>
-                    </div>
-                    {tierDiscount > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399' }}>
-                        <span>Ưu đãi hạng {tierName} (-{discountPct}%):</span>
-                        <span style={{ fontWeight: 700 }}>-{fmt(tierDiscount)}</span>
-                      </div>
-                    )}
-                    {pointsDiscount > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8' }}>
-                        <span>Đổi điểm tích lũy ({effectivePointsRedeemed} điểm):</span>
-                        <span style={{ fontWeight: 700 }}>-{fmt(pointsDiscount)}</span>
-                      </div>
-                    )}
-                    {voucherDiscount > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f87171' }}>
-                        <span>Giảm giá voucher:</span>
-                        <span style={{ fontWeight: 700 }}>-{fmt(voucherDiscount)}</span>
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed rgba(245, 158, 11, 0.3)', paddingTop: '5px', marginTop: '2px', fontSize: '1.12rem', fontWeight: 800, color: '#fbbf24' }}>
-                      <span>Thành tiền:</span>
-                      <span>{fmt(finalTotal)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#a88265', borderTop: '1px solid rgba(245, 158, 11, 0.1)', paddingTop: '3px' }}>
-                      <span>Tích lũy đơn này:</span>
-                      <span style={{ color: '#34d399', fontWeight: 800 }}>+{earnedPoints} điểm</span>
-                    </div>
-                  </div>
-
-                  {/* Thông tin Khách Hàng / Yêu cầu đăng nhập (AUTH-REQUIRED) */}
-                  {!user ? (
-                    <div style={{
-                      background: '#18181B',
-                      border: '1px solid #2A2A30',
-                      borderRadius: '12px',
-                      padding: '16px 14px',
-                      textAlign: 'center',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      alignItems: 'center',
-                      margin: '10px 0'
-                    }}>
-                      <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#F4F1EC' }}>
-                        Đăng nhập để đặt món &amp; thanh toán
-                      </div>
-                      <p style={{ margin: 0, fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.45, maxWidth: '320px' }}>
-                        Tài khoản thành viên giúp bạn theo dõi đơn hàng thời gian thực và tích điểm đổi quà. Giỏ hàng sẽ được giữ nguyên!
-                      </p>
-                      <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '300px', marginTop: '4px' }}>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/login?redirect=/customer')}
-                          style={{
-                            flex: 1, height: '36px', borderRadius: '8px', border: 'none',
-                            background: '#D97706', color: '#FFFFFF', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
-                          }}
-                        >
-                          Đăng nhập
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/login?mode=register&redirect=/customer')}
-                          style={{
-                            flex: 1, height: '36px', borderRadius: '8px',
-                            background: '#202024', border: '1px solid #2E2E35', color: '#F4F1EC',
-                            fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
-                          }}
-                        >
-                          Đăng ký (+50đ)
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{
-                      background: 'rgba(217, 119, 6, 0.1)',
-                      border: '1px solid rgba(217, 119, 6, 0.25)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '0.8rem',
-                      margin: '10px 0'
-                    }}>
-                      <span style={{ color: '#F4F1EC', fontWeight: 600 }}>
-                        👤 {user.full_name || user.username} ({user.phone || 'Chưa có SĐT'})
-                      </span>
-                      <span style={{ color: '#10B981', fontWeight: 700, fontSize: '0.75rem' }}>
-                        ✓ Đã đăng nhập
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Các nút hành động */}
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: 1, borderColor: '#4a2c18', background: '#24160e', color: '#f3e8d8', fontWeight: 700, padding: '9px 6px', fontSize: '0.8rem', cursor: 'pointer', borderRadius: '6px' }}
-                      onClick={clearCart}
-                      disabled={cart.length === 0 || submittingOrder}
-                    >
-                      XÓA GIỎ
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{
-                        flex: 2,
-                        background: submittingOrder ? '#4b5563' : (!user ? '#D97706' : 'linear-gradient(135deg, #15803d, #166534)'),
-                        borderColor: !user ? '#D97706' : '#15803d',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '0.88rem',
-                        padding: '9px 12px',
-                        cursor: submittingOrder || cart.length === 0 ? 'not-allowed' : 'pointer',
-                        borderRadius: '6px',
-                        boxShadow: !user ? '0 4px 12px rgba(217, 119, 6, 0.4)' : '0 4px 12px rgba(21, 128, 61, 0.4)'
-                      }}
-                      onClick={!user ? () => setShowAuthRequiredModal(true) : handleCompleteOrder}
-                      disabled={cart.length === 0 || submittingOrder}
-                    >
-                      {submittingOrder
-                        ? '⏳ Đang gửi đơn...'
-                        : (!user
-                          ? '🔑 ĐĂNG NHẬP ĐỂ ĐẶT ĐƠN'
-                          : (orderTimingMode === 'scheduled' || !storeHours.isOpen ? '🗓️ XÁC NHẬN ĐẶT TRƯỚC' : '🚀 XÁC NHẬN ĐẶT ĐƠN'))}
-                    </button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
           )}
-
-          {/* TAB 2: MÃ KHUYẾN MÃI */}
-          {activeTab === 'vouchers' && (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-    <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: '1.3rem', fontWeight: 700, color: '#F4F1EC', letterSpacing: '-0.02em' }}>
-        Ưu đãi &amp; Mã khuyến mãi
-      </h2>
-      <p style={{ margin: 0, fontSize: '0.84rem', color: '#A1A1AA' }}>
-        Chọn mã phù hợp để tự động khấu trừ trực tiếp vào đơn hàng của bạn.
-      </p>
-    </div>
-
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '16px' }}>
-      {availableVouchers.map((v) => {
-        const isNewCode = ['BANMOI', 'BANMOI20'].includes(v.code);
-        const isBlockedNew = isNewCode && !isFirstTimeCustomer;
-        const minOrder = Number(v.min_order_value || 0);
-        const missingAmt = Math.max(0, minOrder - totalAmount);
-        const isQualified = !isBlockedNew && missingAmt === 0 && totalAmount > 0;
-
-        const isPct = ['percent_order', 'happy_hour', 'percentage'].includes(v.type);
-        const shortVal = isPct ? `-${Number(v.value)}%` : `-${Math.round(Number(v.value) / 1000)}K`;
-
-        return (
-          <div
-            key={v.id}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '104px 1fr',
-              background: '#18181B',
-              border: isQualified ? '1px solid rgba(217, 119, 6, 0.55)' : '1px solid #2A2A30',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              opacity: isBlockedNew ? 0.58 : 1,
-              transition: 'border-color 0.16s ease, transform 0.16s ease',
-            }}
-          >
-            {/* Cuống vé bên trái: Mức giảm nổi bật */}
-            <div style={{
-              background: isBlockedNew
-                ? '#202024'
-                : 'linear-gradient(160deg, rgba(217, 119, 6, 0.22) 0%, rgba(180, 83, 9, 0.08) 100%)',
-              borderRight: '1px dashed #2E2E35',
-              padding: '16px 10px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              gap: '6px',
-            }}>
-              <Ticket size={18} color={isBlockedNew ? '#71717A' : '#F59E0B'} />
-              <div className="ui-money" style={{ fontSize: '1.25rem', fontWeight: 700, color: isBlockedNew ? '#A1A1AA' : '#F59E0B', lineHeight: 1.1 }}>
-                {shortVal}
-              </div>
-              <span style={{
-                fontSize: '0.68rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px',
-                background: '#121214', color: '#D4D4D8', letterSpacing: '0.04em',
-              }}>
-                {v.code}
-              </span>
-            </div>
-
-            {/* Chi tiết điều kiện & Nút hành động */}
-            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.92rem', color: '#F4F1EC', marginBottom: '4px' }}>
-                  {v.name}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#A1A1AA', lineHeight: 1.4 }}>
-                  {v.description || 'Áp dụng cho mọi đồ uống tại quán.'}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '8px', borderTop: '1px solid #242428' }}>
-                <span className="ui-money" style={{
-                  fontSize: '0.72rem', fontWeight: 600,
-                  color: isBlockedNew ? '#71717A' : isQualified ? '#34D399' : '#FBBF24',
-                }}>
-                  {isBlockedNew
-                    ? 'Chỉ áp dụng đơn đầu tiên'
-                    : isQualified
-                    ? 'Đủ điều kiện áp dụng'
-                    : totalAmount === 0
-                    ? `Đơn từ ${fmt(minOrder)}`
-                    : `Cần thêm ${fmt(missingAmt)}`}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={isBlockedNew}
-                  onClick={() => {
-                    if (isQualified) {
-                      handleApplyCoupon(v.code);
-                      setActiveTab('menu');
-                    } else {
-                      setActiveTab('menu');
-                    }
-                  }}
-                  style={{
-                    height: '32px', padding: '0 12px', borderRadius: '8px', border: 'none',
-                    fontSize: '0.76rem', fontWeight: 600,
-                    display: 'inline-flex', alignItems: 'center', gap: '5px',
-                    cursor: isBlockedNew ? 'not-allowed' : 'pointer',
-                    background: isBlockedNew ? '#26262B' : isQualified ? '#D97706' : '#26262B',
-                    color: isBlockedNew ? '#71717A' : isQualified ? '#FFFFFF' : '#F4F1EC',
-                  }}
-                >
-                  {isBlockedNew ? (
-                    <><Lock size={12} /> Không khả dụng</>
-                  ) : isQualified ? (
-                    <>Áp dụng ngay <ArrowRight size={13} /></>
-                  ) : (
-                    <>Chọn món <ArrowRight size={13} /></>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-)}
 
           {/* TAB 3: LỊCH SỬ ĐƠN HÀNG */}
           {activeTab === 'history' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
-                  <h2 style={{ margin: '0 0 6px', fontSize: '1.25rem', color: '#fde68a' }}>
+                  <h2 style={{ margin: '0 0 6px', fontSize: '1.25rem', color: '#F4F1EC' }}>
                     📜 Lịch Sử Đơn Hàng Của Bạn
                   </h2>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#d4b094' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#A1A1AA' }}>
                     Theo dõi trạng thái pha chế thời gian thực của các ly cà phê đã đặt.
                   </p>
                 </div>
                 <button
                   onClick={() => { loadOrderHistory(); toast.success('Đã làm mới danh sách đơn!'); }}
                   style={{
-                    background: '#2b170c',
-                    border: '1px solid #5a341e',
-                    color: '#fde68a',
+                    background: '#202024',
+                    border: '1px solid #32323A',
+                    color: '#FBBF24',
                     padding: '8px 14px',
                     borderRadius: '8px',
                     cursor: 'pointer',
@@ -1878,7 +1549,7 @@ export default function CustomerPortal() {
                   </button>
                 </div>
               ) : historyList.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px 0', background: '#1c1008', borderRadius: '12px', color: '#94a3b8' }}>
+                <div style={{ textAlign: 'center', padding: '60px 20px', background: '#18181B', border: '1px solid #2A2A30', borderRadius: '14px', color: '#A1A1AA' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>☕</div>
                   <div>Bạn chưa có đơn hàng nào tại quán. Hãy đặt ngay một ly cà phê thơm ngon nhé!</div>
                 </div>
@@ -1916,9 +1587,9 @@ export default function CustomerPortal() {
                       <div
                         key={o.id}
                         style={{
-                          background: '#1d1109',
-                          border: o.status === 'scheduled' ? '1.5px solid #a855f7' : '1px solid #382012',
-                          borderRadius: '12px',
+                          background: '#18181B',
+                          border: o.status === 'scheduled' ? '1.5px solid #A855F7' : '1px solid #2A2A30',
+                          borderRadius: '14px',
                           padding: '18px 20px',
                           display: 'flex',
                           flexDirection: 'column',
@@ -1989,12 +1660,12 @@ export default function CustomerPortal() {
                         {/* Danh sách món ăn tóm tắt */}
                         {o.items_summary && (
                           <div style={{
-                            background: '#24140b',
+                            background: '#202024',
                             padding: '10px 14px',
-                            borderRadius: '8px',
-                            border: '1px solid #3d2314',
+                            borderRadius: '9px',
+                            border: '1px solid #2A2A30',
                             fontSize: '0.85rem',
-                            color: '#fef3c7'
+                            color: '#F4F1EC'
                           }}>
                             🍽️ <strong>Món đã đặt:</strong> {o.items_summary}
                           </div>
@@ -2036,132 +1707,298 @@ export default function CustomerPortal() {
 
           {/* TAB 4: THÔNG TIN QUÁN */}
           {activeTab === 'about' && (
-  <div style={{ maxWidth: '840px', margin: '8px auto 0' }}>
-    <div style={{
-      background: '#18181B',
-      border: '1px solid #2A2A30',
-      borderRadius: '20px',
-      overflow: 'hidden',
-      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.32)',
-    }}>
-      {/* Banner thương hiệu đồng bộ Espresso -> Matte Dark */}
-      <div style={{
-        background: 'linear-gradient(135deg, #24150D 0%, #18181B 100%)',
-        borderBottom: '1px solid #2A2A30',
-        padding: '32px 28px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-      }}>
-        <div style={{
-          width: '52px', height: '52px', borderRadius: '14px',
-          background: 'rgba(217, 119, 6, 0.16)', border: '1px solid rgba(217, 119, 6, 0.4)',
-          color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: '14px',
-        }}>
-          <Coffee size={26} />
-        </div>
-        <h2 style={{ margin: '0 0 6px', fontSize: '1.55rem', fontWeight: 700, color: '#F4F1EC', letterSpacing: '-0.02em' }}>
-          My Coffee House
-        </h2>
-        <p style={{ margin: 0, fontSize: '0.88rem', color: '#A1A1AA', maxWidth: '460px', lineHeight: 1.5 }}>
-          Cà phê rang xay nguyên bản &amp; không gian làm việc ấm cúng tại trung tâm Cầu Giấy, Hà Nội.
-        </p>
-      </div>
+            <div style={{ maxWidth: '840px', margin: '8px auto 0' }}>
+              <div style={{
+                background: '#18181B',
+                border: '1px solid #2A2A30',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.32)',
+              }}>
+                {/* Banner thương hiệu đồng bộ Espresso -> Matte Dark */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #24150D 0%, #18181B 100%)',
+                  borderBottom: '1px solid #2A2A30',
+                  padding: '32px 28px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                }}>
+                  <div style={{
+                    width: '52px', height: '52px', borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #F59E0B, #B45309)',
+                    color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: '14px', boxShadow: '0 6px 18px rgba(217, 119, 6, 0.35)',
+                  }}>
+                    <Coffee size={26} />
+                  </div>
+                  <h2 style={{ margin: '0 0 6px', fontSize: '1.55rem', fontWeight: 700, color: '#F4F1EC', letterSpacing: '-0.02em' }}>
+                    My Coffee House
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: '#A1A1AA', maxWidth: '460px', lineHeight: 1.5 }}>
+                    Cà phê rang xay nguyên bản &amp; không gian làm việc ấm cúng tại trung tâm Cầu Giấy, Hà Nội.
+                  </p>
+                </div>
 
-      {/* 4 Thẻ thông tin chuẩn Matte Dark + Lucide Icons */}
-      <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
-        {/* 1. Địa chỉ cửa hàng — 100 Cầu Giấy, Hà Nội */}
-        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(217, 119, 6, 0.14)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <MapPin size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Địa chỉ cửa hàng</div>
-              <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>100 Cầu Giấy, Hà Nội</div>
-              <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>Quận Cầu Giấy, Thành phố Hà Nội</div>
-            </div>
-          </div>
-          <a
-            href="https://www.google.com/maps/search/?api=1&query=100+Cau+Giay+Ha+Noi"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'fit-content',
-              fontSize: '0.76rem', fontWeight: 600, color: '#F59E0B', textDecoration: 'none',
-            }}
-          >
-            Xem chỉ đường trên Google Maps <ExternalLink size={13} />
-          </a>
-        </div>
+                {/* 4 Thẻ thông tin chuẩn Matte Dark + Lucide Icons */}
+                <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+                  {/* 1. Địa chỉ cửa hàng — 100 Cầu Giấy, Hà Nội */}
+                  <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(217, 119, 6, 0.14)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Địa chỉ cửa hàng</div>
+                        <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>100 Cầu Giấy, Hà Nội</div>
+                        <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>Quận Cầu Giấy, Thành phố Hà Nội</div>
+                      </div>
+                    </div>
+                    <a
+                      href="https://www.google.com/maps/search/?api=1&query=100+Cau+Giay+Ha+Noi"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'fit-content',
+                        fontSize: '0.76rem', fontWeight: 600, color: '#F59E0B', textDecoration: 'none',
+                      }}
+                    >
+                      Xem chỉ đường trên Google Maps <ExternalLink size={13} />
+                    </a>
+                  </div>
 
-        {/* 2. Giờ mở cửa (Đồng bộ động theo cấu hình Admin) */}
-        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.14)', color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Clock size={18} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Giờ phục vụ</div>
-            <div className="ui-money" style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>
-              {storeHours.open_time} – {storeHours.close_time} hàng ngày
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>
-              Phục vụ cả cuối tuần &amp; ngày lễ • Hỗ trợ đặt hẹn giờ trước
-            </div>
-          </div>
-        </div>
+                  {/* 2. Giờ mở cửa (Đồng bộ động theo cấu hình Admin) */}
+                  <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.14)', color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Clock size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Giờ phục vụ</div>
+                      <div className="ui-money" style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>
+                        {storeHours.open_time} – {storeHours.close_time} hàng ngày
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>
+                        Phục vụ cả cuối tuần &amp; ngày lễ • Hỗ trợ đặt hẹn giờ trước
+                      </div>
+                    </div>
+                  </div>
 
-        {/* 3. Wi-Fi quán kèm nút sao chép mật khẩu */}
-        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.14)', color: '#C084FC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Wifi size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Wi-Fi tốc độ cao tại quán</div>
-              <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>MyCoffeeHouse_5G</div>
-              <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>
-                Mật khẩu: <strong style={{ color: '#F4F1EC', fontWeight: 600 }}>coffeehouse123</strong>
+                  {/* 3. Wi-Fi quán kèm nút sao chép mật khẩu */}
+                  <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.14)', color: '#C084FC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Wifi size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Wi-Fi tốc độ cao tại quán</div>
+                        <div style={{ fontSize: '0.94rem', fontWeight: 600, color: '#F4F1EC' }}>MyCoffeeHouse_5G</div>
+                        <div style={{ fontSize: '0.78rem', color: '#A1A1AA', marginTop: '2px' }}>
+                          Mật khẩu: <strong style={{ color: '#F4F1EC', fontWeight: 600 }}>coffeehouse123</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText('coffeehouse123');
+                        toast.success('Đã sao chép mật khẩu Wi-Fi');
+                      }}
+                      style={{
+                        background: '#18181B', border: '1px solid #2E2E35', color: '#D4D4D8',
+                        padding: '6px 9px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600,
+                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0,
+                      }}
+                    >
+                      <Copy size={13} /> Chép
+                    </button>
+                  </div>
+
+                  {/* 4. Hotline hỗ trợ */}
+                  <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.14)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Phone size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Hotline hỗ trợ</div>
+                      <div className="ui-money" style={{ fontSize: '0.98rem', fontWeight: 700, color: '#34D399' }}>1900 1234</div>
+                      <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>
+                        Đặt bàn nhóm, tư vấn đồ uống &amp; phản hồi chất lượng
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
               </div>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard?.writeText('coffeehouse123');
-              toast.success('Đã sao chép mật khẩu Wi-Fi');
-            }}
-            style={{
-              background: '#18181B', border: '1px solid #2E2E35', color: '#D4D4D8',
-              padding: '6px 9px', borderRadius: '8px', fontSize: '0.74rem', fontWeight: 600,
-              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0,
-            }}
-          >
-            <Copy size={13} /> Chép
-          </button>
-        </div>
+          )}
 
-        {/* 4. Hotline hỗ trợ */}
-        <div style={{ background: '#202024', border: '1px solid #2A2A30', borderRadius: '14px', padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.14)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Phone size={18} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '3px' }}>Hotline hỗ trợ</div>
-            <div className="ui-money" style={{ fontSize: '0.98rem', fontWeight: 700, color: '#34D399' }}>1900 1234</div>
-            <div style={{ fontSize: '0.78rem', color: '#71717A', marginTop: '2px' }}>
-              Đặt bàn nhóm, tư vấn đồ uống &amp; phản hồi chất lượng
-            </div>
-          </div>
-        </div>
-      </div>
+          {/* TAB 5: THÔNG TIN CÁ NHÂN KHÁCH HÀNG & ĐỔI MẬT KHẨU */}
+          {activeTab === 'profile' && user && (() => {
+            const cInfo = user.customer_info || {};
+            const spent = Number(cInfo.total_spent || 0);
+            const nextTier = cInfo.next_tier || null;
+            const nextMin = nextTier ? Number(nextTier.min_spent || 0) : spent;
+            const progressPct = nextTier && nextMin > 0 ? Math.min(100, Math.round((spent / nextMin) * 100)) : 100;
+            const loyaltyLogs = Array.isArray(cInfo.recent_loyalty) ? cInfo.recent_loyalty : [];
 
-      
-    </div>
-  </div>
-)}
+            return (
+              <div style={{ maxWidth: '1040px', margin: '8px auto 0', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* THẺ HỘI VIÊN */}
+                <div className="cp-profile-hero">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{
+                      width: '64px', height: '64px', borderRadius: '50%', flexShrink: 0,
+                      background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#FFFFFF',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 800,
+                    }}>
+                      {(user.full_name || user.username || 'K').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <h2 style={{ margin: 0, fontSize: '1.28rem', fontWeight: 700, color: '#F4F1EC' }}>{user.full_name}</h2>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          fontSize: '0.74rem', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
+                          background: 'rgba(245, 158, 11, 0.16)', border: '1px solid rgba(245, 158, 11, 0.35)', color: '#FBBF24',
+                        }}>
+                          <Award size={12} />
+                          Hạng {cInfo.tier_name || 'Đồng'} {Number(cInfo.discount_pct || 0) > 0 ? `· Giảm ${cInfo.discount_pct}%` : ''}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.84rem', color: '#A1A1AA', marginTop: '4px' }}>
+                        SĐT / Tài khoản: <strong style={{ color: '#F4F1EC' }}>{user.phone || user.username}</strong>
+                        {user.code ? ` · Mã TV: ${user.code}` : ''}
+                      </div>
+                      {nextTier ? (
+                        <div style={{ marginTop: '12px', maxWidth: '380px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: '#A1A1AA', marginBottom: '5px', gap: '8px' }}>
+                            <span>Tiến độ lên hạng <strong style={{ color: '#FBBF24' }}>{nextTier.name}</strong></span>
+                            <span className="ui-money">Còn thiếu {fmt(Math.max(0, nextMin - spent))}</span>
+                          </div>
+                          <div style={{ height: '6px', borderRadius: '99px', background: '#26262E', overflow: 'hidden' }}>
+                            <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg, #F59E0B, #D97706)' }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#34D399', fontWeight: 600 }}>
+                          Bạn đang ở hạng thành viên cao nhất của My Coffee House
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3 Ô CHỈ SỐ CÁ NHÂN */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+                    <div style={{ background: '#121214', border: '1px solid #2A2A30', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>Điểm khả dụng</div>
+                      <div className="ui-money" style={{ fontSize: '1.2rem', fontWeight: 800, color: '#34D399', marginTop: '4px' }}>
+                        {cInfo.points_balance || 0}
+                      </div>
+                      <div className="ui-money" style={{ fontSize: '0.68rem', color: '#71717A' }}>≈ {fmt((cInfo.points_balance || 0) * 1000)}</div>
+                    </div>
+                    <div style={{ background: '#121214', border: '1px solid #2A2A30', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>Tổng chi tiêu</div>
+                      <div className="ui-money" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FBBF24', marginTop: '4px' }}>
+                        {fmt(spent)}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#71717A' }}>Lũy kế</div>
+                    </div>
+                    <div style={{ background: '#121214', border: '1px solid #2A2A30', borderRadius: '12px', padding: '12px' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#A1A1AA' }}>Đơn đã đặt</div>
+                      <div className="ui-money" style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38BDF8', marginTop: '4px' }}>
+                        {cInfo.completed_orders ?? historyList.length}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#71717A' }}>Đơn hàng</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2 CỘT: CẬP NHẬT THÔNG TIN CÁ NHÂN & ĐỔI MẬT KHẨU */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                  <form onSubmit={handleSaveProfile} style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <User size={16} color="#F59E0B" /> Thông tin cá nhân
+                    </h3>
+                    <div>
+                      <label className="ui-modal-label">Số điện thoại (tên đăng nhập)</label>
+                      <input className="ui-input" style={{ width: '100%', opacity: 0.65 }} value={user.phone || user.username || ''} disabled />
+                    </div>
+                    <div>
+                      <label className="ui-modal-label">Họ và tên *</label>
+                      <input className="ui-input" style={{ width: '100%' }} required value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label className="ui-modal-label">Email</label>
+                        <input type="email" className="ui-input" style={{ width: '100%' }} placeholder="email@domain.com" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="ui-modal-label">Ngày sinh</label>
+                        <input type="date" className="ui-input" style={{ width: '100%' }} value={profileForm.birthday} onChange={(e) => setProfileForm({ ...profileForm, birthday: e.target.value })} />
+                      </div>
+                    </div>
+                    <button type="submit" disabled={savingProfile} className="ui-btn ui-btn-brand" style={{ marginTop: '4px', width: '100%' }}>
+                      {savingProfile ? 'Đang lưu...' : 'Lưu thông tin cá nhân'}
+                    </button>
+                  </form>
+
+                  <form onSubmit={handleChangePassword} style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F4F1EC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <KeyRound size={16} color="#F59E0B" /> Bảo mật &amp; Đổi mật khẩu
+                    </h3>
+                    <div>
+                      <label className="ui-modal-label">Mật khẩu hiện tại *</label>
+                      <input type="password" className="ui-input" style={{ width: '100%' }} required value={pwForm.current_password} onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="ui-modal-label">Mật khẩu mới (tối thiểu 6 ký tự) *</label>
+                      <input type="password" className="ui-input" style={{ width: '100%' }} required value={pwForm.new_password} onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="ui-modal-label">Nhập lại mật khẩu mới *</label>
+                      <input type="password" className="ui-input" style={{ width: '100%' }} required value={pwForm.confirm_password} onChange={(e) => setPwForm({ ...pwForm, confirm_password: e.target.value })} />
+                    </div>
+                    <button type="submit" disabled={savingPw} className="ui-btn ui-btn-outline" style={{ marginTop: '4px', width: '100%' }}>
+                      {savingPw ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* LỊCH SỬ BIẾN ĐỘNG ĐIỂM THƯỞNG GẦN NHẤT */}
+                {loyaltyLogs.length > 0 && (
+                  <div style={{ background: '#18181B', border: '1px solid #2A2A30', borderRadius: '16px', overflow: 'hidden' }}>
+                    <div style={{ padding: '14px 18px', borderBottom: '1px solid #26262B', fontWeight: 700, fontSize: '0.94rem', color: '#F4F1EC' }}>
+                      Lịch sử điểm thưởng gần nhất
+                    </div>
+                    <div className="ui-table-wrap">
+                      <table className="ui-table">
+                        <thead>
+                          <tr><th>Thời gian</th><th>Loại giao dịch</th><th style={{ textAlign: 'right' }}>Biến động điểm</th></tr>
+                        </thead>
+                        <tbody>
+                          {loyaltyLogs.map((l) => {
+                            const isPlus = ['earn', 'refund'].includes(l.type) || Number(l.points) > 0;
+                            const labelMap = { earn: 'Tích điểm đơn hàng', redeem: 'Đổi điểm giảm giá', refund: 'Hoàn điểm hủy đơn', clawback: 'Thu hồi điểm hủy đơn' };
+                            return (
+                              <tr key={l.id}>
+                                <td style={{ color: '#A1A1AA', fontSize: '0.8rem' }}>{new Date(l.created_at).toLocaleString('vi-VN')}</td>
+                                <td>{labelMap[l.type] || l.type}{l.order_id ? ` (Đơn #${l.order_id})` : ''}</td>
+                                <td className="ui-money" style={{ textAlign: 'right', fontWeight: 700, color: isPlus ? '#34D399' : '#F87171' }}>
+                                  {l.type === 'redeem' ? `-${Math.abs(l.points)}` : `${Number(l.points) > 0 ? '+' : ''}${l.points}`} điểm
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -2181,14 +2018,14 @@ export default function CustomerPortal() {
           zIndex: 9999
         }}>
           <div style={{
-            background: '#1c1109',
-            border: '2px solid #5a341e',
+            background: '#18181B',
+            border: '1px solid #2A2A30',
             borderRadius: '16px',
             width: '100%',
             maxWidth: '480px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.75)',
             display: 'flex',
             flexDirection: 'column'
           }}>
@@ -2250,9 +2087,9 @@ export default function CustomerPortal() {
                             key={s.id || idx}
                             onClick={() => setModalSelectedSize(s)}
                             style={{
-                              background: isSelected ? 'rgba(217, 119, 6, 0.25)' : '#24140b',
-                              border: isSelected ? '2px solid #f59e0b' : '1px solid #3d2314',
-                              borderRadius: '8px',
+                              background: isSelected ? 'rgba(217, 119, 6, 0.2)' : '#202024',
+                              border: isSelected ? '2px solid #D97706' : '1px solid #2A2A30',
+                              borderRadius: '9px',
                               padding: '10px 8px',
                               cursor: 'pointer',
                               textAlign: 'center',
@@ -2327,9 +2164,9 @@ export default function CustomerPortal() {
                               fontSize: '0.74rem',
                               fontWeight: isSelected ? 800 : 500,
                               borderRadius: '6px',
-                              border: isSelected ? '1.5px solid #d97706' : '1px solid #3d2314',
-                              background: isSelected ? '#78350f' : '#24140b',
-                              color: isSelected ? '#fbbf24' : '#d4b094',
+                              border: isSelected ? '1.5px solid #D97706' : '1px solid #2A2A30',
+                              background: isSelected ? 'rgba(217, 119, 6, 0.2)' : '#202024',
+                              color: isSelected ? '#FBBF24' : '#A1A1AA',
                               cursor: 'pointer',
                               textAlign: 'center',
                               transition: 'all 0.15s ease'
@@ -2360,9 +2197,9 @@ export default function CustomerPortal() {
                               fontSize: '0.74rem',
                               fontWeight: isSelected ? 800 : 500,
                               borderRadius: '6px',
-                              border: isSelected ? '1.5px solid #0284c7' : '1px solid #3d2314',
-                              background: isSelected ? '#0369a1' : '#24140b',
-                              color: isSelected ? '#e0f2fe' : '#d4b094',
+                              border: isSelected ? '1.5px solid #38BDF8' : '1px solid #2A2A30',
+                              background: isSelected ? 'rgba(56, 189, 248, 0.18)' : '#202024',
+                              color: isSelected ? '#38BDF8' : '#A1A1AA',
                               cursor: 'pointer',
                               textAlign: 'center',
                               transition: 'all 0.15s ease'
@@ -2386,9 +2223,9 @@ export default function CustomerPortal() {
                   <button
                     onClick={() => setModalQuantity(q => Math.max(1, q - 1))}
                     style={{
-                      background: '#382012',
-                      border: '1px solid #5a341e',
-                      color: '#fff',
+                      background: '#202024',
+                      border: '1px solid #32323A',
+                      color: '#F4F1EC',
                       width: '32px',
                       height: '32px',
                       borderRadius: '6px',
@@ -2399,15 +2236,15 @@ export default function CustomerPortal() {
                   >
                     -
                   </button>
-                  <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', minWidth: '22px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 800, color: '#F4F1EC', minWidth: '22px', textAlign: 'center' }}>
                     {modalQuantity}
                   </span>
                   <button
                     onClick={() => setModalQuantity(q => q + 1)}
                     style={{
-                      background: '#382012',
-                      border: '1px solid #5a341e',
-                      color: '#fff',
+                      background: '#202024',
+                      border: '1px solid #32323A',
+                      color: '#F4F1EC',
                       width: '32px',
                       height: '32px',
                       borderRadius: '6px',
@@ -2423,7 +2260,7 @@ export default function CustomerPortal() {
 
               {/* Ghi chú dặn Barista */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#d4b094', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#A1A1AA', marginBottom: '4px' }}>
                   📝 Ghi chú cho món:
                 </label>
                 <input
@@ -2433,9 +2270,9 @@ export default function CustomerPortal() {
                   onChange={(e) => setModalNote(e.target.value)}
                   style={{
                     width: '100%',
-                    background: '#24140b',
-                    border: '1px solid #3d2314',
-                    color: '#fff',
+                    background: '#121214',
+                    border: '1px solid #2E2E35',
+                    color: '#F4F1EC',
                     padding: '7px 10px',
                     borderRadius: '6px',
                     fontSize: '0.82rem'
@@ -2486,14 +2323,14 @@ export default function CustomerPortal() {
           zIndex: 10000
         }}>
           <div style={{
-            background: '#1a0e07',
-            border: completedOrderModal.isScheduled ? '2px solid #a855f7' : '2px solid #10b981',
+            background: '#18181B',
+            border: completedOrderModal.isScheduled ? '1.5px solid #A855F7' : '1.5px solid #10B981',
             borderRadius: '16px',
             width: '100%',
             maxWidth: '460px',
             padding: '24px',
             textAlign: 'center',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.9)'
+            boxShadow: '0 25px 50px rgba(0,0,0,0.85)'
           }}>
             <div style={{ fontSize: '3.5rem', marginBottom: '8px' }}>
               {completedOrderModal.isScheduled ? '🗓️' : '🎉'}
@@ -2506,19 +2343,19 @@ export default function CustomerPortal() {
             }}>
               {completedOrderModal.isScheduled ? 'ĐẶT TRƯỚC THÀNH CÔNG!' : 'ĐẶT ĐƠN THÀNH CÔNG!'}
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: '#fef3c7' }}>
-              Mã đơn hàng: <strong style={{ color: '#fbbf24', fontSize: '1.05rem' }}>#{completedOrderModal.orderCode}</strong>
+            <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: '#F4F1EC' }}>
+              Mã đơn hàng: <strong style={{ color: '#FBBF24', fontSize: '1.05rem' }}>#{completedOrderModal.orderCode}</strong>
             </p>
 
             <div style={{
-              background: '#24140b',
-              border: completedOrderModal.isScheduled ? '1.5px solid #a855f7' : '1px solid #3d2314',
+              background: '#202024',
+              border: completedOrderModal.isScheduled ? '1px solid #A855F7' : '1px solid #2A2A30',
               borderRadius: '10px',
               padding: '14px',
               textAlign: 'left',
               marginBottom: '18px',
               fontSize: '0.84rem',
-              color: '#d4b094',
+              color: '#D4D4D8',
               lineHeight: 1.6
             }}>
               {completedOrderModal.isScheduled && (
@@ -2528,12 +2365,12 @@ export default function CustomerPortal() {
                   <div style={{ fontSize: '0.72rem', color: '#d8b4fe' }}>Hệ thống tự động chuyển đơn cho Barista trước giờ nhận 15 phút!</div>
                 </div>
               )}
-              <div>Tổng tiền: <strong style={{ color: '#fbbf24', fontSize: '1rem' }}>{fmt(completedOrderModal.total)}</strong></div>
+              <div>Tổng tiền: <strong style={{ color: '#FBBF24', fontSize: '1rem' }}>{fmt(completedOrderModal.total)}</strong></div>
               <div>Thanh toán: <strong style={{ color: '#fff' }}>{completedOrderModal.paymentMethod}</strong></div>
-              <div>Trạng thái: <strong style={{ color: completedOrderModal.isScheduled ? '#c084fc' : '#fbbf24' }}>{completedOrderModal.isScheduled ? '🗓️ Đã lên lịch hẹn (SCHEDULED)' : '⏳ Chờ pha chế (PENDING)'}</strong></div>
+              <div>Trạng thái: <strong style={{ color: completedOrderModal.isScheduled ? '#c084fc' : '#FBBF24' }}>{completedOrderModal.isScheduled ? '🗓️ Đã lên lịch hẹn (SCHEDULED)' : '⏳ Chờ pha chế (PENDING)'}</strong></div>
               <div>Hình thức: <strong style={{ color: '#34d399' }}>Đóng cốc sẵn sàng</strong></div>
               <div>Điểm thưởng cộng thêm: <strong style={{ color: '#34d399' }}>+{completedOrderModal.earnedPoints} điểm</strong></div>
-              <div style={{ marginTop: '8px', borderTop: '1px dashed #3d2314', paddingTop: '8px', color: '#a8a29e', fontSize: '0.78rem' }}>
+              <div style={{ marginTop: '8px', borderTop: '1px dashed #2A2A30', paddingTop: '8px', color: '#A1A1AA', fontSize: '0.78rem' }}>
                 {completedOrderModal.isScheduled
                   ? '☕ Đơn hàng hẹn giờ đã được ghi nhận. Bạn có thể theo dõi tiến độ ở tab Lịch Sử Đơn Hàng!'
                   : '☕ Đơn hàng đã được chuyển thẳng tới máy pha chế của Barista. Bạn có thể theo dõi tiến độ ở tab Lịch Sử Đơn Hàng!'}
@@ -2583,9 +2420,9 @@ export default function CustomerPortal() {
                 onClick={() => setCompletedOrderModal(null)}
                 style={{
                   flex: 1,
-                  background: '#24140b',
-                  color: '#fef3c7',
-                  border: '1px solid #3d2314',
+                  background: '#202024',
+                  color: '#F4F1EC',
+                  border: '1px solid #2A2A30',
                   padding: '10px',
                   borderRadius: '8px',
                   fontWeight: 600,

@@ -103,10 +103,12 @@ export default function MenuManage() {
   const loadAll = async (focusProductId = null) => {
     try {
       setLoading(true);
+      const canReadRecipes = ['admin', 'manager', 'barista', 'warehouse'].includes(user?.role);
+      const canReadIngredients = ['admin', 'manager', 'warehouse', 'barista', 'cashier'].includes(user?.role);
       const [prodRes, rcpRes, invRes] = await Promise.all([
         api.get('/products'),
-        api.get('/recipes').catch(() => ({ data: { data: { recipes: [], ingredients: [] } } })),
-        api.get('/inventory/ingredients').catch(() => ({ data: { data: [] } })),
+        canReadRecipes ? api.get('/recipes').catch(() => ({ data: { data: { recipes: [], ingredients: [] } } })) : Promise.resolve({ data: { data: { recipes: [], ingredients: [] } } }),
+        canReadIngredients ? api.get('/inventory/ingredients').catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
       ]);
 
       const prodData = prodRes.data?.data || {};

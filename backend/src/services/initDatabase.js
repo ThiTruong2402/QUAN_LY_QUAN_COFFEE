@@ -18,6 +18,9 @@ async function autoMigrate() {
       'ALTER TABLE `tables` ADD COLUMN IF NOT EXISTS `customer_count` int DEFAULT 0',
       'ALTER TABLE `ingredients` ADD COLUMN IF NOT EXISTS `image_url` varchar(500) DEFAULT NULL',
       'ALTER TABLE `ingredients` ADD COLUMN IF NOT EXISTS `updated_at` datetime DEFAULT CURRENT_TIMESTAMP',
+      'ALTER TABLE `loyalty_transactions` MODIFY COLUMN `type` VARCHAR(30) NOT NULL',
+      'ALTER TABLE `loyalty_transactions` DROP CHECK `loyalty_transactions_chk_1`',
+      "ALTER TABLE `loyalty_transactions` ADD CONSTRAINT `loyalty_transactions_chk_1` CHECK (`type` IN ('earn','redeem','expire','revoke','refund','clawback','adjust'))",
     ];
     for (const sql of alters) {
       try { await db.query(sql); } catch (e) { /* ignore */ }
@@ -85,7 +88,6 @@ async function autoMigrate() {
       const staffList = [
         { code: 'NV001', username: 'admin', name: 'admin', roleId: 1, phone: '0901234567', email: 'admin@mycoffee.vn' },
         { code: 'NV007', username: 'manager', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998888', email: 'manager@mycoffee.vn' },
-        { code: 'NV008', username: 'quanly', name: 'Bùi Văn Trường', roleId: 7, phone: '0909998889', email: 'quanly@mycoffee.vn' },
         { code: 'NV002', username: 'cashier', name: 'Trần Thu Hà', roleId: 2, phone: '0902345678', email: 'cashier@mycoffee.vn' },
         { code: 'NV003', username: 'barista', name: 'Đặng Minh Tuấn', roleId: 4, phone: '0903456789', email: 'barista@mycoffee.vn' },
         { code: 'NV004', username: 'waiter', name: 'Hoàng Văn Nam', roleId: 3, phone: '0904567890', email: 'waiter@mycoffee.vn' },
@@ -127,14 +129,25 @@ async function autoMigrate() {
 
       const imageFixes = [
         { code: 'CF01', target: '/images/drinks/ca_phe_den_da.jpg', badPrefixes: ['https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd'] },
+        { code: 'CF04', target: '/images/drinks/ca_phe_muoi.jpg', badPrefixes: ['https://images.unsplash.com/photo-1509785307050-d4066910ec1e'] },
         { code: 'CF05', target: '/images/drinks/ca_phe_trung.jpg', badPrefixes: ['https://images.unsplash.com/photo-1517256064527-09c73fc73e38'] },
         { code: 'CF10', target: '/images/drinks/cold_brew_cam.jpg', badPrefixes: ['https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5'] },
         { code: 'CF12', target: '/images/drinks/affogato.jpg', badPrefixes: ['https://images.unsplash.com/photo-1592663527359-cf6642f54cff'] },
         { code: 'TR06', target: '/images/drinks/tra_sua_tran_chau_duong_den.jpg', badPrefixes: ['https://images.unsplash.com/photo-1558857563-b37fe8402db0'] },
         { code: 'TR08', target: '/images/drinks/tra_nhai_dac_thom.jpg', badPrefixes: ['https://images.unsplash.com/photo-1544787219-7f47ccb76574'] },
+        { code: 'TR09', target: '/images/drinks/tra_o_long_dau_tam.jpg', badPrefixes: ['https://images.unsplash.com/photo-1527661591475-527312dd65f5'] },
+        { code: 'TR10', target: '/images/drinks/tra_buoi_hong_mat_ong.jpg', badPrefixes: ['https://images.unsplash.com/photo-1558160074-4d7d8bdf4256'] },
+        { code: 'TR11', target: '/images/drinks/hong_tra_sua_nuong.jpg', badPrefixes: ['https://images.unsplash.com/photo-1525385133512-2f3bdd039054'] },
+        { code: 'SD01', target: '/images/drinks/soda_viet_quat_bac_ha.jpg', badPrefixes: ['https://images.unsplash.com/photo-1595981267035-7b04ca84a82d'] },
+        { code: 'DX02', target: '/images/drinks/cookie_kem_beo_da_xay.jpg', badPrefixes: ['https://images.unsplash.com/photo-1579954115545-a95591f28bfc'] },
+        { code: 'DX03', target: '/images/drinks/matcha_da_xay_cheese.jpg', badPrefixes: ['https://images.unsplash.com/photo-1515823662972-da6a2e4d3002'] },
+        { code: 'ST01', target: '/images/drinks/sinh_to_bo_sap.jpg', badPrefixes: ['https://images.unsplash.com/photo-1553530666-ba11a7da3888'] },
+        { code: 'NE02', target: '/images/drinks/nuoc_ep_dua_hau.jpg', badPrefixes: ['https://images.unsplash.com/photo-1589984662646-e7b2e4962f18'] },
+        { code: 'NE03', target: '/images/drinks/nuoc_ep_oi_hong.jpg', badPrefixes: ['https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38'] },
         { code: 'BM02', target: '/images/cakes/croissant_pho_mai.jpg', badPrefixes: ['https://images.unsplash.com/photo-1509440159596-0249088772ff'] },
         { code: 'BM05', target: '/images/cakes/mousse_chanh_day.jpg', badPrefixes: ['https://images.unsplash.com/photo-1579372786545-d24232daf58c'] },
-        { code: 'NE03', target: '/images/drinks/nuoc_ep_oi_hong.jpg', badPrefixes: ['https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38'] },
+        { code: 'BM08', target: '/images/cakes/banh_mi_que_pate.jpg', badPrefixes: ['https://images.unsplash.com/photo-1509722747041-616f39b57569'] },
+        { code: 'AV02', target: '/images/snacks/hat_huong_duong_vi_dua.jpg', badPrefixes: [] },
         { code: 'AV04', target: '/images/snacks/hat_de_cuoi.jpg', badPrefixes: ['https://images.unsplash.com/photo-1509912760195-4f6cfd900695'] },
         { code: 'AV05', target: '/images/snacks/hat_dieu_rang_cui.jpg', badPrefixes: ['https://images.unsplash.com/photo-1543168256-418811576931'] },
         { code: 'AV06', target: '/images/snacks/rong_bien_kep_hat.jpg', badPrefixes: ['https://images.unsplash.com/photo-1599490659213-e2b9527bd087'] },

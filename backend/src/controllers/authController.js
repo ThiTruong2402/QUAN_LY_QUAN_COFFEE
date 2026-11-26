@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const { generateTokens, verifyRefresh } = require('../utils/jwt');
 const { logAudit } = require('../services/auditLogger');
+const { getVietnamDateString } = require('../utils/date');
 
 // POST /api/auth/login
 const login = async (req, res) => {
@@ -23,14 +24,7 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu' });
 
     const user = rows[0];
-    let valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) {
-      const isStaff = user.role_name !== 'customer';
-      const cleanPass = String(password).trim();
-      if (cleanPass === '123456' || (isStaff && (cleanPass === user.username || cleanPass === user.role_name || cleanPass === 'admin' || cleanPass === 'admin123'))) {
-        valid = true;
-      }
-    }
+    const valid = await bcrypt.compare(String(password), user.password_hash);
 
     if (!valid)
       return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu' });
@@ -67,9 +61,12 @@ const login = async (req, res) => {
         refreshToken,
         user: {
           id: user.id,
+          code: user.code,
           username: user.username,
           full_name: user.full_name,
           phone: user.phone,
+          email: user.email || null,
+          birthday: user.birthday ? String(user.birthday).slice(0, 10) : null,
           role: user.role_name,
           customer_info: customerInfo
         }
@@ -110,7 +107,9 @@ const refresh = async (req, res) => {
 const me = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT u.id, u.username, u.full_name, u.phone, u.email, u.birthday, r.name AS role, r.label AS role_label
+      `SELECT u.id, u.code, u.username, u.full_name, u.phone, u.email,
+              DATE_FORMAT(u.birthday, '%Y-%m-%d') AS birthday,
+              u.created_at, r.name AS role, r.label AS role_label
        FROM users u
        JOIN roles r ON r.id = u.role_id WHERE u.id = ?`,
       [req.user.id]
@@ -118,10 +117,10 @@ const me = async (req, res) => {
     if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
     const user = rows[0];
 
-    // Nếu là tài khoản khách hàng, lấy thông tin thành viên & tích điểm thực tế
+    // Nếu là tài khoản khách hàng, lấy thông tin thành viên, tiến độ hạng & lịch sử điểm
     if (user.role === 'customer') {
       const [cRows] = await db.query(
-        `SELECT c.id AS customer_id, c.points_balance, c.total_spent,
+        `SELECT c.id AS customer_id, c.points_balance, c.total_spent, c.tier_id,
                 m.name AS tier_name, m.discount_pct, m.points_per_10k
          FROM customers c
          LEFT JOIN membership_tiers m ON m.id = c.tier_id
@@ -129,13 +128,146 @@ const me = async (req, res) => {
         [user.phone || user.username]
       );
       if (cRows.length) {
-        user.customer_info = cRows[0];
+        const cInfo = cRows[0];
+        const [[ordStat]] = await db.query(
+          `SELECT COUNT(*) AS completed_orders
+           FROM orders WHERE customer_id = ? AND status != 'cancelled'`,
+          [cInfo.customer_id]
+        );
+        const [nextTiers] = await db.query(
+          `SELECT name, min_spent, discount_pct
+           FROM membership_tiers
+           WHERE min_spent > ?
+           ORDER BY min_spent ASC LIMIT 1`,
+          [Number(cInfo.total_spent || 0)]
+        );
+        const [recentPts] = await db.query(
+          `SELECT id, order_id, type, points, created_at
+           FROM loyalty_transactions
+           WHERE customer_id = ?
+           ORDER BY created_at DESC, id DESC LIMIT 10`,
+          [cInfo.customer_id]
+        );
+        user.customer_info = {
+          ...cInfo,
+          completed_orders: Number(ordStat?.completed_orders || 0),
+          next_tier: nextTiers[0] || null,
+          recent_loyalty: recentPts,
+        };
       }
     }
 
     res.json({ success: true, data: user });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PUT /api/auth/profile — Tự cập nhật Họ tên, Email, Ngày sinh (không cho phép tự sửa role/điểm/hạng)
+const updateProfile = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { full_name, email, birthday } = req.body;
+    const cleanName = String(full_name || '').trim();
+    if (cleanName.length < 2 || cleanName.length > 100) {
+      return res.status(400).json({ success: false, message: 'Họ và tên phải có độ dài từ 2 đến 100 ký tự' });
+    }
+
+    const cleanEmail = email ? String(email).trim() : null;
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ success: false, message: 'Địa chỉ email không đúng định dạng' });
+    }
+
+    let cleanBirthday = null;
+    if (birthday) {
+      const bStr = String(birthday).trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(bStr)) {
+        return res.status(400).json({ success: false, message: 'Ngày sinh không đúng định dạng (YYYY-MM-DD)' });
+      }
+      const parsed = new Date(`${bStr}T00:00:00+07:00`);
+      if (isNaN(parsed.getTime()) || bStr > getVietnamDateString()) {
+        return res.status(400).json({ success: false, message: 'Ngày sinh không hợp lệ hoặc vượt quá ngày hiện tại' });
+      }
+      cleanBirthday = bStr;
+    }
+
+    await conn.beginTransaction();
+    await conn.query(
+      'UPDATE users SET full_name = ?, email = ?, birthday = ? WHERE id = ?',
+      [cleanName, cleanEmail, cleanBirthday, req.user.id]
+    );
+
+    const [uRows] = await conn.query(
+      `SELECT u.phone, u.username, r.name AS role_name
+       FROM users u JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ? LIMIT 1`,
+      [req.user.id]
+    );
+    if (uRows.length && uRows[0].role_name === 'customer') {
+      const phoneKey = uRows[0].phone || uRows[0].username;
+      await conn.query(
+        'UPDATE customers SET name = ?, birthday = COALESCE(?, birthday) WHERE phone = ?',
+        [cleanName, cleanBirthday, phoneKey]
+      );
+    }
+
+    await conn.commit();
+    logAudit({
+      userId: req.user.id,
+      action: 'UPDATE_PROFILE',
+      entityType: 'USER',
+      entityId: req.user.id,
+      reason: `Người dùng tự cập nhật hồ sơ cá nhân (${cleanName})`,
+      ipAddress: req.ip
+    });
+    res.json({ success: true, message: 'Đã cập nhật thông tin cá nhân thành công!' });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ success: false, message: 'Lỗi cập nhật hồ sơ: ' + err.message });
+  } finally {
+    conn.release();
+  }
+};
+
+// PUT /api/auth/change-password — Đổi mật khẩu xác minh mật khẩu hiện tại bằng bcrypt
+const changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới' });
+    }
+    if (String(new_password).length < 6) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu mới phải có tối thiểu 6 ký tự' });
+    }
+    if (String(new_password) === String(current_password)) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại' });
+    }
+
+    const [rows] = await db.query('SELECT password_hash FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [req.user.id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'Tài khoản không tồn tại hoặc đã bị khóa' });
+    }
+
+    const valid = await bcrypt.compare(String(current_password), rows[0].password_hash);
+    if (!valid) {
+      return res.status(400).json({ success: false, message: 'Mật khẩu hiện tại không chính xác' });
+    }
+
+    const newHash = await bcrypt.hash(String(new_password), 10);
+    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.user.id]);
+
+    logAudit({
+      userId: req.user.id,
+      action: 'CHANGE_PASSWORD',
+      entityType: 'USER',
+      entityId: req.user.id,
+      reason: 'Người dùng tự đổi mật khẩu tài khoản',
+      ipAddress: req.ip
+    });
+
+    res.json({ success: true, message: 'Đổi mật khẩu thành công!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Lỗi đổi mật khẩu: ' + err.message });
   }
 };
 
@@ -279,4 +411,4 @@ const register = async (req, res) => {
   }
 };
 
-module.exports = { login, refresh, me, register, debugUsers };
+module.exports = { login, refresh, me, register, debugUsers, updateProfile, changePassword };

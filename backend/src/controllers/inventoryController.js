@@ -246,10 +246,45 @@ const getMovements = async (req, res) => {
   }
 };
 
+// DELETE /api/inventory/ingredients/:id
+const deleteIngredient = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [usedInRecipe] = await db.query('SELECT COUNT(*) AS cnt FROM recipes WHERE ingredient_id = ?', [id]);
+    if (usedInRecipe[0].cnt > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Nguyên liệu đang được gắn trong ${usedInRecipe[0].cnt} công thức pha chế. Vui lòng gỡ khỏi công thức trước khi xóa!`
+      });
+    }
+    const [usedInMovements] = await db.query('SELECT COUNT(*) AS cnt FROM stock_movements WHERE ingredient_id = ?', [id]);
+    if (usedInMovements[0].cnt > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nguyên liệu đã có lịch sử phiếu nhập/xuất kho, không thể xóa cứng để bảo toàn sổ kế toán!'
+      });
+    }
+    const [delRes] = await db.query('DELETE FROM ingredients WHERE id = ?', [id]);
+    if (!delRes.affectedRows) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy nguyên liệu' });
+    }
+    res.json({ success: true, message: 'Đã xóa nguyên liệu khỏi kho thành công' });
+  } catch (err) {
+    if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({
+        success: false,
+        message: 'Nguyên liệu đang có dữ liệu liên kết, không thể xóa!'
+      });
+    }
+    res.status(500).json({ success: false, message: 'Lỗi xóa nguyên liệu: ' + err.message });
+  }
+};
+
 module.exports = {
   getIngredients,
   createIngredient,
   updateIngredient,
+  deleteIngredient,
   adjustStock,
   getSuppliers,
   getMovements,

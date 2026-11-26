@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const rateLimit = require('express-rate-limit');
-const { login, refresh, me, register, debugUsers } = require('../controllers/authController');
+const { login, refresh, me, register, debugUsers, updateProfile, changePassword } = require('../controllers/authController');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // Giới hạn tần suất đăng nhập để phòng chống tấn công dò mật khẩu (Brute-force)
@@ -28,10 +28,24 @@ const registerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Giới hạn tần suất đổi mật khẩu
+const passwordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: {
+    success: false,
+    message: 'Bạn đã thử đổi mật khẩu quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.post('/login', loginLimiter, login);
 router.post('/register', registerLimiter, register);
 router.post('/refresh', refresh);
 router.get('/me', authenticate, me);
+router.put('/profile', authenticate, updateProfile);
+router.put('/change-password', passwordLimiter, authenticate, changePassword);
 router.get('/debug-users', authenticate, authorize('admin'), debugUsers);
 
 module.exports = router;

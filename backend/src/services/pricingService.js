@@ -2,6 +2,7 @@
  * pricingService.js
  * Quản lý tính giá Zero-Trust, Topping, Khuyến mãi và Tổng tiền đơn hàng
  */
+const { getVietnamDateString } = require('../utils/date');
 
 /**
  * 1. Định giá danh sách món và topping từ CSDL (Zero-Trust)
@@ -111,12 +112,13 @@ async function calculatePromotions(conn, { couponCode, subtotal, customerId, ord
     throw new Error(`Mã giảm giá "${cleanCode}" là mã nội bộ / sự kiện đặc biệt, không áp dụng cho khách tự đặt đơn!`);
   }
 
+  const todayVN = getVietnamDateString();
   const [promoRows] = await conn.query(
     `SELECT * FROM promotions 
      WHERE BINARY code = ? AND is_active = 1 
-       AND (start_date IS NULL OR start_date <= CURDATE())
-       AND (end_date IS NULL OR end_date >= CURDATE())`,
-    [cleanCode]
+       AND (start_date IS NULL OR start_date <= ?)
+       AND (end_date IS NULL OR end_date >= ?)`,
+    [cleanCode, todayVN, todayVN]
   );
 
   if (!promoRows.length) {
@@ -143,7 +145,7 @@ async function calculatePromotions(conn, { couponCode, subtotal, customerId, ord
 
   // 3. Kiểm tra khung giờ khuyến mãi (Happy Hour) nếu có
   if (promo.time_from && promo.time_to) {
-    const nowTime = new Date().toLocaleTimeString('vi-VN', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
+    const nowTime = new Date().toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
     if (nowTime < promo.time_from || nowTime > promo.time_to) {
       throw new Error(`Mã ${cleanCode} chỉ áp dụng trong khung giờ vàng từ ${promo.time_from} đến ${promo.time_to}!`);
     }

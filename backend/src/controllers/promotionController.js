@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { getVietnamDateString } = require('../utils/date');
 
 // GET /api/promotions
 const getAll = async (req, res) => {
@@ -88,13 +89,15 @@ const CUSTOMER_ALLOWED_COUPONS = ['COFFEE10', 'GIAM20K', 'BANMOI', 'BANMOI20', '
 const getActive = async (req, res) => {
   try {
     const isCustomer = req.user?.role === 'customer' || req.query.audience === 'customer';
+    const todayVN = getVietnamDateString();
     const [rows] = await db.query(
       `SELECT id, code, name, type, value, min_order_value, max_discount, description 
        FROM promotions 
        WHERE is_active = 1 
-         AND (start_date IS NULL OR start_date <= CURDATE())
-         AND (end_date IS NULL OR end_date >= CURDATE())
-       ORDER BY value DESC`
+         AND (start_date IS NULL OR start_date <= ?)
+         AND (end_date IS NULL OR end_date >= ?)
+       ORDER BY value DESC`,
+      [todayVN, todayVN]
     );
 
     const filteredRows = isCustomer
@@ -127,12 +130,13 @@ const validateCoupon = async (req, res) => {
       });
     }
 
+    const todayVN = getVietnamDateString();
     const [rows] = await db.query(
       `SELECT * FROM promotions 
        WHERE BINARY code = ? AND is_active = 1 
-         AND (start_date IS NULL OR start_date <= CURDATE())
-         AND (end_date IS NULL OR end_date >= CURDATE())`,
-      [cleanCode]
+         AND (start_date IS NULL OR start_date <= ?)
+         AND (end_date IS NULL OR end_date >= ?)`,
+      [cleanCode, todayVN, todayVN]
     );
 
     if (!rows.length) {
@@ -140,6 +144,16 @@ const validateCoupon = async (req, res) => {
     }
 
     const promo = rows[0];
+    if (promo.time_from && promo.time_to) {
+      const nowTime = new Date().toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
+      if (nowTime < promo.time_from || nowTime > promo.time_to) {
+        return res.json({
+          success: false,
+          valid: false,
+          message: `Mã ${cleanCode} chỉ áp dụng trong khung giờ vàng từ ${promo.time_from} đến ${promo.time_to}!`
+        });
+      }
+    }
     const numSubtotal = Number(subtotal);
 
     if (promo.min_order_value && numSubtotal < Number(promo.min_order_value)) {

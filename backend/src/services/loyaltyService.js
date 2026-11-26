@@ -90,13 +90,18 @@ async function processEarnAndRedeem(conn, { customerId, orderId, pointsToRedeem 
 async function refundPointsOnCancel(conn, { orderId, customerId }) {
   if (!orderId || !customerId) return;
 
+  await conn.query('SELECT id FROM customers WHERE id = ? FOR UPDATE', [customerId]);
+
   const [transactions] = await conn.query(
     'SELECT type, points FROM loyalty_transactions WHERE order_id = ?',
     [orderId]
   );
 
+  const alreadyRefunded = transactions.some((t) => t.type === 'refund');
+  const alreadyClawedBack = transactions.some((t) => t.type === 'clawback');
+
   for (const tx of transactions) {
-    if (tx.type === 'redeem') {
+    if (tx.type === 'redeem' && !alreadyRefunded) {
       // Hoàn lại điểm đã đổi cho khách
       await conn.query(
         'UPDATE customers SET points_balance = points_balance + ? WHERE id = ?',
@@ -106,7 +111,7 @@ async function refundPointsOnCancel(conn, { orderId, customerId }) {
         'INSERT INTO loyalty_transactions (customer_id, order_id, type, points) VALUES (?, ?, "refund", ?)',
         [customerId, orderId, tx.points]
       );
-    } else if (tx.type === 'earn') {
+    } else if (tx.type === 'earn' && !alreadyClawedBack) {
       // Trừ lại điểm đã cộng sai trước đó (nếu có)
       await conn.query(
         'UPDATE customers SET points_balance = GREATEST(0, points_balance - ?) WHERE id = ?',
